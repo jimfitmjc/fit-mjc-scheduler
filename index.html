@@ -2872,31 +2872,65 @@ async function spFetch(path, opts={}){
 }
 
 async function spGetSiteId(){
-  const hostname = 'netorg8433049.sharepoint.com';
-  const sitePath = '/sites/f.i.t.musclejointclinic';
-  const data = await spFetch(`/sites/${hostname}:${sitePath}`);
+  // Use the full URL lookup method which handles special chars like dots
+  const encoded = encodeURIComponent('/sites/f.i.t.musclejointclinic');
+  const data = await spFetch(
+    `/sites/netorg8433049.sharepoint.com:${encoded}`
+  );
   return data.id;
 }
 
 // ── List provisioning (auto-create if missing) ────────────────────
 async function ensureList(name, columns){
-  try {
-    await spFetch(`/sites/${spSiteId}/lists/${name}`);
-    return; // already exists
-  } catch(e){
-    // Create it
-    await spFetch(`/sites/${spSiteId}/lists`, {
-      method:'POST',
-      body: JSON.stringify({ displayName: name, list:{ template:'genericList' } })
-    });
-    // Add columns
-    for(const col of columns){
-      try {
-        await spFetch(`/sites/${spSiteId}/lists/${name}/columns`, {
-          method:'POST', body: JSON.stringify(col)
-        });
-      } catch(e2){ /* column may already exist */ }
+  const token = await spGetToken();
+  if(!token) throw new Error('No token');
+
+  const restBase = `${SP_CONFIG.siteUrl}/_api/web`;
+
+  // Check if list exists via SharePoint REST API
+  const checkRes = await fetch(
+    `${restBase}/lists/getbytitle('${name}')`,
+    { headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json;odata=verbose' } }
+  );
+
+  if(checkRes.ok) return; // Already exists
+
+  // Create list via SharePoint REST API
+  const digestRes = await fetch(`${SP_CONFIG.siteUrl}/_api/contextinfo`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/json;odata=verbose',
+      'Content-Type': 'application/json;odata=verbose',
     }
+  });
+  const digestData = await digestRes.json();
+  const digest = digestData.d.GetContextWebInformation.FormDigestValue;
+
+  // Create the list
+  await fetch(`${restBase}/lists`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/json;odata=verbose',
+      'Content-Type': 'application/json;odata=verbose',
+      'X-RequestDigest': digest,
+    },
+    body: JSON.stringify({
+      __metadata: { type: 'SP.List' },
+      Title: name,
+      BaseTemplate: 100, // Generic list
+    })
+  });
+
+  // Add custom columns via Graph (simpler for column creation)
+  await new Promise(r=>setTimeout(r,1000)); // Brief pause for list to provision
+  for(const col of columns){
+    try {
+      await spFetch(`/sites/${spSiteId}/lists/${name}/columns`, {
+        method:'POST', body: JSON.stringify(col)
+      });
+    } catch(e){ /* column may already exist */ }
   }
 }
 
@@ -3264,11 +3298,15 @@ document.getElementById('today-btn').addEventListener('click',()=>{
 // ── Init ──────────────────────────────────────────────────────────
 async function spInit(){
   try {
+    console.log('spInit: getting site ID...');
     spSiteId = await spGetSiteId();
+    console.log('spInit: site ID =', spSiteId);
+    console.log('spInit: provisioning lists...');
     await provisionLists();
+    console.log('spInit: loading data...');
     await loadAll();
   } catch(e){
-    console.error('spInit error',e);
+    console.error('spInit error:', e.message || e);
     updateSyncStatus('error','SharePoint unavailable — working offline');
     render();
   }
