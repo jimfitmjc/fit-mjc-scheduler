@@ -2801,11 +2801,16 @@ async function spSignIn(){
     }
 
     currentUser = msalApp.getAllAccounts()[0];
+    // Hide sign-in overlay
+    const overlay=document.getElementById('signin-overlay');
+    if(overlay) overlay.style.display='none';
     updateSyncStatus('connected', `Connected as ${currentUser?.username||'user'}`);
     await spInit();
   } catch(err){
     console.error('Auth error:', err);
     updateSyncStatus('error', 'Sign-in failed — working offline');
+    const errEl=document.getElementById('signin-error');
+    if(errEl) errEl.textContent=`Sign-in error: ${err.message||err}. Try again or refresh.`;
     render();
   }
 }
@@ -3251,12 +3256,21 @@ function loadMSAL(callback){
   s.onerror=()=>{
     console.warn('MSAL failed to load — running offline');
     updateSyncStatus('error','Auth library unavailable — working offline');
+    const errEl=document.getElementById('signin-error');
+    if(errEl) errEl.textContent='Authentication library failed to load. Working offline.';
     render();
   };
   document.head.appendChild(s);
 }
 
-// Start: render immediately with local data, then load MSAL and connect
+// Sign-in button click handler
+document.getElementById('signin-btn').addEventListener('click',()=>{
+  const errEl=document.getElementById('signin-error');
+  if(errEl) errEl.textContent='';
+  loadMSAL(()=>spSignIn());
+});
+
+// Start: render immediately with local data, then try silent sign-in
 render();
 loadMSAL(()=>spSignIn());
 </script>
