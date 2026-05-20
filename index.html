@@ -3250,17 +3250,31 @@ async function spInit(){
 // Dynamically load MSAL then start — guarantees library exists before use
 function loadMSAL(callback){
   if(window.msal){callback();return;}
-  const s=document.createElement('script');
-  s.src='https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js';
-  s.onload=()=>callback();
-  s.onerror=()=>{
-    console.warn('MSAL failed to load — running offline');
-    updateSyncStatus('error','Auth library unavailable — working offline');
-    const errEl=document.getElementById('signin-error');
-    if(errEl) errEl.textContent='Authentication library failed to load. Working offline.';
-    render();
-  };
-  document.head.appendChild(s);
+
+  const cdns=[
+    'https://unpkg.com/@azure/msal-browser@2.38.3/lib/msal-browser.min.js',
+    'https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js',
+    'https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js',
+  ];
+
+  function tryLoad(index){
+    if(index>=cdns.length){
+      console.warn('All MSAL CDNs failed — running offline');
+      updateSyncStatus('error','Auth library unavailable — working offline');
+      const errEl=document.getElementById('signin-error');
+      if(errEl) errEl.textContent='Authentication library failed to load. Please check your network connection and try refreshing.';
+      return;
+    }
+    const s=document.createElement('script');
+    s.src=cdns[index];
+    s.onload=()=>{
+      if(window.msal) callback();
+      else tryLoad(index+1);
+    };
+    s.onerror=()=>tryLoad(index+1);
+    document.head.appendChild(s);
+  }
+  tryLoad(0);
 }
 
 // Sign-in button click handler
