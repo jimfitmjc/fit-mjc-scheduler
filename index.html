@@ -2927,38 +2927,40 @@ async function provisionLists(){
 }
 
 // ── Generic list CRUD ─────────────────────────────────────────────
-async function listGetAll(listName, filter=''){
-  const url = `/sites/${spSiteId}/lists/${listName}/items?expand=fields${filter?'&$filter='+filter:''}&$top=999`;
-  const data = await spFetch(url);
-  return data.value || [];
+async function listGetAll(listName, filterFn=null){
+  try {
+    const url=`/sites/${spSiteId}/lists/${listName}/items?expand=fields&$top=999`;
+    const data=await spFetch(url);
+    const items=data.value||[];
+    return filterFn ? items.filter(filterFn) : items;
+  } catch(e){
+    console.warn(`listGetAll "${listName}" failed:`, e.message);
+    return [];
+  }
 }
 
 async function listCreate(listName, fields){
-  return spFetch(`/sites/${spSiteId}/lists/${listName}/items`, {
-    method:'POST', body: JSON.stringify({ fields })
-  });
+  try {
+    return await spFetch(`/sites/${spSiteId}/lists/${listName}/items`,{
+      method:'POST', body:JSON.stringify({fields})
+    });
+  } catch(e){ console.warn(`listCreate "${listName}" failed:`,e.message); return null; }
 }
 
 async function listUpdate(listName, itemId, fields){
-  return spFetch(`/sites/${spSiteId}/lists/${listName}/items/${itemId}/fields`, {
-    method:'PATCH', body: JSON.stringify(fields)
-  });
+  try {
+    return await spFetch(`/sites/${spSiteId}/lists/${listName}/items/${itemId}/fields`,{
+      method:'PATCH', body:JSON.stringify(fields)
+    });
+  } catch(e){ console.warn(`listUpdate "${listName}" failed:`,e.message); return null; }
 }
 
 async function listDelete(listName, itemId){
-  return spFetch(`/sites/${spSiteId}/lists/${listName}/items/${itemId}`, {
-    method:'DELETE'
-  });
-}
-
-async function listUpsert(listName, filterField, filterVal, fields){
-  // Find existing item
-  const items = await listGetAll(listName, `fields/${filterField} eq '${filterVal}'`);
-  if(items.length > 0){
-    await listUpdate(listName, items[0].id, fields);
-  } else {
-    await listCreate(listName, fields);
-  }
+  try {
+    return await spFetch(`/sites/${spSiteId}/lists/${listName}/items/${itemId}`,{
+      method:'DELETE'
+    });
+  } catch(e){ console.warn(`listDelete "${listName}" failed:`,e.message); return null; }
 }
 
 // ── Save functions ─────────────────────────────────────────────────
@@ -2966,18 +2968,13 @@ async function saveStaff(){
   if(!spReady) return;
   updateSyncStatus('syncing','Saving staff…');
   try {
-    // Delete all existing and recreate (small list, simplest approach)
-    const existing = await listGetAll(LISTS.staff);
-    for(const item of existing) await listDelete(LISTS.staff, item.id);
+    const existing=await listGetAll(LISTS.staff);
+    for(const item of existing) await listDelete(LISTS.staff,item.id);
     for(const s of staff){
-      await listCreate(LISTS.staff, {
-        Title:           s.name,
-        PCC_Id:          s.id,
-        PCC_Name:        s.name,
-        PCC_Email:       s.email||'',
-        PCC_Type:        s.type,
-        PCC_PrimaryFacId: s.primaryFacId||'',
-        PCC_Target:      s.target||40,
+      await listCreate(LISTS.staff,{
+        Title:s.name, PCC_Id:s.id, PCC_Name:s.name,
+        PCC_Email:s.email||'', PCC_Type:s.type,
+        PCC_PrimaryFacId:s.primaryFacId||'', PCC_Target:s.target||40,
       });
     }
     updateSyncStatus('connected','Staff saved ✓');
@@ -2988,18 +2985,17 @@ async function saveTemplate(){
   if(!spReady) return;
   updateSyncStatus('syncing','Saving template…');
   try {
-    const existing = await listGetAll(LISTS.template);
-    for(const item of existing) await listDelete(LISTS.template, item.id);
+    const existing=await listGetAll(LISTS.template);
+    for(const item of existing) await listDelete(LISTS.template,item.id);
     for(const facId of Object.keys(tmpl)){
       for(const dayIdx of Object.keys(tmpl[facId])){
-        const t = tmpl[facId][dayIdx];
-        if(!t.staffIds.length && !t.minCount) continue;
-        await listCreate(LISTS.template, {
-          Title:        `${facId}_${dayIdx}`,
-          FacId:        facId,
-          DayIdx:       parseInt(dayIdx),
-          StaffEntries: JSON.stringify(t.staffEntries||[]),
-          MinCount:     t.minCount||0,
+        const t=tmpl[facId][dayIdx];
+        if(!t.staffIds.length&&!t.minCount) continue;
+        await listCreate(LISTS.template,{
+          Title:`${facId}_${dayIdx}`, FacId:facId,
+          DayIdx:parseInt(dayIdx),
+          StaffEntries:JSON.stringify(t.staffEntries||[]),
+          MinCount:t.minCount||0,
         });
       }
     }
@@ -3011,22 +3007,18 @@ async function saveSchedule(){
   if(!spReady) return;
   updateSyncStatus('syncing','Saving schedule…');
   try {
-    const k = weekKey(currentMonday);
-    // Delete this week's entries
-    const existing = await listGetAll(LISTS.schedule, `fields/WeekKey eq '${k}'`);
-    for(const item of existing) await listDelete(LISTS.schedule, item.id);
-    // Re-save
+    const k=weekKey(currentMonday);
+    const existing=await listGetAll(LISTS.schedule,i=>i.fields.WeekKey===k);
+    for(const item of existing) await listDelete(LISTS.schedule,item.id);
     if(live[k]){
       for(const facId of Object.keys(live[k])){
         for(const dayIdx of Object.keys(live[k][facId])){
-          const entries = live[k][facId][dayIdx];
+          const entries=live[k][facId][dayIdx];
           if(!entries.length) continue;
-          await listCreate(LISTS.schedule, {
-            Title:   `${k}_${facId}_${dayIdx}`,
-            WeekKey: k,
-            FacId:   facId,
-            DayIdx:  parseInt(dayIdx),
-            Entries: JSON.stringify(entries),
+          await listCreate(LISTS.schedule,{
+            Title:`${k}_${facId}_${dayIdx}`, WeekKey:k,
+            FacId:facId, DayIdx:parseInt(dayIdx),
+            Entries:JSON.stringify(entries),
           });
         }
       }
@@ -3038,18 +3030,16 @@ async function saveSchedule(){
 async function savePTO(){
   if(!spReady) return;
   try {
-    const k = weekKey(currentMonday);
-    const existing = await listGetAll(LISTS.pto, `fields/WeekKey eq '${k}'`);
-    for(const item of existing) await listDelete(LISTS.pto, item.id);
+    const k=weekKey(currentMonday);
+    const existing=await listGetAll(LISTS.pto,i=>i.fields.WeekKey===k);
+    for(const item of existing) await listDelete(LISTS.pto,item.id);
     if(pto[k]){
       for(const dayIdx of Object.keys(pto[k])){
-        const ids = pto[k][dayIdx];
+        const ids=pto[k][dayIdx];
         if(!ids.length) continue;
-        await listCreate(LISTS.pto, {
-          Title:    `${k}_${dayIdx}`,
-          WeekKey:  k,
-          DayIdx:   parseInt(dayIdx),
-          StaffIds: JSON.stringify(ids),
+        await listCreate(LISTS.pto,{
+          Title:`${k}_${dayIdx}`, WeekKey:k,
+          DayIdx:parseInt(dayIdx), StaffIds:JSON.stringify(ids),
         });
       }
     }
@@ -3059,34 +3049,29 @@ async function savePTO(){
 async function saveClosures(){
   if(!spReady) return;
   try {
-    const k = weekKey(currentMonday);
-    const existing = await listGetAll(LISTS.closures, `fields/WeekKey eq '${k}'`);
-    for(const item of existing) await listDelete(LISTS.closures, item.id);
-    // Live closures
+    const k=weekKey(currentMonday);
+    const existing=await listGetAll(LISTS.closures,
+      i=>i.fields.WeekKey===k||i.fields.WeekKey==='template');
+    for(const item of existing) await listDelete(LISTS.closures,item.id);
     if(closures[k]){
       for(const facId of Object.keys(closures[k])){
         for(const dayIdx of Object.keys(closures[k][facId])){
-          const c = closures[k][facId][dayIdx];
-          await listCreate(LISTS.closures, {
-            Title:       `${k}_${facId}_${dayIdx}`,
-            WeekKey:     k,
-            FacId:       facId,
-            DayIdx:      parseInt(dayIdx),
-            ClosureData: JSON.stringify(c),
+          const c=closures[k][facId][dayIdx];
+          await listCreate(LISTS.closures,{
+            Title:`${k}_${facId}_${dayIdx}`, WeekKey:k,
+            FacId:facId, DayIdx:parseInt(dayIdx),
+            ClosureData:JSON.stringify(c),
           });
         }
       }
     }
-    // Template closures (stored with weekKey='template')
     for(const facId of Object.keys(tmplClosures)){
       for(const dayIdx of Object.keys(tmplClosures[facId])){
-        const c = tmplClosures[facId][dayIdx];
-        await listCreate(LISTS.closures, {
-          Title:       `template_${facId}_${dayIdx}`,
-          WeekKey:     'template',
-          FacId:       facId,
-          DayIdx:      parseInt(dayIdx),
-          ClosureData: JSON.stringify(c),
+        const c=tmplClosures[facId][dayIdx];
+        await listCreate(LISTS.closures,{
+          Title:`template_${facId}_${dayIdx}`, WeekKey:'template',
+          FacId:facId, DayIdx:parseInt(dayIdx),
+          ClosureData:JSON.stringify(c),
         });
       }
     }
@@ -3096,14 +3081,13 @@ async function saveClosures(){
 async function saveHolidays(){
   if(!spReady) return;
   try {
-    const k = weekKey(currentMonday);
-    const existing = await listGetAll(LISTS.holidays, `fields/WeekKey eq '${k}'`);
-    for(const item of existing) await listDelete(LISTS.holidays, item.id);
+    const k=weekKey(currentMonday);
+    const existing=await listGetAll(LISTS.holidays,i=>i.fields.WeekKey===k);
+    for(const item of existing) await listDelete(LISTS.holidays,item.id);
     if(holidays[k]?.length){
-      await listCreate(LISTS.holidays, {
-        Title:       k,
-        WeekKey:     k,
-        HolidayData: JSON.stringify(holidays[k]),
+      await listCreate(LISTS.holidays,{
+        Title:k, WeekKey:k,
+        HolidayData:JSON.stringify(holidays[k]),
       });
     }
   } catch(e){ console.error('saveHolidays error',e); }
@@ -3138,11 +3122,11 @@ async function loadAll(){
 }
 
 async function loadStaff(){
-  const items = await listGetAll(LISTS.staff);
-  if(!items.length) return; // First run — keep hardcoded staff
-  staff = items.map(i=>({
-    id:           i.fields.PCC_Id || 's'+i.id,
-    name:         i.fields.PCC_Name || i.fields.Title,
+  const items=await listGetAll(LISTS.staff);
+  if(!items.length) return;
+  staff=items.map(i=>({
+    id:           i.fields.PCC_Id||'s'+i.id,
+    name:         i.fields.PCC_Name||i.fields.Title,
     email:        i.fields.PCC_Email||'',
     type:         i.fields.PCC_Type||'static',
     primaryFacId: i.fields.PCC_PrimaryFacId||null,
@@ -3151,69 +3135,69 @@ async function loadStaff(){
 }
 
 async function loadTemplate(){
-  const items = await listGetAll(LISTS.template);
-  tmpl = {};
+  const items=await listGetAll(LISTS.template);
+  tmpl={};
   for(const item of items){
-    const {FacId, DayIdx, StaffEntries, MinCount} = item.fields;
-    if(!FacId) continue;
-    if(!tmpl[FacId]) tmpl[FacId]={};
+    const f=item.fields;
+    const facId=f.FacId, dayIdx=f.DayIdx;
+    if(!facId) continue;
+    if(!tmpl[facId]) tmpl[facId]={};
     let entries=[];
-    try{ entries=JSON.parse(StaffEntries||'[]'); }catch(e){}
-    tmpl[FacId][DayIdx]={
+    try{ entries=JSON.parse(f.StaffEntries||'[]'); }catch(e){}
+    tmpl[facId][dayIdx]={
       staffIds:    entries.map(e=>e.staffId),
       staffEntries:entries,
-      minCount:    MinCount||0,
+      minCount:    f.MinCount||0,
     };
   }
 }
 
 async function loadScheduleForWeek(){
-  const k = weekKey(currentMonday);
-  const items = await listGetAll(LISTS.schedule, `fields/WeekKey eq '${k}'`);
+  const k=weekKey(currentMonday);
+  const items=await listGetAll(LISTS.schedule,
+    i=>i.fields.WeekKey===k);
   if(!live[k]) live[k]={};
   for(const item of items){
-    const {FacId, DayIdx, Entries} = item.fields;
-    if(!FacId) continue;
-    if(!live[k][FacId]) live[k][FacId]={};
-    try{ live[k][FacId][DayIdx]=JSON.parse(Entries||'[]'); }catch(e){}
+    const f=item.fields;
+    if(!f.FacId) continue;
+    if(!live[k][f.FacId]) live[k][f.FacId]={};
+    try{ live[k][f.FacId][f.DayIdx]=JSON.parse(f.Entries||'[]'); }catch(e){}
   }
 }
 
 async function loadPTOForWeek(){
-  const k = weekKey(currentMonday);
-  const items = await listGetAll(LISTS.pto, `fields/WeekKey eq '${k}'`);
+  const k=weekKey(currentMonday);
+  const items=await listGetAll(LISTS.pto,
+    i=>i.fields.WeekKey===k);
   if(!pto[k]) pto[k]={};
   for(const item of items){
-    const {DayIdx, StaffIds} = item.fields;
-    try{ pto[k][DayIdx]=JSON.parse(StaffIds||'[]'); }catch(e){}
+    const f=item.fields;
+    try{ pto[k][f.DayIdx]=JSON.parse(f.StaffIds||'[]'); }catch(e){}
   }
 }
 
 async function loadClosuresForWeek(){
-  const k = weekKey(currentMonday);
-  // Load live closures
-  const liveItems = await listGetAll(LISTS.closures, `fields/WeekKey eq '${k}'`);
+  const k=weekKey(currentMonday);
+  const allItems=await listGetAll(LISTS.closures);
   if(!closures[k]) closures[k]={};
-  for(const item of liveItems){
-    const {FacId, DayIdx, ClosureData} = item.fields;
-    if(!FacId) continue;
-    if(!closures[k][FacId]) closures[k][FacId]={};
-    try{ closures[k][FacId][DayIdx]=JSON.parse(ClosureData||'null'); }catch(e){}
-  }
-  // Load template closures
-  const tmplItems = await listGetAll(LISTS.closures, `fields/WeekKey eq 'template'`);
   tmplClosures={};
-  for(const item of tmplItems){
-    const {FacId, DayIdx, ClosureData} = item.fields;
-    if(!FacId) continue;
-    if(!tmplClosures[FacId]) tmplClosures[FacId]={};
-    try{ tmplClosures[FacId][DayIdx]=JSON.parse(ClosureData||'null'); }catch(e){}
+  for(const item of allItems){
+    const f=item.fields;
+    if(!f.FacId) continue;
+    if(f.WeekKey===k){
+      if(!closures[k][f.FacId]) closures[k][f.FacId]={};
+      try{ closures[k][f.FacId][f.DayIdx]=JSON.parse(f.ClosureData||'null'); }catch(e){}
+    } else if(f.WeekKey==='template'){
+      if(!tmplClosures[f.FacId]) tmplClosures[f.FacId]={};
+      try{ tmplClosures[f.FacId][f.DayIdx]=JSON.parse(f.ClosureData||'null'); }catch(e){}
+    }
   }
 }
 
 async function loadHolidaysForWeek(){
-  const k = weekKey(currentMonday);
-  const items = await listGetAll(LISTS.holidays, `fields/WeekKey eq '${k}'`);
+  const k=weekKey(currentMonday);
+  const items=await listGetAll(LISTS.holidays,
+    i=>i.fields.WeekKey===k);
   if(!holidays[k]) holidays[k]=[];
   for(const item of items){
     try{ holidays[k]=JSON.parse(item.fields.HolidayData||'[]'); }catch(e){}
