@@ -297,6 +297,42 @@ aside{width:188px;min-width:168px;background:var(--surface);border-right:1px sol
 /* lunch badge on chip */
 .chip-lunch{display:inline-flex;align-items:center;gap:2px;font-size:9px;margin-top:2px;background:rgba(0,0,0,.08);border-radius:3px;padding:1px 4px;color:inherit;opacity:.8;}
 
+/* shift tag pill on chip */
+.chip-tag{
+  display:inline-flex;align-items:center;
+  font-size:9px;font-weight:700;
+  margin-top:2px;padding:1px 6px;border-radius:999px;
+  white-space:nowrap;
+}
+.chip-tag.tag-additional{background:#dbeafe;color:#1e40af;}
+.chip-tag.tag-project{background:#ede9fe;color:#5b21b6;}
+.chip-tag.tag-training{background:#dcfce7;color:#166534;}
+.chip-tag.tag-admin{background:#fef3c7;color:#92400e;}
+.chip-tag.tag-oncall{background:#fee2e2;color:#991b1b;}
+.chip-tag.tag-custom{background:#f1f5f9;color:#475569;}
+
+/* shift note text */
+.chip-note{
+  font-size:9px;color:inherit;opacity:.65;
+  margin-top:1px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;
+  max-width:100%;
+}
+
+/* tag selector grid in modal */
+.shift-tag-grid{
+  display:flex;flex-wrap:wrap;gap:5px;
+  margin-bottom:10px;
+}
+.shift-tag-btn{
+  padding:4px 10px;font-size:11px;font-weight:600;
+  border:1px solid var(--border2);border-radius:999px;
+  background:var(--surface2);color:var(--text-2);
+  cursor:pointer;font-family:inherit;transition:all .15s;
+}
+.shift-tag-btn:hover{border-color:var(--brand);color:var(--brand);}
+.shift-tag-btn.selected{background:var(--brand);border-color:var(--brand);color:#fff;}
+
 /* ── FILTER (inline in toolbar) ── */
 /* dim non-matching rows/chips in filter mode */
 .fac-row.dim-row{opacity:.2;pointer-events:none;}
@@ -516,6 +552,38 @@ aside{width:188px;min-width:168px;background:var(--surface);border-right:1px sol
 .signin-btn:hover{background:var(--brand-dk);}
 .signin-error{color:#ff8080;font-size:12px;}
 
+/* ── READ-ONLY MODE ── */
+body.view-only .shift-chip { cursor: default !important; }
+body.view-only .shift-chip:active { cursor: default !important; }
+body.view-only .drop-cell { cursor: default !important; }
+body.view-only .drop-cell.tmpl-mode { cursor: default !important; }
+body.view-only .bench-pill { cursor: default !important; pointer-events: none; }
+body.view-only .staff-card { cursor: default !important; pointer-events: none; }
+body.view-only .xbtn { display: none !important; }
+body.view-only .sc-edit { display: none !important; }
+body.view-only .add-btn { display: none !important; }
+body.view-only #toolbar .tbtn:not(#print-btn):not(#card-print-btn) { display: none !important; }
+body.view-only .toolbar-divider { display: none !important; }
+body.view-only .tlabel { display: none !important; }
+body.view-only .filter-clear { display: none !important; }
+body.view-only .mode-toggle { display: none !important; }
+body.view-only .pto-hdr span { display: none !important; }
+body.view-only .pto-cell { pointer-events: none; }
+body.view-only .bench-cell { pointer-events: none; }
+body.view-only .fac-label { cursor: default !important; }
+body.view-only .view-only-badge {
+  display: inline-flex !important;
+  align-items: center;
+  padding: 3px 10px;
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 999px;
+  font-size: 11px;
+  color: rgba(255,255,255,.65);
+  font-weight: 600;
+}
+.view-only-badge { display: none; }
+
 /* ── PRINT ── */
 @media print{
   header,.toolbar,.filter-bar,aside,.summary-panel,#card-overlay,.scard-actions,.scard-close,#toast{display:none!important;}
@@ -556,6 +624,7 @@ aside{width:188px;min-width:168px;background:var(--surface);border-right:1px sol
   </div>
   <button class="today-btn" id="today-btn">Today</button>
   <span id="sync-status" style="font-size:11px;font-family:'Fira Code',monospace;color:rgba(255,255,255,.6);white-space:nowrap;flex-shrink:0;margin-left:4px;">⏳ Connecting…</span>
+  <span class="view-only-badge" id="view-only-badge">👁 View Only</span>
 </header>
 
 <div class="toolbar" id="toolbar">
@@ -706,6 +775,17 @@ aside{width:188px;min-width:168px;background:var(--surface);border-right:1px sol
         <span style="font-size:11px;color:var(--text-3);font-family:'Fira Code',monospace" id="lunch-end-label"></span>
       </div>
     </div>
+    <label style="margin-top:4px;">📌 Shift Tag</label>
+    <div class="shift-tag-grid" id="shift-tag-grid">
+      <button type="button" class="shift-tag-btn" data-tag="">None</button>
+      <button type="button" class="shift-tag-btn" data-tag="Additional Coverage">➕ Additional Coverage</button>
+      <button type="button" class="shift-tag-btn" data-tag="Project Work">💼 Project Work</button>
+      <button type="button" class="shift-tag-btn" data-tag="Training">📚 Training</button>
+      <button type="button" class="shift-tag-btn" data-tag="Admin">🗂 Admin</button>
+      <button type="button" class="shift-tag-btn" data-tag="On Call">📞 On Call</button>
+    </div>
+    <label style="margin-top:4px;">📝 Custom Note <span style="font-weight:400;color:var(--text-3)">(optional)</span></label>
+    <input type="text" id="shift-note" placeholder="e.g. Covering for Dawn, working on billing" maxlength="80">
     <div class="modal-btns">
       <button class="mbtn cancel" onclick="closeModal('shift-modal')">Cancel</button>
       <button class="mbtn save" id="shift-save">Assign</button>
@@ -1472,7 +1552,24 @@ function makeChip(s,entry,facId,dayIdx,isAbsent){
   chip.title=isAbsent?`${s.name} — OUT/PTO`:s.name;
   const hrs=shiftHours(entry.start,entry.end,entry.lunch);
   const lunchHtml=entry.lunch?`<span class="chip-lunch">🥪 ${fmtTime(entry.lunch)}–${fmtTime(lunchEndTime(entry.lunch))}</span>`:'';
-  chip.innerHTML=`<div class="chip-inner"><div class="chip-name">${s.name}</div><div class="chip-time">${fmtRange(entry.start,entry.end)} · ${hrs.toFixed(1)}h${entry.lunch?' (–30m)':''}</div>${lunchHtml}</div>${isAbsent?'':'<button class="xbtn">✕</button>'}`;
+
+  // Tag pill
+  const tagMap={
+    'Additional Coverage':'tag-additional',
+    'Project Work':'tag-project',
+    'Training':'tag-training',
+    'Admin':'tag-admin',
+    'On Call':'tag-oncall',
+  };
+  const tagHtml=entry.tag
+    ?`<span class="chip-tag ${tagMap[entry.tag]||'tag-custom'}">📌 ${entry.tag}</span>`
+    :'';
+  const noteHtml=entry.note
+    ?`<div class="chip-note">💬 ${entry.note}</div>`
+    :'';
+
+  chip.innerHTML=`<div class="chip-inner"><div class="chip-name">${s.name}</div><div class="chip-time">${fmtRange(entry.start,entry.end)} · ${hrs.toFixed(1)}h${entry.lunch?' (–30m)':''}</div>${lunchHtml}${tagHtml}${noteHtml}</div>${isAbsent?'':'<button class="xbtn">✕</button>'}`;
+
   if(!isAbsent){
     chip.addEventListener('dragstart',e=>{
       drag={staffId:s.id,fromFacId:facId,fromDayIdx:parseInt(dayIdx),fromPTO:false,shiftEntry:{...entry}};
@@ -1613,10 +1710,10 @@ function onDropLive(e,toFacId,toDayIdx){
   // Open shift time picker
   const sid=drag.staffId;
   const se=drag.shiftEntry;
-  openShiftModal(staffById(sid),toFacId,toDayIdx,se||null,(start,end,lunch)=>{
+  openShiftModal(staffById(sid),toFacId,toDayIdx,se||null,(start,end,lunch,tag,note)=>{
     const arr=getLiveCell(toFacId,toDayIdx);
     if(!arr.find(e=>e.staffId===sid&&e.start===start&&e.end===end)){
-      arr.push({staffId:sid,start,end,lunch:lunch||null});
+      arr.push({staffId:sid,start,end,lunch:lunch||null,tag:tag||null,note:note||null});
       setLiveCell(toFacId,toDayIdx,arr);
     }
     render();
@@ -1706,6 +1803,19 @@ function openShiftModal(s,facId,dayIdx,existingEntry,cb){
 
   buildLunchOptions(startVal,endVal,existingEntry?.lunch||'');
 
+  // Prefill tag
+  const currentTag = existingEntry?.tag||'';
+  document.querySelectorAll('.shift-tag-btn').forEach(btn=>{
+    btn.classList.toggle('selected', btn.dataset.tag===currentTag);
+    btn.onclick=()=>{
+      document.querySelectorAll('.shift-tag-btn').forEach(b=>b.classList.remove('selected'));
+      btn.classList.add('selected');
+    };
+  });
+
+  // Prefill note
+  document.getElementById('shift-note').value = existingEntry?.note||'';
+
   // Rebuild lunch options when times change
   ['shift-start','shift-end'].forEach(id=>{
     document.getElementById(id).onchange=()=>buildLunchOptions(
@@ -1722,8 +1832,10 @@ document.getElementById('shift-save').addEventListener('click',()=>{
   const end=document.getElementById('shift-end').value;
   if(toMins(end)<=toMins(start)){showToast('End time must be after start time','err');return;}
   const lunch=document.getElementById('lunch-start').value||null;
+  const tag=document.querySelector('.shift-tag-btn.selected')?.dataset.tag||'';
+  const note=document.getElementById('shift-note').value.trim()||null;
   closeModal('shift-modal');
-  if(shiftCallback){shiftCallback(start,end,lunch);shiftCallback=null;}
+  if(shiftCallback){shiftCallback(start,end,lunch,tag||null,note);shiftCallback=null;}
 });
 
 document.getElementById('shift-modal').addEventListener('click',e=>{
@@ -2739,6 +2851,18 @@ const SP_CONFIG = {
   scopes:    ['https://graph.microsoft.com/Sites.ReadWrite.All'],
 };
 
+// ── EDITOR ACCESS LIST ─────────────────────────────────────────────
+// To add or remove editors, update this list and commit to GitHub.
+// Changes deploy automatically within ~2 minutes.
+const EDITORS = [
+  'jim@fitmjc.com',
+  'brett@fitmjc.com',
+  'krentschler@fitmjc.com',
+  'jazmin.rodriguez@fitmjc.com',
+];
+
+let isEditor = false; // Set to true after sign-in if user is in EDITORS list
+
 const LISTS = {
   staff:    'PCC_Staff',
   template: 'PCC_Template',
@@ -2818,10 +2942,17 @@ async function spSignIn(){
     }
 
     currentUser = currentUser || msalApp.getAllAccounts()[0];
+
+    // Check if signed-in user is an editor
+    const userEmail = (currentUser?.username||'').toLowerCase();
+    isEditor = EDITORS.map(e=>e.toLowerCase()).includes(userEmail);
+
     // Hide sign-in overlay
     const overlay=document.getElementById('signin-overlay');
     if(overlay) overlay.style.display='none';
-    updateSyncStatus('connected', `Connected as ${currentUser?.username||'user'}`);
+
+    const role = isEditor ? '✏️ Editor' : '👁 View only';
+    updateSyncStatus('connected', `Connected · ${role}`);
     await spInit();
   } catch(err){
     console.error('Auth error:', err);
@@ -2965,7 +3096,7 @@ async function listDelete(listName, itemId){
 
 // ── Save functions ─────────────────────────────────────────────────
 async function saveStaff(){
-  if(!spReady) return;
+  if(!spReady||!isEditor) return;
   updateSyncStatus('syncing','Saving staff…');
   try {
     const existing=await listGetAll(LISTS.staff);
@@ -2982,7 +3113,7 @@ async function saveStaff(){
 }
 
 async function saveTemplate(){
-  if(!spReady) return;
+  if(!spReady||!isEditor) return;
   updateSyncStatus('syncing','Saving template…');
   try {
     const existing=await listGetAll(LISTS.template);
@@ -3004,7 +3135,7 @@ async function saveTemplate(){
 }
 
 async function saveSchedule(){
-  if(!spReady) return;
+  if(!spReady||!isEditor) return;
   updateSyncStatus('syncing','Saving schedule…');
   try {
     const k=weekKey(currentMonday);
@@ -3028,7 +3159,7 @@ async function saveSchedule(){
 }
 
 async function savePTO(){
-  if(!spReady) return;
+  if(!spReady||!isEditor) return;
   try {
     const k=weekKey(currentMonday);
     const existing=await listGetAll(LISTS.pto,i=>i.fields.WeekKey===k);
@@ -3047,7 +3178,7 @@ async function savePTO(){
 }
 
 async function saveClosures(){
-  if(!spReady) return;
+  if(!spReady||!isEditor) return;
   try {
     const k=weekKey(currentMonday);
     const existing=await listGetAll(LISTS.closures,
@@ -3079,7 +3210,7 @@ async function saveClosures(){
 }
 
 async function saveHolidays(){
-  if(!spReady) return;
+  if(!spReady||!isEditor) return;
   try {
     const k=weekKey(currentMonday);
     const existing=await listGetAll(LISTS.holidays,i=>i.fields.WeekKey===k);
@@ -3247,6 +3378,21 @@ document.getElementById('today-btn').addEventListener('click',()=>{
   } else { render(); }
 });
 
+// ── Apply read-only or editor mode to the UI ──────────────────────
+function applyAccessMode(){
+  if(isEditor){
+    document.body.classList.remove('view-only');
+    document.getElementById('view-only-badge').style.display='none';
+  } else {
+    document.body.classList.add('view-only');
+    document.getElementById('view-only-badge').style.display='inline-flex';
+    // Disable all drag events for viewers
+    document.addEventListener('dragstart', e=>{
+      if(!isEditor){ e.preventDefault(); e.stopPropagation(); }
+    }, true);
+  }
+}
+
 // ── Init ──────────────────────────────────────────────────────────
 async function spInit(){
   try {
@@ -3257,9 +3403,11 @@ async function spInit(){
     await provisionLists();
     console.log('spInit: loading data...');
     await loadAll();
+    applyAccessMode();
   } catch(e){
     console.error('spInit error:', e.message || e);
     updateSyncStatus('error','SharePoint unavailable — working offline');
+    applyAccessMode();
     render();
   }
 }
