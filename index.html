@@ -2762,7 +2762,6 @@ async function spSignIn(){
   try {
     updateSyncStatus('signing-in','Signing in to Microsoft…');
 
-    // Create MSAL instance now that library is guaranteed loaded
     if(!msalApp){
       msalApp = new msal.PublicClientApplication({
         auth: {
@@ -2776,12 +2775,16 @@ async function spSignIn(){
 
     await msalApp.initialize();
 
-    // Handle redirect response first
-    const resp = await msalApp.handleRedirectPromise();
-    if(resp) spToken = resp.accessToken;
+    // Detect if running in iframe — use popup, otherwise redirect
+    const inIframe = window.parent !== window;
+
+    // Handle redirect response (only relevant when not in iframe)
+    if(!inIframe){
+      const resp = await msalApp.handleRedirectPromise();
+      if(resp) spToken = resp.accessToken;
+    }
 
     if(!spToken){
-      // Try silent first
       const accounts = msalApp.getAllAccounts();
       if(accounts.length > 0){
         try {
@@ -2791,16 +2794,30 @@ async function spSignIn(){
           spToken = silent.accessToken;
           currentUser = accounts[0];
         } catch(e){
+          // Silent failed — use popup or redirect depending on context
+          if(inIframe){
+            const result = await msalApp.acquireTokenPopup({ scopes: SP_CONFIG.scopes });
+            spToken = result.accessToken;
+            currentUser = result.account;
+          } else {
+            await msalApp.acquireTokenRedirect({ scopes: SP_CONFIG.scopes });
+            return;
+          }
+        }
+      } else {
+        // No accounts — sign in fresh
+        if(inIframe){
+          const result = await msalApp.loginPopup({ scopes: SP_CONFIG.scopes });
+          spToken = result.accessToken;
+          currentUser = result.account;
+        } else {
           await msalApp.acquireTokenRedirect({ scopes: SP_CONFIG.scopes });
           return;
         }
-      } else {
-        await msalApp.acquireTokenRedirect({ scopes: SP_CONFIG.scopes });
-        return;
       }
     }
 
-    currentUser = msalApp.getAllAccounts()[0];
+    currentUser = currentUser || msalApp.getAllAccounts()[0];
     // Hide sign-in overlay
     const overlay=document.getElementById('signin-overlay');
     if(overlay) overlay.style.display='none';
@@ -2816,12 +2833,22 @@ async function spSignIn(){
 }
 
 async function spGetToken(){
+  if(!msalApp) return null;
   const accounts = msalApp.getAllAccounts();
   if(!accounts.length) return null;
   try {
     const r = await msalApp.acquireTokenSilent({ scopes: SP_CONFIG.scopes, account: accounts[0] });
     return r.accessToken;
-  } catch(e){ return null; }
+  } catch(e){
+    try {
+      const inIframe = window.parent !== window;
+      if(inIframe){
+        const r = await msalApp.acquireTokenPopup({ scopes: SP_CONFIG.scopes });
+        return r.accessToken;
+      }
+    } catch(e2){}
+    return null;
+  }
 }
 
 // ── Graph API helpers ─────────────────────────────────────────────
