@@ -2882,87 +2882,48 @@ async function spGetSiteId(){
 
 // ── List provisioning (auto-create if missing) ────────────────────
 async function ensureList(name, columns){
-  const token = await spGetToken();
-  if(!token) throw new Error('No token');
+  try {
+    // Check if list exists
+    await spFetch(`/sites/${spSiteId}/lists/${name}`);
+    return; // Already exists
+  } catch(e){
+    if(!e.message.includes('404')) throw e; // Only handle not-found errors
+  }
 
-  const restBase = `${SP_CONFIG.siteUrl}/_api/web`;
-
-  // Check if list exists via SharePoint REST API
-  const checkRes = await fetch(
-    `${restBase}/lists/getbytitle('${name}')`,
-    { headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json;odata=verbose' } }
-  );
-
-  if(checkRes.ok) return; // Already exists
-
-  // Create list via SharePoint REST API
-  const digestRes = await fetch(`${SP_CONFIG.siteUrl}/_api/contextinfo`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Accept': 'application/json;odata=verbose',
-      'Content-Type': 'application/json;odata=verbose',
-    }
-  });
-  const digestData = await digestRes.json();
-  const digest = digestData.d.GetContextWebInformation.FormDigestValue;
-
-  // Create the list
-  await fetch(`${restBase}/lists`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Accept': 'application/json;odata=verbose',
-      'Content-Type': 'application/json;odata=verbose',
-      'X-RequestDigest': digest,
-    },
-    body: JSON.stringify({
-      __metadata: { type: 'SP.List' },
-      Title: name,
-      BaseTemplate: 100, // Generic list
-    })
-  });
-
-  // Add custom columns via Graph (simpler for column creation)
-  await new Promise(r=>setTimeout(r,1000)); // Brief pause for list to provision
-  for(const col of columns){
-    try {
-      await spFetch(`/sites/${spSiteId}/lists/${name}/columns`, {
-        method:'POST', body: JSON.stringify(col)
-      });
-    } catch(e){ /* column may already exist */ }
+  try {
+    // Create list via Graph
+    await spFetch(`/sites/${spSiteId}/lists`, {
+      method:'POST',
+      body: JSON.stringify({
+        displayName: name,
+        columns: columns,
+        list: { template: 'genericList' }
+      })
+    });
+    console.log(`Created list: ${name}`);
+  } catch(e){
+    // If creation fails due to permissions, log clearly and continue
+    // Lists may need to be created manually by IT
+    console.warn(`Could not auto-create list "${name}": ${e.message}`);
+    console.warn('Please create this list manually in SharePoint.');
   }
 }
 
 async function provisionLists(){
   updateSyncStatus('syncing','Setting up SharePoint lists…');
-
   const textCol = (name) => ({ name, text:{} });
   const numCol  = (name) => ({ name, number:{} });
-  const boolCol = (name) => ({ name, boolean:{} });
 
-  await ensureList(LISTS.staff, [
-    textCol('PCC_Id'), textCol('PCC_Name'), textCol('PCC_Email'),
-    textCol('PCC_Type'), textCol('PCC_PrimaryFacId'), numCol('PCC_Target'),
+  // Run all list provisions in parallel, don't fail if one errors
+  await Promise.allSettled([
+    ensureList(LISTS.staff,    [textCol('PCC_Id'),textCol('PCC_Name'),textCol('PCC_Email'),textCol('PCC_Type'),textCol('PCC_PrimaryFacId'),numCol('PCC_Target')]),
+    ensureList(LISTS.template, [textCol('FacId'),numCol('DayIdx'),textCol('StaffEntries'),numCol('MinCount')]),
+    ensureList(LISTS.schedule, [textCol('WeekKey'),textCol('FacId'),numCol('DayIdx'),textCol('Entries')]),
+    ensureList(LISTS.pto,      [textCol('WeekKey'),numCol('DayIdx'),textCol('StaffIds')]),
+    ensureList(LISTS.closures, [textCol('WeekKey'),textCol('FacId'),numCol('DayIdx'),textCol('ClosureData')]),
+    ensureList(LISTS.holidays, [textCol('WeekKey'),textCol('HolidayData')]),
   ]);
-  await ensureList(LISTS.template, [
-    textCol('FacId'), numCol('DayIdx'), textCol('StaffEntries'),
-    numCol('MinCount'),
-  ]);
-  await ensureList(LISTS.schedule, [
-    textCol('WeekKey'), textCol('FacId'), numCol('DayIdx'),
-    textCol('Entries'),
-  ]);
-  await ensureList(LISTS.pto, [
-    textCol('WeekKey'), numCol('DayIdx'), textCol('StaffIds'),
-  ]);
-  await ensureList(LISTS.closures, [
-    textCol('WeekKey'), textCol('FacId'), numCol('DayIdx'),
-    textCol('ClosureData'),
-  ]);
-  await ensureList(LISTS.holidays, [
-    textCol('WeekKey'), textCol('HolidayData'),
-  ]);
+  console.log('provisionLists: done');
 }
 
 // ── Generic list CRUD ─────────────────────────────────────────────
@@ -3152,12 +3113,19 @@ async function saveHolidays(){
 async function loadAll(){
   updateSyncStatus('syncing','Loading data from SharePoint…');
   try {
-    await loadStaff();
-    await loadTemplate();
-    await loadScheduleForWeek();
-    await loadPTOForWeek();
-    await loadClosuresForWeek();
-    await loadHolidaysForWeek();
+    const results = await Promise.allSettled([
+      loadStaff(),
+      loadTemplate(),
+      loadScheduleForWeek(),
+      loadPTOForWeek(),
+      loadClosuresForWeek(),
+      loadHolidaysForWeek(),
+    ]);
+    // Log any individual failures but don't crash
+    results.forEach((r,i)=>{
+      if(r.status==='rejected')
+        console.warn(`Load step ${i} failed:`, r.reason?.message||r.reason);
+    });
     spReady = true;
     updateSyncStatus('connected', `Connected · ${currentUser?.username||''}`);
     render();
