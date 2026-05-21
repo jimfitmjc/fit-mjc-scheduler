@@ -563,6 +563,7 @@ body.view-only .xbtn { display: none !important; }
 body.view-only .sc-edit { display: none !important; }
 body.view-only .add-btn { display: none !important; }
 body.view-only #toolbar .tbtn:not(#print-btn):not(#card-print-btn) { display: none !important; }
+body.view-only #focus-mode-btn { display: none !important; }
 body.view-only .toolbar-divider { display: none !important; }
 body.view-only .tlabel { display: none !important; }
 body.view-only .filter-clear { display: none !important; }
@@ -728,6 +729,92 @@ body.view-only .mob-fab { display: none !important; }
 .mob-pcc-item:hover, .mob-pcc-item:active { border-color: var(--brand); background: var(--brand-lt); }
 .mob-pcc-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
+/* ── VIEWER TAB BAR ── */
+.viewer-tabs {
+  display: none; /* shown only for viewers via JS */
+  align-items: center;
+  gap: 2px;
+  padding: 6px 14px 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  flex-shrink: 0;
+  -webkit-overflow-scrolling: touch;
+}
+.viewer-tabs::-webkit-scrollbar { display: none; }
+.viewer-tab {
+  padding: 6px 14px;
+  border: none; border-radius: var(--r-sm) var(--r-sm) 0 0;
+  font-family: inherit; font-size: 12px; font-weight: 600;
+  cursor: pointer; color: var(--text-2);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  white-space: nowrap; flex-shrink: 0;
+  transition: all .15s;
+  position: relative; bottom: -1px;
+}
+.viewer-tab:hover { color: var(--brand); border-color: var(--brand-md); }
+.viewer-tab.active {
+  background: var(--surface);
+  color: var(--brand);
+  border-color: var(--border);
+  border-bottom: 2px solid var(--surface);
+  font-weight: 700;
+}
+.viewer-tab-select {
+  padding: 5px 8px; font-size: 12px; font-weight: 600;
+  border: 1px solid var(--border2); border-radius: var(--r-sm);
+  background: var(--surface); color: var(--text);
+  font-family: inherit; cursor: pointer; outline: none;
+  margin-left: 8px; flex-shrink: 0;
+}
+.viewer-tab-select:focus { border-color: var(--brand); }
+
+/* My Schedule highlight — make own shifts stand out */
+body.view-mine .shift-chip:not(.my-shift) { opacity: .18; }
+body.view-mine .shift-chip.my-shift { 
+  box-shadow: 0 0 0 2px var(--brand);
+  transform: translateY(-1px);
+}
+body.view-mine .drop-cell:not(.has-my-shift) .cell-top { opacity: .4; }
+
+/* ── FOCUS MODE ── */
+.tbtn.focus-active {
+  background: var(--brand) !important;
+  border-color: var(--brand) !important;
+  color: #fff !important;
+}
+/* In focus mode, collapse covered cells to a minimal indicator */
+body.focus-mode .drop-cell.cell-ok {
+  min-height: 28px !important;
+  padding: 3px 6px !important;
+  overflow: hidden;
+  opacity: .45;
+  pointer-events: none;
+}
+body.focus-mode .drop-cell.cell-ok .chip-inner,
+body.focus-mode .drop-cell.cell-ok .shift-chip,
+body.focus-mode .drop-cell.cell-ok .cell-status,
+body.focus-mode .drop-cell.cell-ok .cov-bar-wrap,
+body.focus-mode .drop-cell.cell-ok .xbtn,
+body.focus-mode .drop-cell.cell-ok .override-banner,
+body.focus-mode .drop-cell.cell-ok .pod-flag { display: none !important; }
+body.focus-mode .drop-cell.cell-ok .cell-top { margin: 0; }
+body.focus-mode .drop-cell.cell-ok .cell-cov-label {
+  font-size: 9px; color: var(--ok-tx); font-weight: 700;
+}
+body.focus-mode .drop-cell.cell-ok::after {
+  content: '✓';
+  font-size: 11px; font-weight: 700;
+  color: var(--ok-tx); opacity: .7;
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+}
+/* Also dim covered facility labels */
+body.focus-mode .fac-label:has(.fstat.ok) {
+  opacity: .5;
+}
+
 /* ── POD STYLES ── */
 .pod-badge{
   display:inline-flex;align-items:center;gap:4px;
@@ -821,6 +908,7 @@ body.view-only .mob-fab { display: none !important; }
   <button class="tbtn" id="add-staff-btn">+ Add PCC</button>
   <button class="tbtn" id="fac-hours-btn">🕐 Hours</button>
   <button class="tbtn" id="closures-btn">🗓 Holidays &amp; Closures</button>
+  <button class="tbtn" id="focus-mode-btn" title="Hide fully covered cells to focus on gaps">🎯 Focus Gaps</button>
   <button class="tbtn" id="print-btn">🖨 Print</button>
   <div class="toolbar-divider"></div>
   <label class="tlabel" style="flex-shrink:0;">🔍 Filter:</label>
@@ -881,6 +969,14 @@ body.view-only .mob-fab { display: none !important; }
 
     <!-- Grid -->
     <div class="grid-wrap">
+      <!-- Viewer tab bar (hidden for editors) -->
+      <div class="viewer-tabs" id="viewer-tabs">
+        <button class="viewer-tab active" data-view="company">🏢 Company</button>
+        <button class="viewer-tab" data-view="facility">🏥 Facility</button>
+        <button class="viewer-tab" data-view="pcc">👤 PCC</button>
+        <button class="viewer-tab" data-view="mine">📅 My Schedule</button>
+        <select class="viewer-tab-select" id="viewer-tab-select" style="display:none"></select>
+      </div>
       <div class="grid-scroll">
         <div class="day-header-row" id="day-hdr"><div></div></div>
         <!-- PTO row -->
@@ -1417,6 +1513,8 @@ function render(){
   updateToolbar();
   populateFilterDropdown();
   applyFilter();
+  // Reapply viewer view after each render
+  if(!isEditor && viewerView!=='company') setTimeout(applyViewerView, 0);
   // In template mode hide live-only toolbar controls and stats bar
   const isLive = mode==='live';
   document.getElementById('stats-bar').style.display = isLive ? '' : 'none';
@@ -2633,6 +2731,13 @@ document.getElementById('btn-tmpl').addEventListener('click',()=>setMode('tmpl')
 
 function setMode(m){
   mode=m;
+  // Reset focus mode when switching modes
+  if(m==='tmpl' && focusMode){
+    focusMode=false;
+    document.body.classList.remove('focus-mode');
+    const btn=document.getElementById('focus-mode-btn');
+    if(btn){btn.classList.remove('focus-active');btn.textContent='🎯 Focus Gaps';}
+  }
   document.getElementById('btn-live').classList.toggle('active',m==='live');
   document.getElementById('btn-tmpl').classList.toggle('active',m==='tmpl');
   document.getElementById('tlabel').textContent=m==='live'?'Live Mode':'Template Mode';
@@ -3182,6 +3287,17 @@ document.getElementById('hc-save').addEventListener('click',()=>{
 });
 
 document.getElementById('closures-btn').addEventListener('click', openHCModal);
+
+// ── Focus Mode ────────────────────────────────────────────────────
+let focusMode = false;
+document.getElementById('focus-mode-btn').addEventListener('click',()=>{
+  focusMode = !focusMode;
+  document.body.classList.toggle('focus-mode', focusMode);
+  const btn = document.getElementById('focus-mode-btn');
+  btn.classList.toggle('focus-active', focusMode);
+  btn.textContent = focusMode ? '🎯 All Cells' : '🎯 Focus Gaps';
+  btn.title = focusMode ? 'Show all cells' : 'Hide fully covered cells to focus on gaps';
+});
 document.getElementById('hc-modal').addEventListener('click',e=>{
   if(e.target===document.getElementById('hc-modal')) closeModal('hc-modal');
 });
@@ -4048,14 +4164,127 @@ document.getElementById('today-btn').addEventListener('click',()=>{
   } else { render(); }
 });
 
+// ── VIEWER VIEW TABS ───────────────────────────────────────────────
+let viewerView = 'company'; // 'company' | 'facility' | 'pcc' | 'mine'
+let viewerSubId = null;     // selected facId or staffId for facility/pcc views
+
+function initViewerTabs(){
+  const bar = document.getElementById('viewer-tabs');
+  bar.style.display = 'flex';
+
+  // Populate sub-select when needed
+  const sel = document.getElementById('viewer-tab-select');
+
+  bar.querySelectorAll('.viewer-tab').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      bar.querySelectorAll('.viewer-tab').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      viewerView = btn.dataset.view;
+      viewerSubId = null;
+
+      // Show/populate sub-select for facility or pcc view
+      if(viewerView==='facility'){
+        sel.style.display='block';
+        sel.innerHTML='<option value="">— Select Facility —</option>';
+        FACILITIES.forEach(f=>{
+          const o=document.createElement('option');
+          o.value=f.id; o.textContent=f.name;
+          sel.appendChild(o);
+        });
+        sel.onchange=()=>{ viewerSubId=sel.value||null; applyViewerView(); };
+      } else if(viewerView==='pcc'){
+        sel.style.display='block';
+        sel.innerHTML='<option value="">— Select PCC —</option>';
+        staff.forEach(s=>{
+          const o=document.createElement('option');
+          o.value=s.id; o.textContent=s.name;
+          sel.appendChild(o);
+        });
+        sel.onchange=()=>{ viewerSubId=sel.value||null; applyViewerView(); };
+      } else {
+        sel.style.display='none';
+        sel.innerHTML='';
+        applyViewerView();
+      }
+
+      if(viewerView!=='facility'&&viewerView!=='pcc') applyViewerView();
+    });
+  });
+}
+
+function applyViewerView(){
+  // Clear previous view classes
+  document.body.classList.remove('view-mine');
+  document.querySelectorAll('.fac-row').forEach(r=>r.classList.remove('dim-row'));
+  document.querySelectorAll('.shift-chip').forEach(c=>{
+    c.classList.remove('dim-chip','my-shift');
+  });
+  document.querySelectorAll('.drop-cell').forEach(c=>c.classList.remove('has-my-shift'));
+
+  if(viewerView==='company'){
+    // Default — show everything
+    return;
+  }
+
+  if(viewerView==='facility' && viewerSubId){
+    // Dim all rows except selected facility
+    document.querySelectorAll('.fac-row').forEach((row,idx)=>{
+      row.classList.toggle('dim-row', FACILITIES[idx]?.id!==viewerSubId);
+    });
+    return;
+  }
+
+  if(viewerView==='pcc' && viewerSubId){
+    // Dim chips not belonging to selected PCC
+    document.querySelectorAll('.shift-chip').forEach(chip=>{
+      chip.classList.toggle('dim-chip', chip.dataset.staffId!==viewerSubId);
+    });
+    return;
+  }
+
+  if(viewerView==='mine'){
+    // Match signed-in user's email to staff list
+    const userEmail=(currentUser?.username||'').toLowerCase();
+    const mePCC=staff.find(s=>(s.email||'').toLowerCase()===userEmail);
+    document.body.classList.add('view-mine');
+
+    if(mePCC){
+      document.querySelectorAll('.shift-chip').forEach(chip=>{
+        const isMe=chip.dataset.staffId===mePCC.id;
+        chip.classList.toggle('my-shift', isMe);
+        chip.classList.toggle('dim-chip', !isMe);
+        if(isMe){
+          chip.closest('.drop-cell')?.classList.add('has-my-shift');
+        }
+      });
+      // Dim facility rows where I have no shifts this week
+      document.querySelectorAll('.fac-row').forEach((row,idx)=>{
+        const fac=FACILITIES[idx];
+        if(!fac) return;
+        const hasShiftThisWeek=[0,1,2,3,4].some(d=>{
+          return getLiveCell(fac.id,d).some(e=>e.staffId===mePCC.id);
+        });
+        row.classList.toggle('dim-row',!hasShiftThisWeek);
+      });
+    } else {
+      // User not found in PCC list — show a message
+      showToast('Your email is not in the PCC list — showing full schedule','err');
+    }
+    return;
+  }
+}
+
 // ── Apply read-only or editor mode to the UI ──────────────────────
 function applyAccessMode(){
   if(isEditor){
     document.body.classList.remove('view-only');
     document.getElementById('view-only-badge').style.display='none';
+    document.getElementById('viewer-tabs').style.display='none';
   } else {
     document.body.classList.add('view-only');
     document.getElementById('view-only-badge').style.display='inline-flex';
+    // Show viewer tabs
+    initViewerTabs();
     // Disable all drag events for viewers
     document.addEventListener('dragstart', e=>{
       if(!isEditor){ e.preventDefault(); e.stopPropagation(); }
