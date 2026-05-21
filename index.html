@@ -909,6 +909,7 @@ body.focus-mode .fac-label:has(.fstat.ok) {
   <button class="tbtn" id="fac-hours-btn">🕐 Hours</button>
   <button class="tbtn" id="closures-btn">🗓 Holidays &amp; Closures</button>
   <button class="tbtn" id="focus-mode-btn" title="Hide fully covered cells to focus on gaps">🎯 Focus Gaps</button>
+  <button class="tbtn" id="preview-viewer-btn" title="Preview the viewer experience">👁 Preview Viewer</button>
   <button class="tbtn" id="print-btn">🖨 Print</button>
   <div class="toolbar-divider"></div>
   <label class="tlabel" style="flex-shrink:0;">🔍 Filter:</label>
@@ -3288,7 +3289,36 @@ document.getElementById('hc-save').addEventListener('click',()=>{
 
 document.getElementById('closures-btn').addEventListener('click', openHCModal);
 
-// ── Focus Mode ────────────────────────────────────────────────────
+// ── Preview Viewer Mode (editors only) ───────────────────────────
+let previewingAsViewer = false;
+
+document.getElementById('preview-viewer-btn').addEventListener('click',()=>{
+  previewingAsViewer = !previewingAsViewer;
+  const btn = document.getElementById('preview-viewer-btn');
+
+  if(previewingAsViewer){
+    // Simulate viewer experience
+    document.body.classList.add('view-only');
+    initViewerTabs();
+    btn.classList.add('focus-active');
+    btn.textContent = '✏ Back to Editor';
+    btn.title = 'Return to editor mode';
+    showToast('Previewing viewer experience — drag & drop disabled', 'ok');
+  } else {
+    // Restore editor
+    document.body.classList.remove('view-only','view-mine');
+    document.getElementById('viewer-tabs').style.display='none';
+    // Reset viewer view state
+    viewerView='company'; viewerSubId=null;
+    document.querySelectorAll('.fac-row').forEach(r=>r.classList.remove('dim-row'));
+    document.querySelectorAll('.shift-chip').forEach(c=>c.classList.remove('dim-chip','my-shift'));
+    btn.classList.remove('focus-active');
+    btn.textContent = '👁 Preview Viewer';
+    btn.title = 'Preview the viewer experience';
+    showToast('Back to editor mode', 'ok');
+    render();
+  }
+});
 let focusMode = false;
 document.getElementById('focus-mode-btn').addEventListener('click',()=>{
   focusMode = !focusMode;
