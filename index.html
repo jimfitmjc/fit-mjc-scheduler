@@ -590,21 +590,51 @@ body.view-only .view-only-badge {
   .stats-bar { display: none !important; }
   .summary-panel { display: none !important; }
   #mobile-view { display: flex !important; }
+
+  /* Header: single compact line */
+  header {
+    height: 48px !important;
+    flex-wrap: nowrap !important;
+    padding: 0 10px !important;
+    gap: 8px !important;
+    overflow: hidden !important;
+  }
+  .logo-subtitle { display: none !important; }
+  .logo-divider  { display: none !important; }
+  .logo img { height: 22px !important; }
+  .legend   { display: none !important; }
+  #week-label { min-width: 100px !important; font-size: 10px !important; }
+  .week-nav button { width: 20px !important; height: 20px !important; }
+  .today-btn { padding: 3px 8px !important; font-size: 11px !important; }
+  #sync-status { display: none !important; }
+  .view-only-badge { display: none !important; }
+  #gap-badge { font-size: 10px !important; padding: 2px 7px !important; }
+  .mode-toggle { display: none !important; }
+
+  /* Toolbar: single compact line, essential buttons only */
+  .toolbar {
+    height: 40px !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    gap: 4px !important;
+    padding: 4px 8px !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  .toolbar::-webkit-scrollbar { display: none; }
+  .tbtn { font-size: 10px !important; padding: 3px 8px !important; white-space: nowrap !important; }
+  .tlabel { display: none !important; }
+  .tinfo  { display: none !important; }
+  .toolbar-divider { display: none !important; }
+  #filter-type { max-width: 90px !important; font-size: 10px !important; padding: 3px 4px !important; }
+
+  /* App body fills remaining viewport */
   #app-body {
-    height: calc(100vh - 52px - 44px) !important;
-    overflow: visible !important;
+    height: calc(100vh - 48px - 40px) !important;
     display: flex !important;
     flex-direction: column !important;
+    overflow: hidden !important;
   }
-  header { height: auto; min-height: 52px; flex-wrap: wrap; gap: 8px; padding: 8px 12px; }
-  .logo img { height: 26px; }
-  .logo-subtitle { font-size: 10px; }
-  .logo-divider { display: none; }
-  .week-nav { margin-left: 0; }
-  #week-label { min-width: 120px; font-size: 10px; }
-  .legend { display: none; }
-  .toolbar { height: auto; flex-wrap: wrap; gap: 5px; padding: 6px 10px; }
-  .toolbar .tbtn { font-size: 11px; padding: 4px 8px; }
 }
 #mobile-view { display: none; flex-direction: column; flex: 1; overflow: hidden; background: var(--bg); min-height: 0; }
 
