@@ -584,6 +584,95 @@ body.view-only .view-only-badge {
 }
 .view-only-badge { display: none; }
 
+/* ── MOBILE LAYOUT ── */
+@media (max-width: 768px) {
+  .main-wrap { display: none !important; }
+  .stats-bar { display: none !important; }
+  .summary-panel { display: none !important; }
+  #mobile-view { display: flex !important; }
+  header { height: auto; min-height: 52px; flex-wrap: wrap; gap: 8px; padding: 8px 12px; }
+  .logo img { height: 26px; }
+  .logo-subtitle { font-size: 10px; }
+  .logo-divider { display: none; }
+  .week-nav { margin-left: 0; }
+  #week-label { min-width: 120px; font-size: 10px; }
+  .legend { display: none; }
+  .toolbar { height: auto; flex-wrap: wrap; gap: 5px; padding: 6px 10px; }
+  .toolbar .tbtn { font-size: 11px; padding: 4px 8px; }
+}
+#mobile-view { display: none; flex-direction: column; flex: 1; overflow: hidden; background: var(--bg); }
+
+/* Day tabs */
+.mob-day-tabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; flex-shrink: 0; -webkit-overflow-scrolling: touch; }
+.mob-day-tabs::-webkit-scrollbar { display: none; }
+.mob-day-tab { flex: 1; min-width: 60px; padding: 10px 6px; border: none; background: none; font-family: inherit; font-size: 12px; font-weight: 600; color: var(--text-2); cursor: pointer; border-bottom: 3px solid transparent; transition: all .15s; text-align: center; }
+.mob-day-tab.active { color: var(--brand); border-bottom-color: var(--brand); background: var(--brand-lt); }
+.mob-day-tab.holiday-tab { color: var(--warn-tx); }
+.mob-day-tab .mob-tab-date { font-size: 16px; font-weight: 800; display: block; }
+.mob-day-tab .mob-tab-gap { display: inline-block; font-size: 9px; font-weight: 700; background: var(--gap-bd); color: #fff; border-radius: 999px; padding: 0 4px; margin-top: 2px; }
+
+/* Stats strip */
+.mob-stats-strip { display: flex; background: var(--black); border-bottom: 2px solid var(--brand); flex-shrink: 0; overflow-x: auto; }
+.mob-stat { flex: 1; min-width: 80px; padding: 6px 8px; text-align: center; border-right: 1px solid rgba(255,255,255,.1); }
+.mob-stat:last-child { border-right: none; }
+.mob-stat-label { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: rgba(255,255,255,.4); }
+.mob-stat-value { font-family: 'Fira Code', monospace; font-size: 14px; font-weight: 500; color: #fff; }
+.mob-stat-value.ok { color: #4ade80; } .mob-stat-value.warn { color: #fbbf24; } .mob-stat-value.gap { color: #ff6b6b; }
+
+/* PTO / Float strips */
+.mob-pto-strip { background: var(--pto-bg); border-bottom: 1px solid var(--pto-bd); padding: 6px 12px; font-size: 11px; font-weight: 600; color: var(--pto-tx); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 36px; flex-shrink: 0; }
+.mob-pto-chip { background: var(--pto-bg); border: 1px solid var(--pto-bd); border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 600; color: var(--pto-tx); }
+.mob-float-strip { background: #f8f8f8; border-bottom: 1px solid #e0e0e0; padding: 6px 12px; font-size: 11px; font-weight: 600; color: #555; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 36px; flex-shrink: 0; }
+.mob-float-chip { background: var(--brand-lt); border: 1px solid var(--brand); border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 700; color: var(--brand-dk); }
+
+/* Cards */
+.mob-cards-scroll { flex: 1; overflow-y: auto; padding: 10px 10px 80px; -webkit-overflow-scrolling: touch; }
+.mob-fac-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); margin-bottom: 10px; overflow: hidden; box-shadow: var(--shadow-sm); }
+.mob-fac-header { display: flex; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--surface2); gap: 8px; }
+.mob-fac-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.mob-fac-name { font-size: 13px; font-weight: 700; flex: 1; }
+.mob-fac-hours { font-family: 'Fira Code', monospace; font-size: 10px; color: var(--text-3); }
+.mob-fac-status { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px; }
+.mob-fac-status.ok { background: var(--ok-bg); color: var(--ok-tx); }
+.mob-fac-status.gap { background: var(--gap-bg); color: var(--gap-tx); }
+.mob-fac-status.partial { background: var(--warn-bg); color: var(--warn-tx); }
+.mob-fac-status.closed { background: #f0f0f0; color: #888; }
+.mob-fac-body { padding: 8px 12px; }
+.mob-cov-bar-wrap { height: 4px; background: var(--border); border-radius: 2px; margin: 4px 0 8px; overflow: hidden; }
+.mob-cov-bar { height: 100%; border-radius: 2px; transition: width .3s; }
+
+/* Shift chips */
+.mob-chip { display: flex; align-items: flex-start; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.mob-chip:last-child { border-bottom: none; }
+.mob-chip-color { width: 3px; border-radius: 2px; align-self: stretch; flex-shrink: 0; min-height: 36px; }
+.mob-chip-info { flex: 1; }
+.mob-chip-name { font-size: 13px; font-weight: 700; }
+.mob-chip-time { font-family: 'Fira Code', monospace; font-size: 11px; color: var(--text-2); margin-top: 1px; }
+.mob-chip-tag { display: inline-flex; font-size: 10px; font-weight: 700; margin-top: 3px; padding: 1px 7px; border-radius: 999px; }
+.mob-chip-note { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+.mob-chip-lunch { font-size: 10px; color: var(--text-3); margin-top: 1px; }
+.mob-chip-ghost { opacity: .45; }
+.mob-no-coverage { padding: 10px 0; text-align: center; font-size: 12px; color: var(--gap-tx); font-weight: 600; }
+.mob-no-assign { padding: 10px 0; text-align: center; font-size: 12px; color: var(--text-3); font-style: italic; }
+
+/* FAB */
+.mob-fab { position: fixed; bottom: 20px; right: 16px; z-index: 100; width: 52px; height: 52px; border-radius: 50%; background: var(--brand); color: #fff; border: none; cursor: pointer; font-size: 26px; box-shadow: 0 4px 16px rgba(204,0,0,.4); display: none; align-items: center; justify-content: center; transition: transform .15s; }
+.mob-fab:active { transform: scale(.93); }
+@media (max-width: 768px) { .mob-fab { display: flex; } }
+body.view-only .mob-fab { display: none !important; }
+
+/* Mobile assign bottom sheet */
+.mob-assign-modal { position: fixed; inset: 0; z-index: 400; background: rgba(0,0,0,.5); display: flex; align-items: flex-end; opacity: 0; pointer-events: none; transition: opacity .2s; }
+.mob-assign-modal.open { opacity: 1; pointer-events: all; }
+.mob-assign-sheet { background: var(--surface); border-radius: 16px 16px 0 0; width: 100%; max-height: 85vh; overflow-y: auto; padding: 16px; transform: translateY(20px); transition: transform .2s; }
+.mob-assign-modal.open .mob-assign-sheet { transform: translateY(0); }
+.mob-assign-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border2); margin: 0 auto 14px; }
+.mob-assign-title { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+.mob-pcc-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.mob-pcc-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--r-sm); border: 1px solid var(--border); cursor: pointer; transition: border-color .15s; font-size: 13px; font-weight: 600; }
+.mob-pcc-item:hover, .mob-pcc-item:active { border-color: var(--brand); background: var(--brand-lt); }
+.mob-pcc-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
 /* ── PRINT ── */
 @media print{
   header,.toolbar,.filter-bar,aside,.summary-panel,#card-overlay,.scard-actions,.scard-close,#toast{display:none!important;}
@@ -719,6 +808,33 @@ body.view-only .view-only-badge {
       <span class="sp-toggle" id="sp-toggle">▼ Collapse</span>
     </div>
     <div class="sp-scroll"><div class="sp-table" id="sp-table"></div></div>
+  </div>
+</div>
+
+<!-- ── MOBILE VIEW ── -->
+<div id="mobile-view">
+  <!-- Day tabs -->
+  <div class="mob-day-tabs" id="mob-day-tabs"></div>
+  <!-- Stats strip -->
+  <div class="mob-stats-strip" id="mob-stats-strip"></div>
+  <!-- PTO strip -->
+  <div class="mob-pto-strip" id="mob-pto-strip"></div>
+  <!-- Float bench strip -->
+  <div class="mob-float-strip" id="mob-float-strip"></div>
+  <!-- Facility cards -->
+  <div class="mob-cards-scroll" id="mob-cards-scroll"></div>
+</div>
+
+<!-- FAB for editors on mobile -->
+<button class="mob-fab" id="mob-fab" title="Assign shift">＋</button>
+
+<!-- Mobile assign bottom sheet -->
+<div class="mob-assign-modal" id="mob-assign-modal">
+  <div class="mob-assign-sheet">
+    <div class="mob-assign-handle"></div>
+    <div class="mob-assign-title" id="mob-assign-title">Assign PCC</div>
+    <div class="mob-pcc-list" id="mob-pcc-list"></div>
+    <button class="mbtn cancel" style="width:100%" onclick="closeMobAssign()">Cancel</button>
   </div>
 </div>
 
@@ -1172,6 +1288,7 @@ function render(){
   renderFacRows();
   renderSummary();
   renderStatsBar();
+  renderMobile();
   updateToolbar();
   populateFilterDropdown();
   applyFilter();
@@ -2296,6 +2413,304 @@ document.getElementById('sp-toggle').addEventListener('click',()=>{
 });
 
 // ═══════════════════════════════════════════════════════════════
+// MOBILE VIEW
+// ═══════════════════════════════════════════════════════════════
+
+let mobDayIdx = (() => {
+  // Default to today if it's a weekday, otherwise Monday
+  const d = new Date().getDay();
+  return (d >= 1 && d <= 5) ? d - 1 : 0;
+})();
+
+let mobAssignTarget = null; // {facId, dayIdx}
+
+const TAG_COLORS = {
+  'Additional Coverage': 'tag-additional',
+  'Project Work':        'tag-project',
+  'Training':            'tag-training',
+  'Admin':               'tag-admin',
+  'On Call':             'tag-oncall',
+};
+
+function renderMobile(){
+  if(window.innerWidth > 768) return; // Only render on mobile
+  renderMobTabs();
+  renderMobStats();
+  renderMobPTOStrip();
+  renderMobFloatStrip();
+  renderMobCards();
+}
+
+function renderMobTabs(){
+  const bar = document.getElementById('mob-day-tabs');
+  bar.innerHTML = '';
+  for(let i=0;i<5;i++){
+    const d = addDays(currentMonday, i);
+    const holiday = isHoliday(i) || isHolidayOverride(i);
+    const hEntry  = getHolidayEntry(i);
+
+    // Count gaps for this day
+    let dayGaps = 0;
+    FACILITIES.forEach(fac=>{
+      const oh = effectiveHours(fac.id, i, 'live');
+      if(!oh) return;
+      const present = getLiveCell(fac.id, i).filter(e=>!isOnPTO(e.staffId, i));
+      const {covered, total} = coveredMins(oh.open, oh.close, present);
+      if(covered < total) dayGaps++;
+    });
+
+    const btn = document.createElement('button');
+    btn.className = 'mob-day-tab' + (i===mobDayIdx?' active':'') + (holiday?' holiday-tab':'');
+    btn.innerHTML = `<span class="mob-tab-date">${d.getDate()}</span>${DAYS[i]}${dayGaps>0&&!holiday?`<span class="mob-tab-gap">${dayGaps}</span>`:''}`;
+    btn.addEventListener('click', ()=>{ mobDayIdx=i; renderMobile(); });
+    bar.appendChild(btn);
+  }
+}
+
+function renderMobStats(){
+  const strip = document.getElementById('mob-stats-strip');
+  // Reuse desktop stats logic
+  let totalClinicMins=0, totalCoveredMins=0;
+  FACILITIES.forEach(fac=>{
+    const oh=effectiveHours(fac.id,mobDayIdx,'live');
+    if(!oh) return;
+    const winMins=toMins(oh.close)-toMins(oh.open);
+    if(winMins<=0) return;
+    totalClinicMins+=winMins;
+    const present=getLiveCell(fac.id,mobDayIdx).filter(e=>!isOnPTO(e.staffId,mobDayIdx));
+    const{covered}=coveredMins(oh.open,oh.close,present);
+    totalCoveredMins+=covered;
+  });
+  const clinicHrs=(totalClinicMins/60).toFixed(1);
+  const covHrs=(totalCoveredMins/60).toFixed(1);
+  const gapHrs=Math.max(0,totalClinicMins-totalCoveredMins)/60;
+  const pct=totalClinicMins>0?Math.round(totalCoveredMins/totalClinicMins*100):0;
+  const pctCls=pct>=90?'ok':pct>=60?'warn':'gap';
+
+  strip.innerHTML=`
+    <div class="mob-stat"><div class="mob-stat-label">Clinic Hrs</div><div class="mob-stat-value">${clinicHrs}h</div></div>
+    <div class="mob-stat"><div class="mob-stat-label">Covered</div><div class="mob-stat-value ok">${covHrs}h</div></div>
+    <div class="mob-stat"><div class="mob-stat-label">Gap</div><div class="mob-stat-value ${gapHrs>0?'gap':'ok'}">${gapHrs.toFixed(1)}h</div></div>
+    <div class="mob-stat"><div class="mob-stat-label">Coverage</div><div class="mob-stat-value ${pctCls}">${pct}%</div></div>`;
+}
+
+function renderMobPTOStrip(){
+  const strip = document.getElementById('mob-pto-strip');
+  const ptoList = getPTO(mobDayIdx);
+  const hEntry = getHolidayEntry(mobDayIdx);
+
+  strip.innerHTML = '<span class="pto-label">🏖 Out/PTO:</span>';
+
+  if(hEntry && !hEntry.override){
+    strip.innerHTML += `<span class="mob-pto-chip">🎉 ${hEntry.name} — All Closed</span>`;
+    return;
+  }
+  if(hEntry && hEntry.override){
+    strip.innerHTML += `<span class="mob-pto-chip">🕐 ${hEntry.name} · ${fmtRange(hEntry.override.open,hEntry.override.close)}</span>`;
+  }
+  if(ptoList.length===0 && !hEntry){
+    strip.innerHTML += '<span style="opacity:.6;font-weight:400;">None</span>';
+    return;
+  }
+  ptoList.forEach(sid=>{
+    const s=staffById(sid);if(!s)return;
+    strip.innerHTML+=`<span class="mob-pto-chip">${s.name}</span>`;
+  });
+}
+
+function renderMobFloatStrip(){
+  const strip = document.getElementById('mob-float-strip');
+  const available = staff.filter(s=>{
+    if(s.type!=='float') return false;
+    if(isOnPTO(s.id,mobDayIdx)) return false;
+    return !FACILITIES.some(fac=>getLiveCell(fac.id,mobDayIdx).some(e=>e.staffId===s.id));
+  });
+  strip.innerHTML = '<span style="opacity:.7;font-weight:400;">🔄 Available Floats:</span>';
+  if(available.length===0){
+    strip.innerHTML += '<span style="color:var(--ok-tx);font-weight:700;">✓ All scheduled</span>';
+    return;
+  }
+  available.forEach(s=>{
+    strip.innerHTML+=`<span class="mob-float-chip">${s.name}</span>`;
+  });
+}
+
+function renderMobCards(){
+  const scroll = document.getElementById('mob-cards-scroll');
+  scroll.innerHTML = '';
+
+  FACILITIES.forEach(fac=>{
+    const oh = effectiveHours(fac.id, mobDayIdx, 'live');
+    const entries = getLiveCell(fac.id, mobDayIdx);
+    const present = entries.filter(e=>!isOnPTO(e.staffId,mobDayIdx));
+    const absent  = entries.filter(e=>isOnPTO(e.staffId,mobDayIdx));
+
+    // Coverage
+    let covPct=0, statusCls='closed';
+    if(oh){
+      const{covered,total}=coveredMins(oh.open,oh.close,present);
+      covPct=total>0?Math.round(covered/total*100):0;
+      statusCls=covPct>=100?'ok':covPct>0?'partial':'gap';
+    }
+
+    const card = document.createElement('div');
+    card.className = 'mob-fac-card';
+
+    // Header
+    const statusLabel = oh
+      ?(covPct>=100?'✓ Covered':covPct>0?`${covPct}% covered`:'⚠ No coverage')
+      :'🔒 Closed';
+    card.innerHTML=`
+      <div class="mob-fac-header">
+        <div class="mob-fac-dot" style="background:${fac.color}"></div>
+        <div class="mob-fac-name">${fac.name}</div>
+        ${oh?`<div class="mob-fac-hours">${fmtRange(oh.open,oh.close)}</div>`:''}
+        <div class="mob-fac-status ${statusCls}">${statusLabel}</div>
+      </div>`;
+
+    const body = document.createElement('div');
+    body.className = 'mob-fac-body';
+
+    if(!oh){
+      body.innerHTML=`<div class="mob-fac-closed">🔒 Closed today</div>`;
+    } else {
+      // Coverage bar
+      const barColor=covPct>=100?'var(--ok-bd)':covPct>0?'var(--warn-bd)':'var(--gap-bd)';
+      body.innerHTML=`<div class="mob-cov-bar-wrap"><div class="mob-cov-bar" style="width:${covPct}%;background:${barColor}"></div></div>`;
+
+      if(present.length===0 && absent.length===0){
+        body.innerHTML+=`<div class="mob-no-coverage">⚠ No coverage assigned</div>`;
+      }
+
+      // Absent chips
+      absent.forEach(entry=>{
+        const s=staffById(entry.staffId);if(!s)return;
+        const hrs=shiftHours(entry.start,entry.end,entry.lunch);
+        body.innerHTML+=`<div class="mob-chip mob-chip-ghost">
+          <div class="mob-chip-color" style="background:${s.type==='float'?'var(--float-bd)':'var(--static-bd)'}"></div>
+          <div class="mob-chip-info">
+            <div class="mob-chip-name">${s.name} — <span style="color:var(--pto-tx)">OUT/PTO</span></div>
+            <div class="mob-chip-time">${fmtRange(entry.start,entry.end)} · ${hrs.toFixed(1)}h</div>
+          </div></div>`;
+      });
+
+      // Present chips
+      present.forEach(entry=>{
+        const s=staffById(entry.staffId);if(!s)return;
+        const hrs=shiftHours(entry.start,entry.end,entry.lunch);
+        const tagCls=TAG_COLORS[entry.tag]||'tag-custom';
+        const tagHtml=entry.tag?`<span class="mob-chip-tag ${tagCls}">📌 ${entry.tag}</span>`:'';
+        const noteHtml=entry.note?`<div class="mob-chip-note">💬 ${entry.note}</div>`:'';
+        const lunchHtml=entry.lunch?`<div class="mob-chip-lunch">🥪 Lunch ${fmtTime(entry.lunch)}</div>`:'';
+
+        const chipEl = document.createElement('div');
+        chipEl.className = 'mob-chip';
+        chipEl.innerHTML=`
+          <div class="mob-chip-color" style="background:${s.type==='float'?'var(--float-bd)':'var(--static-bd)'}"></div>
+          <div class="mob-chip-info">
+            <div class="mob-chip-name">${s.name}</div>
+            <div class="mob-chip-time">${fmtRange(entry.start,entry.end)} · ${hrs.toFixed(1)}h</div>
+            ${lunchHtml}${tagHtml}${noteHtml}
+          </div>
+          ${isEditor?`<button class="xbtn" style="opacity:1;width:20px;height:20px;font-size:11px;" title="Remove">✕</button>`:''}`;
+
+        if(isEditor){
+          chipEl.querySelector('.xbtn').addEventListener('click',()=>{
+            const arr=getLiveCell(fac.id,mobDayIdx).filter(e=>!(e.staffId===s.id&&e.start===entry.start&&e.end===entry.end));
+            setLiveCell(fac.id,mobDayIdx,arr);
+            scheduleSaveSchedule();
+            renderMobile();
+          });
+        }
+        body.appendChild(chipEl);
+      });
+
+      // Editor: tap to assign
+      if(isEditor){
+        const addBtn=document.createElement('button');
+        addBtn.className='tbtn';
+        addBtn.style.cssText='width:100%;margin-top:8px;font-size:12px;';
+        addBtn.textContent='+ Assign PCC';
+        addBtn.addEventListener('click',()=>openMobAssign(fac.id, mobDayIdx));
+        body.appendChild(addBtn);
+      }
+    }
+
+    card.appendChild(body);
+    scroll.appendChild(card);
+  });
+}
+
+// ── Mobile assign sheet ───────────────────────────────────────────
+function openMobAssign(facId, dayIdx){
+  mobAssignTarget={facId, dayIdx};
+  const fac=facById(facId);
+  document.getElementById('mob-assign-title').textContent=
+    `Assign to ${fac.name} · ${DAYS[dayIdx]}`;
+
+  const list=document.getElementById('mob-pcc-list');
+  list.innerHTML='';
+
+  // Show unassigned PCCs (not already in this cell, not on PTO)
+  const assigned=getLiveCell(facId,dayIdx).map(e=>e.staffId);
+  staff.filter(s=>!assigned.includes(s.id)&&!isOnPTO(s.id,dayIdx)).forEach(s=>{
+    const item=document.createElement('div');
+    item.className='mob-pcc-item';
+    item.innerHTML=`
+      <div class="mob-pcc-dot" style="background:${s.type==='float'?'var(--float-bd)':'var(--static-bd)'}"></div>
+      <div style="flex:1">${s.name}<div style="font-size:10px;color:var(--text-3);font-weight:400;">${s.type==='float'?'🔄 Float':'📌 Static'}</div></div>`;
+    item.addEventListener('click',()=>{
+      closeMobAssign();
+      // Open the shift time modal
+      openShiftModal(s, facId, dayIdx, null, (start,end,lunch,tag,note)=>{
+        const arr=getLiveCell(facId,dayIdx);
+        arr.push({staffId:s.id,start,end,lunch:lunch||null,tag:tag||null,note:note||null});
+        setLiveCell(facId,dayIdx,arr);
+        scheduleSaveSchedule();
+        render();
+      });
+    });
+    list.appendChild(item);
+  });
+
+  if(list.children.length===0){
+    list.innerHTML='<div style="text-align:center;color:var(--text-3);font-size:13px;padding:12px;">All PCCs already assigned for this day</div>';
+  }
+
+  document.getElementById('mob-assign-modal').classList.add('open');
+}
+
+function closeMobAssign(){
+  document.getElementById('mob-assign-modal').classList.remove('open');
+  mobAssignTarget=null;
+}
+
+document.getElementById('mob-assign-modal').addEventListener('click',e=>{
+  if(e.target===document.getElementById('mob-assign-modal')) closeMobAssign();
+});
+
+// FAB opens facility picker first
+document.getElementById('mob-fab').addEventListener('click',()=>{
+  // Show a quick facility picker bottom sheet
+  const list=document.getElementById('mob-pcc-list');
+  list.innerHTML='';
+  document.getElementById('mob-assign-title').textContent='Select Facility';
+  FACILITIES.forEach(fac=>{
+    const oh=effectiveHours(fac.id,mobDayIdx,'live');
+    if(!oh) return; // Skip closed
+    const item=document.createElement('div');
+    item.className='mob-pcc-item';
+    item.innerHTML=`<div class="mob-pcc-dot" style="background:${fac.color}"></div><div>${fac.name}<div style="font-size:10px;color:var(--text-3);font-weight:400;">${fmtRange(oh.open,oh.close)}</div></div>`;
+    item.addEventListener('click',()=>openMobAssign(fac.id, mobDayIdx));
+    list.appendChild(item);
+  });
+  document.getElementById('mob-assign-modal').classList.add('open');
+});
+
+// Re-render mobile on resize
+window.addEventListener('resize', ()=>renderMobile());
+
+// ═══════════════════════════════════════════════════════════════
 // FILTER BAR
 // ═══════════════════════════════════════════════════════════════
 
@@ -2856,9 +3271,6 @@ const SP_CONFIG = {
 // Changes deploy automatically within ~2 minutes.
 const EDITORS = [
   'jim@fitmjc.com',
-  'matt@fitmjc.com',
-  'chad@fitmjc.com',
-  'drbarnes@fitmjc.com',
   'brett@fitmjc.com',
   'krentschler@fitmjc.com',
   'jazmin.rodriguez@fitmjc.com',
