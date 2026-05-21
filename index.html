@@ -589,7 +589,6 @@ body.view-only .view-only-badge {
   .main-wrap { display: none !important; }
   .stats-bar { display: none !important; }
   .summary-panel { display: none !important; }
-  #mobile-view { display: flex !important; }
 
   /* Header: single compact line */
   header {
@@ -598,21 +597,28 @@ body.view-only .view-only-badge {
     padding: 0 10px !important;
     gap: 8px !important;
     overflow: hidden !important;
+    position: fixed !important;
+    top: 0; left: 0; right: 0;
+    z-index: 300 !important;
   }
   .logo-subtitle { display: none !important; }
   .logo-divider  { display: none !important; }
   .logo img { height: 22px !important; }
   .legend   { display: none !important; }
-  #week-label { min-width: 100px !important; font-size: 10px !important; }
+  #week-label { min-width: 90px !important; font-size: 10px !important; }
+  .week-nav { padding: 2px 6px !important; }
   .week-nav button { width: 20px !important; height: 20px !important; }
-  .today-btn { padding: 3px 8px !important; font-size: 11px !important; }
+  .today-btn { padding: 3px 8px !important; font-size: 10px !important; }
   #sync-status { display: none !important; }
   .view-only-badge { display: none !important; }
   #gap-badge { font-size: 10px !important; padding: 2px 7px !important; }
   .mode-toggle { display: none !important; }
 
-  /* Toolbar: single compact line, essential buttons only */
+  /* Toolbar: fixed below header */
   .toolbar {
+    position: fixed !important;
+    top: 48px !important; left: 0; right: 0;
+    z-index: 299 !important;
     height: 40px !important;
     flex-wrap: nowrap !important;
     overflow-x: auto !important;
@@ -620,21 +626,34 @@ body.view-only .view-only-badge {
     gap: 4px !important;
     padding: 4px 8px !important;
     -webkit-overflow-scrolling: touch !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,.1) !important;
   }
   .toolbar::-webkit-scrollbar { display: none; }
-  .tbtn { font-size: 10px !important; padding: 3px 8px !important; white-space: nowrap !important; }
+  .tbtn { font-size: 10px !important; padding: 3px 8px !important; white-space: nowrap !important; flex-shrink: 0 !important; }
   .tlabel { display: none !important; }
   .tinfo  { display: none !important; }
   .toolbar-divider { display: none !important; }
-  #filter-type { max-width: 90px !important; font-size: 10px !important; padding: 3px 4px !important; }
+  #filter-type { max-width: 90px !important; font-size: 10px !important; padding: 3px 4px !important; flex-shrink: 0 !important; }
 
-  /* App body fills remaining viewport */
-  #app-body {
-    height: calc(100vh - 48px - 40px) !important;
+  /* Mobile view: fixed, fills screen below header+toolbar */
+  #mobile-view {
     display: flex !important;
+    position: fixed !important;
+    top: 88px !important; /* 48 header + 40 toolbar */
+    left: 0; right: 0;
+    bottom: 0;
+    bottom: env(safe-area-inset-bottom, 0) !important;
+    z-index: 50 !important;
     flex-direction: column !important;
     overflow: hidden !important;
+    background: var(--bg) !important;
+    /* Force visible even if height calculation is off */
+    min-height: calc(100vh - 88px) !important;
   }
+
+  /* App body hidden on mobile */
+  #app-body { display: none !important; }
+  .summary-panel { display: none !important; }
 }
 #mobile-view { display: none; flex-direction: column; flex: 1; overflow: hidden; background: var(--bg); min-height: 0; }
 
@@ -1325,6 +1344,7 @@ function render(){
   renderSummary();
   renderStatsBar();
   renderMobile();
+  fixMobileTop();
   updateToolbar();
   populateFilterDropdown();
   applyFilter();
@@ -2743,7 +2763,17 @@ document.getElementById('mob-fab').addEventListener('click',()=>{
 });
 
 // Re-render mobile on resize
-window.addEventListener('resize', ()=>renderMobile());
+window.addEventListener('resize', ()=>{ fixMobileTop(); renderMobile(); });
+
+function fixMobileTop(){
+  if(window.innerWidth > 768) return;
+  const header = document.querySelector('header');
+  const toolbar = document.querySelector('.toolbar');
+  if(!header || !toolbar) return;
+  const top = header.getBoundingClientRect().height + toolbar.getBoundingClientRect().height;
+  const mv = document.getElementById('mobile-view');
+  if(mv) mv.style.top = top + 'px';
+}
 
 // ═══════════════════════════════════════════════════════════════
 // FILTER BAR
