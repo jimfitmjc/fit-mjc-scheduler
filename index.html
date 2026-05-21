@@ -590,6 +590,12 @@ body.view-only .view-only-badge {
   .stats-bar { display: none !important; }
   .summary-panel { display: none !important; }
   #mobile-view { display: flex !important; }
+  #app-body {
+    height: calc(100vh - 52px - 44px) !important;
+    overflow: visible !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
   header { height: auto; min-height: 52px; flex-wrap: wrap; gap: 8px; padding: 8px 12px; }
   .logo img { height: 26px; }
   .logo-subtitle { font-size: 10px; }
@@ -600,7 +606,7 @@ body.view-only .view-only-badge {
   .toolbar { height: auto; flex-wrap: wrap; gap: 5px; padding: 6px 10px; }
   .toolbar .tbtn { font-size: 11px; padding: 4px 8px; }
 }
-#mobile-view { display: none; flex-direction: column; flex: 1; overflow: hidden; background: var(--bg); }
+#mobile-view { display: none; flex-direction: column; flex: 1; overflow: hidden; background: var(--bg); min-height: 0; }
 
 /* Day tabs */
 .mob-day-tabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; flex-shrink: 0; -webkit-overflow-scrolling: touch; }
@@ -770,7 +776,7 @@ body.view-only .mob-fab { display: none !important; }
   </div>
 </div>
 
-<div class="app-body" style="height:calc(100vh - var(--header-h) - var(--toolbar-h) - 54px)">
+<div class="app-body" id="app-body" style="height:calc(100vh - var(--header-h) - var(--toolbar-h) - 54px)">
   <div class="main-wrap">
     <!-- Sidebar -->
     <aside>
@@ -2433,7 +2439,6 @@ const TAG_COLORS = {
 };
 
 function renderMobile(){
-  if(window.innerWidth > 768) return; // Only render on mobile
   renderMobTabs();
   renderMobStats();
   renderMobPTOStrip();
