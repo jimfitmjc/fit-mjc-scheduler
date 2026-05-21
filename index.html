@@ -562,13 +562,33 @@ body.view-only .staff-card { cursor: default !important; pointer-events: none; }
 body.view-only .xbtn { display: none !important; }
 body.view-only .sc-edit { display: none !important; }
 body.view-only .add-btn { display: none !important; }
-body.view-only #toolbar .tbtn:not(#print-btn):not(#card-print-btn) { display: none !important; }
+body.view-only #toolbar .tbtn:not(#print-btn):not(#card-print-btn):not(#preview-viewer-btn) { display: none !important; }
 body.view-only #focus-mode-btn { display: none !important; }
 body.view-only .toolbar-divider { display: none !important; }
 body.view-only .tlabel { display: none !important; }
 body.view-only .filter-clear { display: none !important; }
 body.view-only .mode-toggle { display: none !important; }
 body.view-only .pto-hdr span { display: none !important; }
+/* Keep preview button prominent and always visible */
+#preview-viewer-btn { flex-shrink: 0 !important; }
+#preview-viewer-btn.focus-active {
+  background: #1a1a2e !important;
+  border-color: #fff !important;
+  color: #fff !important;
+  font-weight: 700 !important;
+}
+/* Preview mode banner */
+.preview-banner {
+  display: none;
+  background: #1a1a2e;
+  color: #fff;
+  font-size: 11px; font-weight: 700;
+  padding: 3px 12px;
+  text-align: center;
+  letter-spacing: .05em;
+  flex-shrink: 0;
+}
+body.view-only.previewing .preview-banner { display: block; }
 body.view-only .pto-cell { pointer-events: none; }
 body.view-only .bench-cell { pointer-events: none; }
 body.view-only .fac-label { cursor: default !important; }
@@ -923,6 +943,9 @@ body.focus-mode .fac-label:has(.fstat.ok) {
   <button class="tbtn" id="card-print-btn" style="display:none;">🖨 Schedule Card</button>
   <span class="tinfo" id="tinfo"></span>
 </div>
+
+<!-- Preview mode banner -->
+<div class="preview-banner" id="preview-banner">👁 VIEWER PREVIEW MODE — click "✏ Back to Editor" in the toolbar to exit</div>
 
 <!-- Coverage Stats Bar -->
 <div class="stats-bar" id="stats-bar">
@@ -3298,7 +3321,7 @@ document.getElementById('preview-viewer-btn').addEventListener('click',()=>{
 
   if(previewingAsViewer){
     // Simulate viewer experience
-    document.body.classList.add('view-only');
+    document.body.classList.add('view-only','previewing');
     initViewerTabs();
     btn.classList.add('focus-active');
     btn.textContent = '✏ Back to Editor';
@@ -3306,7 +3329,7 @@ document.getElementById('preview-viewer-btn').addEventListener('click',()=>{
     showToast('Previewing viewer experience — drag & drop disabled', 'ok');
   } else {
     // Restore editor
-    document.body.classList.remove('view-only','view-mine');
+    document.body.classList.remove('view-only','view-mine','previewing');
     document.getElementById('viewer-tabs').style.display='none';
     // Reset viewer view state
     viewerView='company'; viewerSubId=null;
@@ -3315,7 +3338,7 @@ document.getElementById('preview-viewer-btn').addEventListener('click',()=>{
     btn.classList.remove('focus-active');
     btn.textContent = '👁 Preview Viewer';
     btn.title = 'Preview the viewer experience';
-    showToast('Back to editor mode', 'ok');
+    showToast('Back to editor mode ✓', 'ok');
     render();
   }
 });
