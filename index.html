@@ -1069,14 +1069,29 @@ body.focus-mode .fac-label:has(.fstat.ok) {
     <input type="email" id="new-email" placeholder="e.g. maria@fitmjc.com">
     <label>Shift Type</label>
     <select id="new-type">
-      <option value="static">Static (Fixed Facility)</option>
-      <option value="float">Float (Multi-Facility)</option>
+      <option value="static">📌 Static (Fixed Facility)</option>
+      <option value="float">🔄 Float (Multi-Facility)</option>
+      <option value="hybrid">🔀 Hybrid (Two Facilities)</option>
     </select>
     <div id="primary-fac-row">
       <label>Primary Facility <span style="font-weight:400;color:var(--text-3)">(auto-loads into template)</span></label>
       <select id="new-primary-fac">
         <option value="">— Not assigned —</option>
       </select>
+    </div>
+    <div id="secondary-fac-row" style="display:none">
+      <label>Secondary Facility <span style="font-weight:400;color:var(--text-3)">(Hybrid only)</span></label>
+      <select id="new-secondary-fac">
+        <option value="">— Not assigned —</option>
+      </select>
+      <label style="margin-top:6px;">Secondary Days</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+        <label style="display:flex;align-items:center;gap:4px;font-weight:500;"><input type="checkbox" id="sec-day-0" value="0"> Mon</label>
+        <label style="display:flex;align-items:center;gap:4px;font-weight:500;"><input type="checkbox" id="sec-day-1" value="1"> Tue</label>
+        <label style="display:flex;align-items:center;gap:4px;font-weight:500;"><input type="checkbox" id="sec-day-2" value="2"> Wed</label>
+        <label style="display:flex;align-items:center;gap:4px;font-weight:500;"><input type="checkbox" id="sec-day-3" value="3"> Thu</label>
+        <label style="display:flex;align-items:center;gap:4px;font-weight:500;"><input type="checkbox" id="sec-day-4" value="4"> Fri</label>
+      </div>
     </div>
     <label>Weekly Hours Target</label>
     <input type="number" id="new-target" value="40" min="1" max="80">
@@ -1588,7 +1603,8 @@ function renderStaffPool(){
     const pod = s.podId ? podById(s.podId) : null;
     const podHtml = pod&&s.podId ? `<span class="pod-badge" style="background:${pod.color}22;color:${pod.color};border:1px solid ${pod.color}44;">${pod.name}</span>` : '';
     const typeLabel = s.type==='static'?'📌 Static':s.type==='float'?'🔄 Float':'🔀 Hybrid';
-    const secLine = s.type==='hybrid'&&secondaryFacName ? `<div class="sc-email" style="opacity:.6;">⇄ ${secondaryFacName} (${['Mon','Wed'].filter((_,i)=>s.secondaryDays?.includes(i*2)).join('/')||'set days'})</div>` : '';
+    const secDayNames = s.secondaryDays?.map(d=>DAYS[d]).join('/') || 'set days';
+    const secLine = s.type==='hybrid'&&secondaryFacName ? `<div class="sc-email" style="opacity:.6;">⇄ ${secondaryFacName} (${secDayNames})</div>` : '';
     el.innerHTML=`${s.name}<div class="sc-meta"><span class="sc-type">${typeLabel}</span><span class="sc-hrs${over?' over':''}">${wkHrs.toFixed(1)}h</span><button class="sc-edit" title="Edit PCC">✏</button></div>${primaryFacName?`<div class="sc-email" style="opacity:.6;">📍 ${primaryFacName}</div>`:''}${secLine}${podHtml}${s.email?`<div class="sc-email">${s.email}</div>`:''}`;
     el.addEventListener('dragstart',e=>{
       drag={staffId:s.id,fromFacId:null,fromDayIdx:null,fromPTO:false,shiftEntry:null};
@@ -2532,9 +2548,22 @@ function populatePrimaryFacDropdown(selectedFacId=''){
   });
 }
 
+function populateSecondaryFacDropdown(selectedFacId=''){
+  const sel=document.getElementById('new-secondary-fac');
+  sel.innerHTML='<option value="">— Not assigned —</option>';
+  FACILITIES.forEach(f=>{
+    const opt=document.createElement('option');
+    opt.value=f.id; opt.textContent=f.name;
+    if(f.id===selectedFacId) opt.selected=true;
+    sel.appendChild(opt);
+  });
+}
+
 function togglePrimaryFacRow(){
-  const isStatic=document.getElementById('new-type').value==='static';
+  const type=document.getElementById('new-type').value;
+  const isStatic=type==='static'||type==='hybrid';
   document.getElementById('primary-fac-row').style.display=isStatic?'':'none';
+  document.getElementById('secondary-fac-row').style.display=type==='hybrid'?'':'none';
 }
 
 // Auto-populate template for a static PCC with their primary facility
@@ -2575,6 +2604,8 @@ function openAddStaffModal() {
   document.getElementById('staff-save').textContent = 'Add';
   document.getElementById('staff-delete').style.display = 'none';
   populatePrimaryFacDropdown();
+  populateSecondaryFacDropdown();
+  [0,1,2,3,4].forEach(d=>{ document.getElementById(`sec-day-${d}`).checked=false; });
   togglePrimaryFacRow();
   document.getElementById('staff-modal').classList.add('open');
   setTimeout(()=>document.getElementById('new-name').focus(), 80);
@@ -2592,6 +2623,10 @@ function openEditStaffModal(staffId) {
   document.getElementById('staff-save').textContent = 'Save Changes';
   document.getElementById('staff-delete').style.display = 'inline-flex';
   populatePrimaryFacDropdown(s.primaryFacId||'');
+  populateSecondaryFacDropdown(s.secondaryFacId||'');
+  [0,1,2,3,4].forEach(d=>{
+    document.getElementById(`sec-day-${d}`).checked = s.secondaryDays?.includes(d)||false;
+  });
   togglePrimaryFacRow();
   document.getElementById('staff-modal').classList.add('open');
   setTimeout(()=>document.getElementById('new-name').focus(), 80);
@@ -2609,22 +2644,27 @@ document.getElementById('staff-save').addEventListener('click',()=>{
   if (!name) { document.getElementById('new-name').focus(); return; }
   const email      = document.getElementById('new-email').value.trim();
   const type       = document.getElementById('new-type').value;
-  const primaryFacId = type==='static' ? (document.getElementById('new-primary-fac').value||null) : null;
+  const primaryFacId = (type==='static'||type==='hybrid') ? (document.getElementById('new-primary-fac').value||null) : null;
+  const secondaryFacId = type==='hybrid' ? (document.getElementById('new-secondary-fac').value||null) : null;
+  const secondaryDays = type==='hybrid'
+    ? [0,1,2,3,4].filter(d=>document.getElementById(`sec-day-${d}`).checked)
+    : [];
   const target     = parseInt(document.getElementById('new-target').value) || 40;
 
   if (editingStaffId) {
     const s = staffById(editingStaffId);
     if (s) {
       const oldFacId = s.primaryFacId;
-      // If primary facility changed, clean up old template entries
       if(oldFacId && oldFacId!==primaryFacId) removeFromPrimaryFacTemplate(editingStaffId, oldFacId);
-      s.name=name; s.email=email; s.type=type; s.primaryFacId=primaryFacId; s.target=target;
+      s.name=name; s.email=email; s.type=type;
+      s.primaryFacId=primaryFacId; s.secondaryFacId=secondaryFacId;
+      s.secondaryDays=secondaryDays; s.target=target;
       applyPrimaryFacToTemplate(editingStaffId);
     }
     showToast('PCC updated ✓', 'ok');
   } else {
     const newId='s'+Date.now();
-    staff.push({ id:newId, name, email, type, primaryFacId, target });
+    staff.push({ id:newId, name, email, type, primaryFacId, secondaryFacId, secondaryDays, target });
     applyPrimaryFacToTemplate(newId);
     showToast('PCC added ✓', 'ok');
   }
