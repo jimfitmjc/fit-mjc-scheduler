@@ -5893,7 +5893,108 @@ function renderViewerMySchedule(panel){
   }
 }
 
-// ── Facility week view — day cards with full timeline ─────────────
+// ── Shared weekly grid builder ───────────────────────────────────
+// Used by both Facility and PCC viewer views
+// Renders a 5-column Mon-Fri grid with shifts ordered chronologically by start time
+
+function buildViewerWeekGrid(opts){
+  // opts: { rows: [{label, color, items: [{dayIdx, entry, fac, type}], emptyLabel}], facId (for gap calc) }
+  const { rows, facId } = opts;
+
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'overflow-x:auto;flex:1;';
+
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:grid;grid-template-columns:140px repeat(5,1fr);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;min-width:600px;';
+
+  // Header row
+  const cornerEl = document.createElement('div');
+  cornerEl.style.cssText = 'background:var(--surface2);border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:8px 10px;font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:flex-end;';
+  cornerEl.textContent = facId ? 'Coverage' : 'Facility';
+  grid.appendChild(cornerEl);
+
+  for(let i=0;i<5;i++){
+    const d=addDays(currentMonday,i);
+    const today=isToday(d);
+    const hEntry=getHolidayEntry(i);
+    const isHol=isHoliday(i)||isHolidayOverride(i);
+    const cell=document.createElement('div');
+    cell.style.cssText=`background:${today?'var(--brand-lt)':'var(--surface2)'};border-right:${i<4?'1px solid var(--border)':'none'};border-bottom:1px solid var(--border);padding:7px 8px;text-align:center;`;
+    cell.innerHTML=`<div style="font-size:10px;font-weight:700;color:${today?'var(--brand)':'var(--text-2)'};">${DAYS[i]}</div>
+      <div style="font-size:18px;font-weight:800;color:${today?'var(--brand)':'var(--text)'};">${d.getDate()}</div>
+      ${isHol?`<div style="font-size:9px;font-weight:700;color:var(--warn-tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${hEntry?.override?'🕐':'🎉'} ${hEntry?.name||'Holiday'}</div>`:''}`;
+    grid.appendChild(cell);
+  }
+
+  // Data rows
+  rows.forEach((row, rowIdx) => {
+    const isLast = rowIdx === rows.length - 1;
+
+    // Row label cell
+    const lbl = document.createElement('div');
+    lbl.style.cssText = `background:var(--surface);border-right:1px solid var(--border);${!isLast?'border-bottom:1px solid var(--border);':''}padding:8px 10px;display:flex;align-items:flex-start;gap:6px;min-height:56px;`;
+    if(row.color){
+      const dot = document.createElement('div');
+      dot.style.cssText = `width:8px;height:8px;border-radius:50%;background:${row.color};flex-shrink:0;margin-top:3px;`;
+      lbl.appendChild(dot);
+    }
+    const lblText = document.createElement('div');
+    lblText.innerHTML = `<div style="font-size:12px;font-weight:700;line-height:1.3;">${row.label}</div>${row.sublabel?`<div style="font-size:10px;color:var(--text-3);margin-top:1px;">${row.sublabel}</div>`:''}`;
+    lbl.appendChild(lblText);
+    grid.appendChild(lbl);
+
+    // Day cells
+    for(let i=0;i<5;i++){
+      const oh = facId ? effectiveHours(facId, i, 'live') : null;
+      const isClosed = facId && !oh;
+      const isHol = isHoliday(i)||isHolidayOverride(i);
+      const cell = document.createElement('div');
+      cell.style.cssText = `background:var(--surface);border-right:${i<4?'1px solid var(--border)':'none'};${!isLast?'border-bottom:1px solid var(--border);':''}padding:6px 6px;min-height:56px;`;
+
+      if(isClosed){
+        cell.innerHTML = `<div style="font-size:10px;color:#aaa;font-style:italic;padding:4px 0;">${isHol?'Holiday':'Closed'}</div>`;
+      } else {
+        // Get items for this day, sorted by start time
+        const dayItems = (row.items||[])
+          .filter(it=>it.dayIdx===i)
+          .sort((a,b)=>toMins(a.entry?.start||'00:00')-toMins(b.entry?.start||'00:00'));
+
+        if(dayItems.length===0){
+          if(row.emptyLabel){
+            cell.innerHTML=`<div style="font-size:10px;color:var(--text-3);font-style:italic;padding:4px 0;">${row.emptyLabel}</div>`;
+          }
+        } else {
+          dayItems.forEach(it=>{
+            const e=it.entry;
+            if(!e) return;
+            const hrs=shiftHours(e.start,e.end,e.lunch);
+            const chip=document.createElement('div');
+            const isGap=it.type==='gap';
+            chip.style.cssText=`padding:3px 5px;border-radius:3px;margin-bottom:3px;border-left:3px solid ${isGap?'var(--gap-bd)':it.color||'var(--static-bd)'};background:${isGap?'var(--gap-bg)':'var(--surface2)'};font-size:10px;`;
+            if(isGap){
+              chip.innerHTML=`<div style="font-weight:700;color:var(--gap-tx);">⚠ Gap</div><div style="font-family:'Fira Code',monospace;font-size:9px;color:var(--gap-tx);">${fmtRange(e.start,e.end)} · ${hrs.toFixed(1)}h</div>`;
+            } else {
+              const tagIcon={'Additional Coverage':'➕','Project Work':'💼','Training':'📚','Admin':'🗂','On Call':'📞'}[e.tag]||'';
+              chip.innerHTML=`
+                ${it.name?`<div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${it.name}</div>`:''}
+                <div style="font-family:'Fira Code',monospace;font-size:9px;color:var(--text-2);">${fmtRange(e.start,e.end)} · ${hrs.toFixed(1)}h</div>
+                ${e.lunch?`<div style="font-size:9px;color:var(--text-3);">🥪 ${fmtTime(e.lunch)}</div>`:''}
+                ${e.tag?`<div style="font-size:9px;font-weight:700;">${tagIcon} ${e.tag}</div>`:''}
+                ${e.note?`<div style="font-size:9px;color:var(--text-3);font-style:italic;">💬 ${e.note}</div>`:''}`;
+            }
+            cell.appendChild(chip);
+          });
+        }
+      }
+      grid.appendChild(cell);
+    }
+  });
+
+  wrap.appendChild(grid);
+  return wrap;
+}
+
+// ── Facility week view — weekly grid ──────────────────────────────
 function renderViewerFacility(panel, facId){
   panel.innerHTML='';
   if(!facId){
@@ -5904,159 +6005,75 @@ function renderViewerFacility(panel, facId){
   const pod=fac?.podId?podById(fac.podId):null;
   const volTier=VOLUME_TIERS[fac?.volume||'low'];
 
-  // Facility header
+  // Header
   const hdr=document.createElement('div');
   hdr.className='vs-my-header';
+  hdr.style.marginBottom='14px';
   hdr.innerHTML=`
-    <div class="vs-my-avatar" style="background:${fac.color}">${fac.name.slice(0,2).toUpperCase()}</div>
+    <div class="vs-my-avatar" style="background:${fac.color};font-size:14px;">${fac.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</div>
     <div>
       <div class="vs-my-name">${fac.name}</div>
       <div class="vs-my-meta">
         ${pod?`<span style="color:${pod.color};font-weight:700;">${pod.name}</span> · `:''}
-        <span style="color:${volTier?.color}">${volTier?.label||''} volume</span>
+        <span style="color:${volTier?.color};">● ${volTier?.label||''} volume</span>
+        ${['Mon','Tue','Wed','Thu','Fri'].map((d,i)=>{const oh=fac.officeHours[i];return oh?`<span style="font-size:10px;color:var(--text-3);font-family:'Fira Code',monospace;"> ${d}:${fmtRange(oh.open,oh.close)}</span>`:null;}).filter(Boolean).join('')}
       </div>
     </div>`;
   panel.appendChild(hdr);
 
-  const wkLbl=document.createElement('div');
-  wkLbl.className='vs-week-label';
-  wkLbl.textContent=`Week of ${currentMonday.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}`;
-  panel.appendChild(wkLbl);
+  // Build rows — one row per PCC assigned this week, plus gap rows
+  const rows = [];
+  const pccSet = new Set();
 
-  // One day card per day
+  // Collect all PCCs scheduled this week at this facility
   for(let i=0;i<5;i++){
-    const d=addDays(currentMonday,i);
-    const today=isToday(d);
-    const oh=effectiveHours(facId,i,'live');
-    const isClosed=!oh;
-    const isHol=isHoliday(i)||isHolidayOverride(i);
-    const hEntry=getHolidayEntry(i);
-
-    const entries=isClosed?[]:getLiveCell(facId,i);
-    const present=entries.filter(e=>!isOnPTO(e.staffId,i));
-    const absent=entries.filter(e=>isOnPTO(e.staffId,i));
-
-    // Coverage analysis
-    let covPct=0, gaps=[];
-    if(oh && present.length>0){
-      const {covered,total}=coveredMins(oh.open,oh.close,present);
-      covPct=total>0?Math.round(covered/total*100):0;
-      // Find gap windows
-      const openMin=toMins(oh.open), closeMin=toMins(oh.close);
-      const intervals=present.map(e=>([
-        Math.max(toMins(e.start),openMin),
-        Math.min(toMins(e.end),closeMin)
-      ])).filter(([a,b])=>b>a).sort((a,b)=>a[0]-b[0]);
-      // Merge and find uncovered windows
-      let cur=openMin;
-      intervals.forEach(([s,e])=>{
-        if(s>cur) gaps.push({start:cur,end:s});
-        cur=Math.max(cur,e);
-      });
-      if(cur<closeMin) gaps.push({start:cur,end:closeMin});
-    } else if(oh && present.length===0){
-      gaps=[{start:toMins(oh.open),end:toMins(oh.close)}];
-    }
-
-    let statusLabel,statusCls;
-    if(isClosed){
-      statusLabel=isHol?(hEntry?.override?`🕐 ${hEntry.name}`:`🎉 ${hEntry?.name||'Holiday'}`):'🔒 Closed';
-      statusCls='closed';
-    } else if(present.length===0){
-      statusLabel='⚠ No coverage';statusCls='gap';
-    } else if(covPct>=100){
-      statusLabel='✓ Covered';statusCls='working';
-    } else {
-      statusLabel=`${covPct}% covered`;statusCls='pto';
-    }
-
-    const card=document.createElement('div');
-    card.className=`vs-day-card${today?' is-today':''}${isClosed?' is-off':''}`;
-    card.innerHTML=`
-      <div class="vs-day-header">
-        <div class="vs-day-date">${d.getDate()}</div>
-        <div>
-          <div class="vs-day-name">${DAYS[i]}</div>
-          ${oh?`<div style="font-family:'Fira Code',monospace;font-size:10px;color:var(--text-3);">${fmtRange(oh.open,oh.close)}</div>`:''}
-        </div>
-        <span class="vs-day-status ${statusCls}">${statusLabel}</span>
-      </div>`;
-
-    const body=document.createElement('div');
-    body.className='vs-day-body';
-
-    if(isClosed){
-      body.innerHTML=`<div class="vs-off-label">${isHol?`${hEntry?.name||'Holiday'}`:'Facility closed'}</div>`;
-    } else {
-      // Present PCCs
-      if(present.length>0){
-        present.forEach(e=>{
-          const s=staffById(e.staffId);if(!s)return;
-          const hrs=shiftHours(e.start,e.end,e.lunch);
-          const tagHtml=e.tag?`<span class="chip-tag ${({'Additional Coverage':'tag-additional','Project Work':'tag-project','Training':'tag-training','Admin':'tag-admin','On Call':'tag-oncall'}[e.tag]||'tag-custom')}">📌 ${e.tag}</span>`:'';
-          const noteHtml=e.note?`<div class="vs-shift-note">💬 ${e.note}</div>`:'';
-          const row=document.createElement('div');
-          row.className='vs-shift-row';
-          row.innerHTML=`
-            <div class="vs-shift-dot" style="background:${s.type==='float'?'var(--float-bd)':s.type==='hybrid'?'#059669':'var(--static-bd)'}"></div>
-            <div class="vs-shift-info">
-              <div class="vs-shift-fac">${s.name} <span style="font-weight:400;font-size:11px;color:var(--text-3);">${s.type==='float'?'🔄':s.type==='hybrid'?'🔀':'📌'}</span></div>
-              <div class="vs-shift-time">${fmtRange(e.start,e.end)} · ${hrs.toFixed(1)}h${e.lunch?` · 🥪 ${fmtTime(e.lunch)}`:''}</div>
-              ${tagHtml?`<div class="vs-shift-tag">${tagHtml}</div>`:''}${noteHtml}
-            </div>`;
-          body.appendChild(row);
-        });
-      }
-
-      // Gaps
-      gaps.forEach(gap=>{
-        const gapMins=gap.end-gap.start;
-        if(gapMins<=0) return;
-        const gapHrs=(gapMins/60).toFixed(1);
-        const gapRow=document.createElement('div');
-        gapRow.className='vs-shift-row';
-        gapRow.innerHTML=`
-          <div class="vs-shift-dot" style="background:var(--gap-bd);"></div>
-          <div class="vs-shift-info">
-            <div class="vs-shift-fac" style="color:var(--gap-tx);">⚠ Gap</div>
-            <div class="vs-shift-time" style="color:var(--gap-tx);">${fmtRange(fromMins(gap.start),fromMins(gap.end))} · ${gapHrs}h uncovered</div>
-          </div>`;
-        body.appendChild(gapRow);
-      });
-
-      // PTO / absent
-      if(absent.length>0){
-        absent.forEach(e=>{
-          const s=staffById(e.staffId);if(!s)return;
-          const row=document.createElement('div');
-          row.className='vs-shift-row';
-          row.style.opacity='.5';
-          row.innerHTML=`
-            <div class="vs-shift-dot" style="background:var(--pto-bd);"></div>
-            <div class="vs-shift-info">
-              <div class="vs-shift-fac" style="text-decoration:line-through;">${s.name}</div>
-              <div class="vs-shift-time">🏖 Out / PTO</div>
-            </div>`;
-          body.appendChild(row);
-        });
-      }
-
-      // No coverage at all
-      if(present.length===0&&absent.length===0){
-        const podFlag=document.createElement('div');
-        podFlag.innerHTML=pod
-          ?`<div style="color:${pod.color};font-size:12px;font-weight:700;padding:4px 0;">🏷 ${pod.name} coverage needed</div>`
-          :`<div class="vs-off-label">⚠ No coverage assigned</div>`;
-        body.appendChild(podFlag);
-      }
-    }
-
-    card.appendChild(body);
-    panel.appendChild(card);
+    getLiveCell(facId,i).forEach(e=>pccSet.add(e.staffId));
   }
+
+  // One row per PCC, items sorted by start time within each day
+  [...pccSet].forEach(sid=>{
+    const s=staffById(sid);
+    if(!s) return;
+    const items=[];
+    for(let i=0;i<5;i++){
+      const entry=getLiveCell(facId,i).find(e=>e.staffId===sid);
+      if(entry) items.push({dayIdx:i,entry,fac,name:null, // name shown in label
+        color:s.type==='float'?'var(--float-bd)':s.type==='hybrid'?'#059669':'var(--static-bd)'});
+    }
+    rows.push({
+      label:s.name,
+      sublabel:s.type==='float'?'🔄 Float':s.type==='hybrid'?'🔀 Hybrid':'📌 Static',
+      color:s.type==='float'?'var(--float-bd)':s.type==='hybrid'?'#059669':'var(--static-bd)',
+      items,
+    });
+  });
+
+  // Gap row — shows uncovered windows chronologically
+  const gapItems=[];
+  for(let i=0;i<5;i++){
+    const oh=effectiveHours(facId,i,'live');
+    if(!oh) continue;
+    const present=getLiveCell(facId,i).filter(e=>!isOnPTO(e.staffId,i));
+    const openMin=toMins(oh.open), closeMin=toMins(oh.close);
+    const intervals=present.map(e=>[Math.max(toMins(e.start),openMin),Math.min(toMins(e.end),closeMin)])
+      .filter(([a,b])=>b>a).sort((a,b)=>a[0]-b[0]);
+    let cur=openMin;
+    intervals.forEach(([s,e])=>{ if(s>cur) gapItems.push({dayIdx:i,entry:{start:fromMins(cur),end:fromMins(s)},type:'gap'}); cur=Math.max(cur,e); });
+    if(cur<closeMin) gapItems.push({dayIdx:i,entry:{start:fromMins(cur),end:fromMins(closeMin)},type:'gap'});
+  }
+  if(gapItems.length>0){
+    rows.push({label:'⚠ Gaps',sublabel:'Uncovered windows',color:'var(--gap-bd)',items:gapItems});
+  }
+
+  if(rows.length===0){
+    panel.innerHTML+=`<div style="padding:24px;text-align:center;color:var(--text-3);font-style:italic;">No shifts scheduled this week</div>`;
+    return;
+  }
+
+  panel.appendChild(buildViewerWeekGrid({rows, facId}));
 }
 
-// ── PCC week view — same day card layout as My Schedule ───────────
+// ── PCC week view — weekly grid ───────────────────────────────────
 function renderViewerPCC(panel, staffId){
   panel.innerHTML='';
   if(!staffId){
@@ -6069,11 +6086,12 @@ function renderViewerPCC(panel, staffId){
   const initials=s.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
   const typeLabel=s.type==='static'?'📌 Static':s.type==='float'?'🔄 Float':'🔀 Hybrid';
 
-  // Same header style as My Schedule
+  // Header
   const hdr=document.createElement('div');
   hdr.className='vs-my-header';
+  hdr.style.marginBottom='14px';
   hdr.innerHTML=`
-    <div class="vs-my-avatar" style="background:${pod?.color||'var(--brand)'}">${initials}</div>
+    <div class="vs-my-avatar" style="background:${pod?.color||'var(--brand)'};">${initials}</div>
     <div>
       <div class="vs-my-name">${s.name}</div>
       <div class="vs-my-meta">${typeLabel}${pod?` · <span style="color:${pod.color};font-weight:700;">${pod.name}</span>`:''}${s.primaryFacId?' · 📍 '+facById(s.primaryFacId)?.name:''}</div>
@@ -6085,14 +6103,45 @@ function renderViewerPCC(panel, staffId){
   wkLbl.textContent=`Week of ${currentMonday.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}`;
   panel.appendChild(wkLbl);
 
-  // Same day-card format as My Schedule — delegates to shared renderer
+  // One row per facility where PCC is scheduled, sorted by earliest start time
+  const facRows=new Map();
   for(let i=0;i<5;i++){
-    const card=buildViewerDayCard(s,i);
-    panel.appendChild(card);
+    if(isOnPTO(s.id,i)){
+      // PTO row
+      if(!facRows.has('pto')) facRows.set('pto',{label:'🏖 Out / PTO',sublabel:'',color:'var(--pto-bd)',items:[]});
+      facRows.get('pto').items.push({dayIdx:i,entry:{start:'00:00',end:'00:00'},name:'PTO',type:'pto'});
+      continue;
+    }
+    FACILITIES.forEach(fac=>{
+      const entry=getLiveCell(fac.id,i).find(e=>e.staffId===s.id);
+      if(!entry) return;
+      if(!facRows.has(fac.id)) facRows.set(fac.id,{
+        label:fac.name,
+        sublabel:pod?pod.name:'',
+        color:fac.color,
+        items:[],
+      });
+      facRows.get(fac.id).items.push({dayIdx:i,entry,fac,name:null,
+        color:fac.color});
+    });
   }
+
+  if(facRows.size===0){
+    panel.innerHTML+=`<div style="padding:24px;text-align:center;color:var(--text-3);font-style:italic;">No shifts scheduled this week</div>`;
+    return;
+  }
+
+  // Sort rows by earliest start time across the week
+  const sortedRows=[...facRows.values()].sort((a,b)=>{
+    const aMin=Math.min(...a.items.map(it=>toMins(it.entry?.start||'23:59')));
+    const bMin=Math.min(...b.items.map(it=>toMins(it.entry?.start||'23:59')));
+    return aMin-bMin;
+  });
+
+  panel.appendChild(buildViewerWeekGrid({rows:sortedRows}));
 }
 
-// Shared day card builder — used by both My Schedule and PCC view
+// Shared day card builder — kept for My Schedule view
 function buildViewerDayCard(s, dayIdx){
   const d=addDays(currentMonday,dayIdx);
   const today=isToday(d);
@@ -6102,6 +6151,8 @@ function buildViewerDayCard(s, dayIdx){
     getLiveCell(fac.id,dayIdx).filter(e=>e.staffId===s.id)
       .forEach(e=>myShifts.push({fac,entry:e}));
   });
+  // Sort by start time
+  myShifts.sort((a,b)=>toMins(a.entry.start)-toMins(b.entry.start));
 
   let statusLabel,statusCls;
   if(onPTO){statusLabel='🏖 PTO';statusCls='pto';}
