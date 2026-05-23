@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>F.I.T. Muscle & Joint Clinic — PCC Scheduler</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -606,7 +606,7 @@ body.view-only .view-only-badge {
 .view-only-badge { display: none; }
 
 /* ── MOBILE LAYOUT ── */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .main-wrap { display: none !important; }
   .stats-bar { display: none !important; }
   .summary-panel { display: none !important; }
@@ -675,7 +675,7 @@ body.view-only .view-only-badge {
 }
 
 /* Landscape: ultra-compact — max visual space for content */
-@media (max-width: 896px) and (orientation: landscape) {
+@media (max-width: 1024px) and (orientation: landscape) {
   header {
     height: 36px !important;
     padding: 0 8px !important;
@@ -794,7 +794,7 @@ body.view-only #mobile-view .mob-stats-strip { display: none !important; }
 /* FAB */
 .mob-fab { position: fixed; bottom: 20px; right: 16px; z-index: 100; width: 52px; height: 52px; border-radius: 50%; background: var(--brand); color: #fff; border: none; cursor: pointer; font-size: 26px; box-shadow: 0 4px 16px rgba(204,0,0,.4); display: none; align-items: center; justify-content: center; transition: transform .15s; }
 .mob-fab:active { transform: scale(.93); }
-@media (max-width: 768px) { .mob-fab { display: flex; } }
+@media (max-width: 1024px) { .mob-fab { display: flex; } }
 body.view-only .mob-fab { display: none !important; }
 
 /* Mobile assign bottom sheet */
@@ -1759,6 +1759,13 @@ body.focus-mode .fac-label:has(.fstat.ok) {
 // ═══════════════════════════════════════════════════════════════
 // DATA STRUCTURES
 // ═══════════════════════════════════════════════════════════════
+
+// ── Mobile detection ─────────────────────────────────────────────
+// Touch + screen width — reliably catches phones and tablets in both orientations
+function isMobile(){
+  const hasTouch=('ontouchstart' in window)||navigator.maxTouchPoints>0;
+  return hasTouch && window.innerWidth<=1024;
+}
 
 const DAYS = ['Mon','Tue','Wed','Thu','Fri'];
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -4050,19 +4057,23 @@ const TAG_COLORS = {
 };
 
 function renderMobile(){
-  if(window.innerWidth > 768) return;
+  if(!isMobile()) return;
 
-  // Show/hide viewer tabs for viewers
-  const mobViewerTabs = document.getElementById('mob-viewer-tabs');
-  if(mobViewerTabs) mobViewerTabs.style.display = !isEditor ? 'flex' : 'none';
+  // Show/hide viewer tabs
+  const mobViewerTabs=document.getElementById('mob-viewer-tabs');
+  if(mobViewerTabs) mobViewerTabs.style.display=(!isEditor&&!previewingAsViewer)?'flex':'none';
 
-  // In viewer mode, render appropriate mobile view
+  // Viewer mode
   if(!isEditor){
+    if(mobViewerTabs&&!mobViewerTabs.dataset.initialized){
+      initMobViewerTabs();
+      mobViewerTabs.dataset.initialized='1';
+    }
     renderMobViewerContent();
     return;
   }
 
-  // Editor mode — full grid view
+  // Editor mode — full grid
   renderMobTabs();
   renderMobStats();
   renderMobPTOStrip();
@@ -4728,7 +4739,7 @@ document.getElementById('mob-fab').addEventListener('click',()=>{
 window.addEventListener('resize', ()=>{ fixMobileTop(); renderMobile(); });
 
 function fixMobileTop(){
-  if(window.innerWidth > 768) return;
+  if(!isMobile()) return;
   const header=document.querySelector('header');
   const toolbar=document.querySelector('.toolbar');
   if(!header||!toolbar) return;
@@ -6113,7 +6124,10 @@ function scheduleSavePTO(){
 // ── Reload schedule when navigating weeks ─────────────────────────
 async function changeWeek(delta){
   currentMonday=addDays(currentMonday,delta*7);
-  vcsDay=null; // Reset to today's day for new week
+  vcsDay=null;
+  // Reset mobile viewer tab init so it re-renders for new week
+  const mvt=document.getElementById('mob-viewer-tabs');
+  if(mvt) delete mvt.dataset.initialized;
   if(spReady){
     await loadScheduleForWeek();
     await loadPTOForWeek();
