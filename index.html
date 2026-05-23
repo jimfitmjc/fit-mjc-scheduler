@@ -749,6 +749,26 @@ body.view-only .mob-fab { display: none !important; }
 .mob-pcc-item:hover, .mob-pcc-item:active { border-color: var(--brand); background: var(--brand-lt); }
 .mob-pcc-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
+/* Cell + assign button */
+.cell-add-btn{
+  width:18px;height:18px;border-radius:50%;
+  border:1px solid var(--border2);background:var(--surface);
+  color:var(--brand);font-size:14px;font-weight:700;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  opacity:0;transition:opacity .15s;flex-shrink:0;
+  line-height:1;padding:0;
+}
+.drop-cell:hover .cell-add-btn { opacity:1; }
+
+/* Gap cascade trigger link */
+.gap-cascade-trigger{
+  font-size:10px;font-weight:700;color:var(--brand);
+  cursor:pointer;padding:2px 0;
+  display:flex;align-items:center;gap:3px;
+  opacity:0;transition:opacity .15s;
+}
+.drop-cell:hover .gap-cascade-trigger { opacity:1; }
+
 /* ── CASCADE PANEL ── */
 .cascade-header{display:flex;align-items:flex-start;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid var(--border);}
 .cascade-title{font-size:15px;font-weight:700;}
@@ -1908,30 +1928,70 @@ function buildLiveCell(fac,dayIdx){
   const hEntry=getHolidayEntry(dayIdx);
 
   // Coverage analysis using effective hours with 30-min grace buffer
-  const GRACE = 30; // minutes
+  // Lunch breaks are NOT counted as gaps if another shift covers that window
+  const GRACE = 30;
   let covPct=0,covLabel='',statusCls='';
-  const {covered,total}=coveredMins(oh.open,oh.close,present);
 
-  // Apply grace buffer — check if gap is only at start or end
-  let effectiveCovered = covered;
-  if(total > 0 && covered < total){
+  // Build shift intervals excluding personal lunch windows,
+  // but only subtract lunch if that window isn't covered by another PCC
+  const shiftIntervals = present.map(e=>{
+    const s=toMins(e.start), en=toMins(e.end);
+    if(!e.lunch) return {start:s,end:en};
+    const ls=toMins(e.lunch), le=ls+30;
+    // Check if another PCC covers the lunch window
+    const lunchCovered=present.some(other=>{
+      if(other===e) return false;
+      return toMins(other.start)<=ls && toMins(other.end)>=le;
+    });
+    // If lunch is covered by another PCC, don't subtract it
+    return {start:s,end:en,lunchStart:lunchCovered?null:ls,lunchEnd:lunchCovered?null:le};
+  });
+
+  // Custom coverage calculation respecting lunch gaps
+  function coveredMinsWithLunch(open, close, intervals){
+    const oMin=toMins(open), cMin=toMins(close);
+    const total=cMin-oMin;
+    if(total<=0||intervals.length===0) return {covered:0,total};
+    // Build covered segments, punching out uncovered lunch windows
+    let segments=[];
+    intervals.forEach(iv=>{
+      const s=Math.max(iv.start,oMin), e=Math.min(iv.end,cMin);
+      if(e<=s) return;
+      if(iv.lunchStart&&iv.lunchEnd){
+        const ls=Math.max(iv.lunchStart,oMin), le=Math.min(iv.lunchEnd,cMin);
+        if(ls>s) segments.push([s,ls]);
+        if(le<e) segments.push([le,e]);
+      } else {
+        segments.push([s,e]);
+      }
+    });
+    // Merge segments
+    segments.sort((a,b)=>a[0]-b[0]);
+    let covered=0, cur=segments[0]?[...segments[0]]:null;
+    if(!cur) return {covered:0,total};
+    for(let i=1;i<segments.length;i++){
+      if(segments[i][0]<=cur[1]) cur[1]=Math.max(cur[1],segments[i][1]);
+      else{covered+=cur[1]-cur[0];cur=[...segments[i]];}
+    }
+    covered+=cur[1]-cur[0];
+    return {covered:Math.max(0,Math.min(covered,total)),total};
+  }
+
+  const {covered,total}=coveredMinsWithLunch(oh.open,oh.close,shiftIntervals);
+
+  // Apply grace buffer
+  let effectiveCovered=covered;
+  if(total>0 && covered<total){
     const openMin=toMins(oh.open), closeMin=toMins(oh.close);
-    // Find earliest and latest covered minute
-    const mergedIntervals = present
-      .map(e=>([Math.max(toMins(e.start),openMin), Math.min(toMins(e.end),closeMin)]))
+    const mergedIntervals=shiftIntervals
+      .map(iv=>([Math.max(iv.start,openMin), Math.min(iv.end,closeMin)]))
       .filter(([a,b])=>b>a).sort((a,b)=>a[0]-b[0]);
     if(mergedIntervals.length>0){
-      const firstStart = mergedIntervals[0][0];
-      const lastEnd = mergedIntervals[mergedIntervals.length-1][1];
-      const startGap = firstStart - openMin;
-      const endGap = closeMin - lastEnd;
-      // If only gap is ≤30min at start and/or end, treat as covered
-      const midCovered = coveredMins(
-        fromMins(firstStart>openMin?firstStart:openMin),
-        fromMins(lastEnd<closeMin?lastEnd:closeMin),
-        present
-      ).covered;
-      if(startGap<=GRACE && endGap<=GRACE) effectiveCovered=total;
+      const firstStart=mergedIntervals[0][0];
+      const lastEnd=mergedIntervals[mergedIntervals.length-1][1];
+      const startGap=firstStart-openMin;
+      const endGap=closeMin-lastEnd;
+      if(startGap<=GRACE&&endGap<=GRACE) effectiveCovered=total;
       else if(startGap<=GRACE) effectiveCovered=covered+(firstStart-openMin);
       else if(endGap<=GRACE) effectiveCovered=covered+(closeMin-lastEnd);
     }
@@ -1949,12 +2009,11 @@ function buildLiveCell(fac,dayIdx){
   if(isHalfDay){
     const ob=document.createElement('div');ob.className='override-banner';
     ob.textContent=hEntry&&isHolidayOverride(dayIdx)
-      ?`🕐 ${hEntry.name}`
-      :'⚡ Temp hours';
+      ?`🕐 ${hEntry.name}`:'⚡ Temp hours';
     cell.appendChild(ob);
   }
 
-  // Top row
+  // Top row with + button for editors
   const top=document.createElement('div');
   top.className='cell-top';
   const ohLbl=document.createElement('span');
@@ -1967,25 +2026,35 @@ function buildLiveCell(fac,dayIdx){
     sb.textContent=covLabel;
     top.appendChild(sb);
   }
+  // + assign button for editors — visible on hover
+  if(isEditor){
+    const addBtn=document.createElement('button');
+    addBtn.className='cell-add-btn';
+    addBtn.title='Assign PCC to this cell';
+    addBtn.textContent='+';
+    addBtn.addEventListener('click',e=>{
+      e.stopPropagation();
+      openCellAssignPanel(fac.id,dayIdx);
+    });
+    top.appendChild(addBtn);
+  }
   cell.appendChild(top);
 
   // Coverage bar
-  if(oh){
-    const barWrap=document.createElement('div');
-    barWrap.className='cov-bar-wrap';
-    const bar=document.createElement('div');
-    bar.className='cov-bar-fill '+(covPct>=100?'full':covPct>0?'partial':'none');
-    bar.style.width=covPct+'%';
-    barWrap.appendChild(bar);
-    cell.appendChild(barWrap);
-  }
+  const barWrap=document.createElement('div');
+  barWrap.className='cov-bar-wrap';
+  const bar=document.createElement('div');
+  bar.className='cov-bar-fill '+(covPct>=100?'full':covPct>0?'partial':'none');
+  bar.style.width=covPct+'%';
+  barWrap.appendChild(bar);
+  cell.appendChild(barWrap);
 
-  // Pod flag when empty, or hint when has assignments
+  // Pod flag (empty cells) or cascade trigger (gap cells) or drop hint
   if(present.length===0 && absent.length===0){
-    const pod=fac.podId ? podById(fac.podId) : null;
+    const pod=fac.podId?podById(fac.podId):null;
     const volTier=VOLUME_TIERS[fac.volume||'low'];
     const recurringCount=getWeekRecurringGapCount(fac.id);
-    if(pod && fac.podId){
+    if(pod&&fac.podId){
       const flag=document.createElement('div');
       flag.className='pod-flag';
       flag.style.cursor=isEditor?'pointer':'default';
@@ -1998,14 +2067,25 @@ function buildLiveCell(fac,dayIdx){
       cell.appendChild(flag);
     } else {
       const hint=document.createElement('div');
-      hint.className='empty-hint';
-      hint.textContent='Drop PCC';
+      hint.className='empty-hint';hint.textContent='Drop PCC';
       cell.appendChild(hint);
+    }
+  } else if(statusCls==='cell-gap'||statusCls==='cell-partial'){
+    // Gap/partial cells — show cascade trigger for editors
+    if(isEditor){
+      const gapBtn=document.createElement('div');
+      gapBtn.className='gap-cascade-trigger';
+      gapBtn.title='Click to see coverage options';
+      gapBtn.innerHTML='🎯 Coverage options';
+      gapBtn.addEventListener('click',e=>{
+        e.stopPropagation();
+        renderCascadePanel(fac.id,dayIdx);
+      });
+      cell.appendChild(gapBtn);
     }
   } else {
     const hint=document.createElement('div');
-    hint.className='empty-hint';
-    hint.textContent='Drop PCC';
+    hint.className='empty-hint';hint.textContent='Drop PCC';
     cell.appendChild(hint);
   }
 
@@ -2264,6 +2344,80 @@ function isRecurringGapCovered(gap, dayIdx){
   const gapEndMin=toMins(gap.gapEnd);
   const {covered}=coveredMins(gap.gapStart, gap.gapEnd, entries);
   return covered>=(gapEndMin-gapStartMin);
+}
+
+// ── Cell + assign panel ───────────────────────────────────────────
+// Quick assign from + button — shows all available PCCs sorted by relevance
+function openCellAssignPanel(facId, dayIdx){
+  const fac=facById(facId);
+  const pod=fac?.podId?podById(fac.podId):null;
+  const overlay=document.getElementById('cascade-overlay');
+  const alreadyAssigned=getLiveCell(facId,dayIdx).map(e=>e.staffId);
+
+  // Sort: available floats (pod priority first) → static in same pod → others
+  const available=staff.filter(s=>!isOnPTO(s.id,dayIdx)&&!alreadyAssigned.includes(s.id));
+  const sorted=[
+    // Floats — sorted by pod priority match
+    ...available.filter(s=>s.type==='float'||s.type==='hybrid')
+      .sort((a,b)=>{
+        const aMatch=a.podPriority?.indexOf(fac?.podId)??99;
+        const bMatch=b.podPriority?.indexOf(fac?.podId)??99;
+        return aMatch-bMatch;
+      }),
+    // Static in same pod
+    ...available.filter(s=>s.type==='static'&&s.podId===fac?.podId),
+    // Everyone else
+    ...available.filter(s=>s.type==='static'&&s.podId!==fac?.podId),
+  ];
+
+  let html=`
+    <div class="cascade-header">
+      <div>
+        <div class="cascade-title">+ Assign PCC — ${fac?.name}</div>
+        <div class="cascade-meta">${DAYS[dayIdx]}${pod?` · <span style="color:${pod.color}">${pod.name}</span>`:''}</div>
+      </div>
+      <button class="cascade-close" onclick="closeCascade()">✕</button>
+    </div>
+    <div class="cascade-suggestions-title">Select PCC to assign:</div>`;
+
+  if(sorted.length===0){
+    html+=`<div style="padding:16px 18px;font-size:13px;color:var(--text-3);font-style:italic;">No available PCCs for this day</div>`;
+  }
+
+  sorted.forEach(s=>{
+    const typeIcon=s.type==='float'?'🔄':s.type==='hybrid'?'🔀':'📌';
+    const spod=s.podId?podById(s.podId):null;
+    const podMatch=s.podId===fac?.podId;
+    const podHtml=spod?`<span class="pod-badge" style="background:${spod.color}22;color:${spod.color};border:1px solid ${spod.color}44;">${spod.name}</span>`:'';
+    const wkHrs=coordWeekHours(s.id);
+    html+=`<div class="cascade-suggestion" style="border-left-color:${podMatch?'var(--ok-bd)':'var(--border2)'}">
+      <div class="cascade-sug-name">${typeIcon} ${s.name} ${podHtml}</div>
+      <div class="cascade-sug-tier" style="color:var(--text-3)">${s.primaryFacId?'📍 '+facById(s.primaryFacId)?.name:''} · ${wkHrs.toFixed(1)}h this week</div>
+      <button class="tbtn cascade-assign-btn" data-staff="${s.id}" data-fac="${facId}" data-day="${dayIdx}">Assign →</button>
+    </div>`;
+  });
+
+  html+=`<div class="cascade-footer"><button class="mbtn cancel" onclick="closeCascade()">Cancel</button></div>`;
+
+  overlay.querySelector('.cascade-panel').innerHTML=html;
+  overlay.classList.add('open');
+
+  // Wire assign buttons
+  overlay.querySelectorAll('.cascade-assign-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const sid=btn.dataset.staff;
+      const fid=btn.dataset.fac;
+      const did=parseInt(btn.dataset.day);
+      closeCascade();
+      openShiftModal(staffById(sid),fid,did,null,(start,end,lunch,tag,note)=>{
+        const arr=getLiveCell(fid,did);
+        arr.push({staffId:sid,start,end,lunch:lunch||null,tag:tag||null,note:note||null});
+        setLiveCell(fid,did,arr);
+        scheduleSaveSchedule();
+        render();
+      });
+    });
+  });
 }
 
 // ── Coverage cascade model ────────────────────────────────────────
