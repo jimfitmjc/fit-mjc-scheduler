@@ -749,6 +749,32 @@ body.view-only .mob-fab { display: none !important; }
 .mob-pcc-item:hover, .mob-pcc-item:active { border-color: var(--brand); background: var(--brand-lt); }
 .mob-pcc-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
+/* ── CASCADE PANEL ── */
+.cascade-header{display:flex;align-items:flex-start;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid var(--border);}
+.cascade-title{font-size:15px;font-weight:700;}
+.cascade-meta{font-size:11px;color:var(--text-3);margin-top:3px;}
+.cascade-close{width:26px;height:26px;border-radius:50%;border:1px solid var(--border);background:none;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;color:var(--text-3);flex-shrink:0;}
+.cascade-close:hover{background:var(--surface2);}
+.cascade-recurring{background:var(--blue-lt);border:1px solid var(--blue-md);border-radius:var(--r-sm);margin:10px 18px;padding:8px 10px;font-size:11px;color:var(--static-tx);}
+.cascade-recurring-item{margin-top:4px;font-weight:600;}
+.cascade-suggestions-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-3);padding:8px 18px 4px;}
+.cascade-suggestion{margin:0 18px 6px;padding:8px 10px;border-left:4px solid var(--border);border-radius:0 var(--r-sm) var(--r-sm) 0;background:var(--surface2);}
+.cascade-sug-tier{font-size:11px;font-weight:700;color:var(--text-2);}
+.cascade-sug-name{font-size:13px;font-weight:700;margin-top:2px;}
+.cascade-sug-note{font-size:11px;font-weight:400;color:var(--text-3);}
+.cascade-sug-warning{font-size:11px;color:var(--warn-tx);margin-top:2px;font-weight:600;}
+.cascade-assign-btn{margin-top:6px;padding:4px 10px;font-size:11px;}
+.cascade-lunch-warn{background:var(--warn-bg);border:1px solid var(--warn-bd);border-radius:var(--r-sm);margin:10px 18px;padding:8px 10px;font-size:11px;color:var(--warn-tx);}
+.cascade-lunch-item{margin-top:4px;font-weight:600;}
+.cascade-footer{padding:12px 18px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;}
+
+/* Recurring gap indicator on pod flag */
+.pod-flag .recurring-badge{
+  font-size:9px;font-weight:700;
+  background:var(--warn-bd);color:#fff;
+  border-radius:3px;padding:1px 4px;margin-top:2px;
+}
+
 /* ── VIEWER TAB BAR ── */
 .viewer-tabs {
   display: none; /* shown only for viewers via JS */
@@ -1236,6 +1262,12 @@ body.focus-mode .fac-label:has(.fstat.ok) {
   <p>Sign in with your F.I.T. Microsoft account to load and save schedules.</p>
   <button class="signin-btn" id="signin-btn">Sign in with Microsoft</button>
   <div class="signin-error" id="signin-error"></div>
+</div>
+
+<!-- Coverage Cascade Panel -->
+<div class="modal-overlay" id="cascade-overlay">
+  <div class="cascade-panel modal" style="width:440px;max-height:85vh;overflow-y:auto;padding:0;">
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -1952,12 +1984,17 @@ function buildLiveCell(fac,dayIdx){
   if(present.length===0 && absent.length===0){
     const pod=fac.podId ? podById(fac.podId) : null;
     const volTier=VOLUME_TIERS[fac.volume||'low'];
+    const recurringCount=getWeekRecurringGapCount(fac.id);
     if(pod && fac.podId){
       const flag=document.createElement('div');
       flag.className='pod-flag';
+      flag.style.cursor=isEditor?'pointer':'default';
+      flag.title=isEditor?'Click to see coverage options':'';
       flag.innerHTML=`<div class="pf-icon">🏷</div>
         <div class="pf-name" style="color:${pod.color}">${pod.name}</div>
-        <div class="pf-vol"><span class="vol-dot" style="background:${volTier?.color||'#888'}"></span> ${volTier?.label||''} vol</div>`;
+        <div class="pf-vol"><span class="vol-dot" style="background:${volTier?.color||'#888'}"></span> ${volTier?.label||''} vol</div>
+        ${recurringCount>0?`<div class="recurring-badge">📋 ${recurringCount} known gap${recurringCount>1?'s':''}</div>`:''}`;
+      if(isEditor) flag.addEventListener('click',()=>renderCascadePanel(fac.id,dayIdx));
       cell.appendChild(flag);
     } else {
       const hint=document.createElement('div');
@@ -2188,6 +2225,268 @@ function renderPodSummary(){
       </div>`;
     strip.appendChild(block);
   });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// POD PHASE 2 — CASCADE, LUNCH QUEUE, RECURRING GAPS
+// ═══════════════════════════════════════════════════════════════
+
+// ── Recurring gap definitions ─────────────────────────────────────
+// These are known weekly coverage gaps that should be pre-flagged
+const RECURRING_GAPS = [
+  // Lee's Summit — Sharla early departures
+  { facId:'f6', dayIdx:0, gapStart:'16:00', gapEnd:'18:00', note:"Sharla out at 4pm", flexPCC:'s16' },
+  { facId:'f6', dayIdx:2, gapStart:'13:30', gapEnd:'18:00', note:"Sharla out at 1:30pm", flexPCC:'s16' },
+  { facId:'f6', dayIdx:4, gapStart:'13:30', gapEnd:'18:00', note:"Sharla admin, out at 1:30pm", flexPCC:'s16' },
+  // Shawnee — Mikala early departures (Mon/Wed/Fri floats work 9-6)
+  { facId:'f11', dayIdx:0, gapStart:'16:00', gapEnd:'18:00', note:"Mikala out at 4pm — float covers 9-6", flexPCC:'s13' },
+  { facId:'f11', dayIdx:2, gapStart:'16:00', gapEnd:'18:00', note:"Mikala out at 4pm — float covers 9-6", flexPCC:'s13' },
+  { facId:'f11', dayIdx:4, gapStart:'16:00', gapEnd:'18:00', note:"Mikala out at 4pm — float covers 12-6", flexPCC:'s13' },
+  // Olathe — expanded hours Spring/Summer 2026
+  { facId:'f7', dayIdx:1, gapStart:'07:00', gapEnd:'10:00', note:"Expanded hours — coverage needed 7-10am" },
+  { facId:'f7', dayIdx:2, gapStart:'13:00', gapEnd:'19:00', note:"Expanded hours — coverage needed 1-7pm" },
+  { facId:'f7', dayIdx:4, gapStart:'12:00', gapEnd:'18:00', note:"Expanded hours — check last appt time" },
+  // KCK — regular afternoon gaps
+  { facId:'f3', dayIdx:1, gapStart:'12:30', gapEnd:'18:30', note:"Regular afternoon gap Tue" },
+  { facId:'f3', dayIdx:3, gapStart:'12:00', gapEnd:'18:30', note:"Regular afternoon gap Thu" },
+];
+
+// Get recurring gaps for a specific facility/day
+function getRecurringGaps(facId, dayIdx){
+  return RECURRING_GAPS.filter(g=>g.facId===facId&&g.dayIdx===dayIdx);
+}
+
+// Check if a recurring gap is covered by current live schedule
+function isRecurringGapCovered(gap, dayIdx){
+  const entries=getLiveCell(gap.facId, dayIdx).filter(e=>!isOnPTO(e.staffId, dayIdx));
+  if(!entries.length) return false;
+  const gapStartMin=toMins(gap.gapStart);
+  const gapEndMin=toMins(gap.gapEnd);
+  const {covered}=coveredMins(gap.gapStart, gap.gapEnd, entries);
+  return covered>=(gapEndMin-gapStartMin);
+}
+
+// ── Coverage cascade model ────────────────────────────────────────
+// Returns ordered list of coverage suggestions for a gap
+function getCascadeSuggestions(facId, dayIdx){
+  const fac=facById(facId);
+  const pod=fac?.podId;
+  const suggestions=[];
+
+  // Tier 1 — Primary pod float
+  const tier1=staff.filter(s=>
+    s.type==='float' &&
+    s.podPriority?.[0]===pod &&
+    !isOnPTO(s.id,dayIdx) &&
+    !FACILITIES.some(f=>getLiveCell(f.id,dayIdx).some(e=>e.staffId===s.id))
+  );
+  tier1.forEach(s=>suggestions.push({tier:1,label:'Primary float',pcc:s,color:'var(--ok-bd)'}));
+
+  // Tier 2 — Secondary pod float
+  const tier2=staff.filter(s=>
+    s.type==='float' &&
+    s.podPriority?.[1]===pod &&
+    !tier1.find(t=>t.id===s.id) &&
+    !isOnPTO(s.id,dayIdx) &&
+    !FACILITIES.some(f=>getLiveCell(f.id,dayIdx).some(e=>e.staffId===s.id))
+  );
+  tier2.forEach(s=>suggestions.push({tier:2,label:'Secondary float',pcc:s,color:'var(--warn-bd)'}));
+
+  // Tier 3 — Any other available float
+  const tier3=staff.filter(s=>
+    s.type==='float' &&
+    !tier1.find(t=>t.id===s.id) &&
+    !tier2.find(t=>t.id===s.id) &&
+    !isOnPTO(s.id,dayIdx) &&
+    !FACILITIES.some(f=>getLiveCell(f.id,dayIdx).some(e=>e.staffId===s.id))
+  );
+  tier3.forEach(s=>suggestions.push({tier:3,label:'Cross-pod float',pcc:s,color:'var(--float-bd)'}));
+
+  // Tier 4 — Low volume static PCC from same pod
+  if(suggestions.length===0){
+    const podFacs=PODS[pod]?.facIds||[];
+    const tier4=staff.filter(s=>
+      s.type==='static' &&
+      s.podId===pod &&
+      s.primaryFacId!==facId &&
+      !isOnPTO(s.id,dayIdx)
+    ).map(s=>{
+      const homeFac=facById(s.primaryFacId);
+      return { pcc:s, homeVol:homeFac?.volume||'low', homeFac };
+    }).filter(({homeVol})=>homeVol==='low')
+      .sort((a,b)=>a.homeVol.localeCompare(b.homeVol));
+
+    tier4.forEach(({pcc,homeFac})=>{
+      suggestions.push({
+        tier:4,
+        label:`Pull from ${homeFac?.name||'pod'} (Low vol)`,
+        pcc,
+        color:'var(--text-3)',
+        warning:`${homeFac?.name} will be unattended`
+      });
+    });
+  }
+
+  // Tier 5 — Escalate
+  if(suggestions.length===0){
+    suggestions.push({
+      tier:5,
+      label:'Manager escalation needed',
+      pcc:null,
+      color:'var(--gap-bd)',
+      warning:'No coverage options available'
+    });
+  }
+
+  // Special: Summer swap suggestion for Shawnee gaps
+  if(facId==='f11' && (dayIdx===0||dayIdx===2)){
+    const summer=staffById('s17');
+    if(summer&&!isOnPTO('s17',dayIdx)){
+      const summerAtKCK=getLiveCell('f3',dayIdx).some(e=>e.staffId==='s17');
+      if(summerAtKCK){
+        suggestions.unshift({
+          tier:0,
+          label:'Summer swap (KCK→Shawnee)',
+          pcc:summer,
+          color:'var(--ok-bd)',
+          note:'Send float to KCK instead',
+          isSwap:true
+        });
+      }
+    }
+  }
+
+  return suggestions;
+}
+
+// ── Pod lunch queue detection ─────────────────────────────────────
+// Returns lunch conflicts where all PCCs in a pod are at lunch simultaneously
+function getPodLunchConflicts(podId, dayIdx){
+  const podFacIds=PODS[podId]?.facIds||[];
+  const conflicts=[];
+
+  // Get all lunch windows for PCCs in this pod on this day
+  const lunchWindows=[];
+  podFacIds.forEach(facId=>{
+    const entries=getLiveCell(facId,dayIdx).filter(e=>!isOnPTO(e.staffId,dayIdx)&&e.lunch);
+    entries.forEach(e=>{
+      const s=staffById(e.staffId);
+      if(!s) return;
+      lunchWindows.push({
+        staffId:e.staffId, name:s.name, facId,
+        start:e.lunch, end:lunchEndTime(e.lunch)
+      });
+    });
+  });
+
+  if(lunchWindows.length<2) return conflicts;
+
+  // Check each 30-min window for full pod being at lunch
+  const times=lunchWindows.map(w=>toMins(w.start));
+  const uniqueTimes=[...new Set(times)].sort((a,b)=>a-b);
+
+  uniqueTimes.forEach(startMin=>{
+    const endMin=startMin+30;
+    const atLunch=lunchWindows.filter(w=>
+      toMins(w.start)<=startMin && toMins(w.end)>=endMin
+    );
+    // Count unique facilities — if all pod facilities with coverage are at lunch
+    const coveredFacIds=podFacIds.filter(fid=>
+      getLiveCell(fid,dayIdx).some(e=>!isOnPTO(e.staffId,dayIdx))
+    );
+    if(atLunch.length>=coveredFacIds.length && coveredFacIds.length>0){
+      conflicts.push({
+        startMin, endMin,
+        time:`${fmtTime(fromMins(startMin))}–${fmtTime(fromMins(endMin))}`,
+        pccs:atLunch.map(w=>w.name)
+      });
+    }
+  });
+
+  return conflicts;
+}
+
+// ── Render cascade panel in a gap cell ───────────────────────────
+function renderCascadePanel(facId, dayIdx){
+  const overlay=document.getElementById('cascade-overlay');
+  if(!overlay) return;
+
+  const fac=facById(facId);
+  const pod=fac?.podId?podById(fac.podId):null;
+  const volTier=VOLUME_TIERS[fac?.volume||'low'];
+  const suggestions=getCascadeSuggestions(facId,dayIdx);
+  const recurringGaps=getRecurringGaps(facId,dayIdx);
+
+  let html=`
+    <div class="cascade-header">
+      <div>
+        <div class="cascade-title">Coverage Cascade — ${fac?.name}</div>
+        <div class="cascade-meta">${DAYS[dayIdx]}${pod?` · <span style="color:${pod.color}">${pod.name}</span>`:''}${volTier?` · <span style="color:${volTier.color}">● ${volTier.label} volume</span>`:''}</div>
+      </div>
+      <button class="cascade-close" onclick="closeCascade()">✕</button>
+    </div>`;
+
+  // Recurring gaps notice
+  if(recurringGaps.length>0){
+    html+=`<div class="cascade-recurring">
+      📋 Known recurring gaps this day:
+      ${recurringGaps.map(g=>`<div class="cascade-recurring-item">⏱ ${fmtRange(g.gapStart,g.gapEnd)} — ${g.note}</div>`).join('')}
+    </div>`;
+  }
+
+  // Suggestions
+  html+=`<div class="cascade-suggestions-title">Coverage Options:</div>`;
+  suggestions.forEach(sug=>{
+    const tierLabel=['','🟢 Tier 1','🟡 Tier 2','🟠 Tier 3','⚪ Tier 4','🔴 Tier 5'][sug.tier]||'⭐';
+    html+=`<div class="cascade-suggestion" style="border-left-color:${sug.color}">
+      <div class="cascade-sug-tier">${tierLabel} — ${sug.label}</div>
+      ${sug.pcc?`<div class="cascade-sug-name">${sug.pcc.name}${sug.note?` <span class="cascade-sug-note">${sug.note}</span>`:''}</div>`:''}
+      ${sug.warning?`<div class="cascade-sug-warning">⚠️ ${sug.warning}</div>`:''}
+      ${sug.pcc&&isEditor?`<button class="tbtn cascade-assign-btn" data-staff="${sug.pcc.id}" data-fac="${facId}" data-day="${dayIdx}">Assign →</button>`:''}
+    </div>`;
+  });
+
+  // Lunch queue conflicts for this pod/day
+  if(pod&&fac?.podId){
+    const conflicts=getPodLunchConflicts(fac.podId,dayIdx);
+    if(conflicts.length>0){
+      html+=`<div class="cascade-lunch-warn">
+        🍽️ Pod Call Queue — Lunch conflicts on ${DAYS[dayIdx]}:
+        ${conflicts.map(c=>`<div class="cascade-lunch-item">⚠️ ${c.time} — All in queue at lunch (${c.pccs.join(', ')})</div>`).join('')}
+      </div>`;
+    }
+  }
+
+  html+=`<div class="cascade-footer"><button class="mbtn cancel" onclick="closeCascade()">Close</button></div>`;
+
+  overlay.querySelector('.cascade-panel').innerHTML=html;
+  overlay.classList.add('open');
+
+  // Wire assign buttons
+  overlay.querySelectorAll('.cascade-assign-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const sid=btn.dataset.staff;
+      const fid=btn.dataset.fac;
+      const did=parseInt(btn.dataset.day);
+      closeCascade();
+      openShiftModal(staffById(sid),fid,did,null,(start,end,lunch,tag,note)=>{
+        const arr=getLiveCell(fid,did);
+        arr.push({staffId:sid,start,end,lunch:lunch||null,tag:tag||null,note:note||null});
+        setLiveCell(fid,did,arr);
+        scheduleSaveSchedule();
+        render();
+      });
+    });
+  });
+}
+
+function closeCascade(){
+  document.getElementById('cascade-overlay')?.classList.remove('open');
+}
+
+// ── Recurring gap indicator in facility label ─────────────────────
+function getWeekRecurringGapCount(facId){
+  return RECURRING_GAPS.filter(g=>g.facId===facId&&!isRecurringGapCovered(g,g.dayIdx)).length;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -3382,6 +3681,12 @@ document.getElementById('preview-viewer-btn').addEventListener('click',()=>{
     render();
   }
 });
+
+// ── Cascade overlay close ─────────────────────────────────────────
+document.getElementById('cascade-overlay').addEventListener('click',e=>{
+  if(e.target===document.getElementById('cascade-overlay')) closeCascade();
+});
+
 let focusMode = false;
 document.getElementById('focus-mode-btn').addEventListener('click',()=>{
   focusMode = !focusMode;
