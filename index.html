@@ -893,6 +893,56 @@ body.schedule-locked .ack-btn { display:none !important; }
   border-radius:3px;padding:1px 4px;margin-top:2px;
 }
 
+/* Viewer context strip — float availability + PTO */
+.viewer-context-strip {
+  display: flex; gap: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0; overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.viewer-context-strip::-webkit-scrollbar { display: none; }
+.vcs-section {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 14px; flex-wrap: wrap;
+  border-right: 1px solid var(--border);
+  min-width: 0;
+}
+.vcs-section:last-child { border-right: none; }
+.vcs-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--text-3); flex-shrink: 0;
+  white-space: nowrap;
+}
+.vcs-pill {
+  font-size: 11px; font-weight: 600; padding: 2px 9px;
+  border-radius: 999px; white-space: nowrap; flex-shrink: 0;
+}
+.vcs-pill.float-pill {
+  background: var(--float-bg); color: var(--float-tx);
+  border: 1px solid var(--float-bd);
+}
+.vcs-pill.pto-pill {
+  background: var(--pto-bg); color: var(--pto-tx);
+  border: 1px solid var(--pto-bd);
+}
+.vcs-pill.none {
+  background: var(--surface2); color: var(--text-3);
+  border: 1px solid var(--border); font-style: italic;
+}
+.vcs-day-tabs {
+  display: flex; gap: 3px; flex-shrink: 0;
+}
+.vcs-day-btn {
+  padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--surface2); font-size: 10px; font-weight: 600;
+  color: var(--text-2); cursor: pointer; font-family: inherit;
+  transition: all .15s;
+}
+.vcs-day-btn.active {
+  background: var(--brand); color: #fff; border-color: var(--brand);
+}
+
 /* ── VIEWER PANEL (clean card views) ── */
 .viewer-panel {
   flex: 1; overflow-y: auto; padding: 16px 20px 24px;
@@ -1302,6 +1352,21 @@ body.focus-mode .fac-label:has(.fstat.ok) {
         <button class="viewer-tab" data-view="facility">🏥 Facility</button>
         <button class="viewer-tab" data-view="pcc">👤 PCC</button>
         <select class="viewer-tab-select" id="viewer-tab-select" style="display:none"></select>
+      </div>
+      <!-- Viewer context strip — float availability + PTO (viewers only) -->
+      <div class="viewer-context-strip" id="viewer-context-strip" style="display:none;">
+        <div class="vcs-section">
+          <span class="vcs-label">Day:</span>
+          <div class="vcs-day-tabs" id="vcs-day-tabs"></div>
+        </div>
+        <div class="vcs-section">
+          <span class="vcs-label">🔄 Available Floats:</span>
+          <div id="vcs-floats" style="display:flex;gap:4px;flex-wrap:wrap;"></div>
+        </div>
+        <div class="vcs-section">
+          <span class="vcs-label">🏖 Out / PTO:</span>
+          <div id="vcs-pto" style="display:flex;gap:4px;flex-wrap:wrap;"></div>
+        </div>
       </div>
       <!-- Viewer card panel — shown instead of grid for non-company views -->
       <div class="viewer-panel" id="viewer-panel" style="display:none;"></div>
@@ -5576,6 +5641,7 @@ function scheduleSavePTO(){
 // ── Reload schedule when navigating weeks ─────────────────────────
 async function changeWeek(delta){
   currentMonday=addDays(currentMonday,delta*7);
+  vcsDay=null; // Reset to today's day for new week
   if(spReady){
     await loadScheduleForWeek();
     await loadPTOForWeek();
@@ -5612,6 +5678,82 @@ document.getElementById('today-btn').addEventListener('click',()=>{
 // ── VIEWER VIEW TABS ───────────────────────────────────────────────
 let viewerView = 'company'; // 'company' | 'facility' | 'pcc' | 'mine'
 let viewerSubId = null;     // selected facId or staffId for facility/pcc views
+
+// ── Viewer context strip ──────────────────────────────────────────
+let vcsDay = null; // selected day index for context strip
+
+function renderViewerContextStrip(){
+  const strip=document.getElementById('viewer-context-strip');
+  if(!strip) return;
+  strip.style.display='flex';
+
+  // Default to today if weekday, else Monday
+  if(vcsDay===null){
+    const wd=new Date().getDay();
+    vcsDay=(wd>=1&&wd<=5)?wd-1:0;
+  }
+
+  // Day tabs
+  const dayTabs=document.getElementById('vcs-day-tabs');
+  dayTabs.innerHTML='';
+  for(let i=0;i<5;i++){
+    const d=addDays(currentMonday,i);
+    const btn=document.createElement('button');
+    btn.className='vcs-day-btn'+(i===vcsDay?' active':'');
+    btn.textContent=DAYS[i].slice(0,3)+' '+d.getDate();
+    btn.addEventListener('click',()=>{ vcsDay=i; renderViewerContextStrip(); });
+    dayTabs.appendChild(btn);
+  }
+
+  // Available floats for selected day
+  const floatsEl=document.getElementById('vcs-floats');
+  floatsEl.innerHTML='';
+  const availableFloats=staff.filter(s=>{
+    if(s.type!=='float'&&s.type!=='hybrid') return false;
+    if(isOnPTO(s.id,vcsDay)) return false;
+    if(s.type==='hybrid'&&!s.secondaryDays?.includes(vcsDay)) return false;
+    return !FACILITIES.some(fac=>getLiveCell(fac.id,vcsDay).some(e=>e.staffId===s.id));
+  });
+  if(availableFloats.length===0){
+    floatsEl.innerHTML='<span class="vcs-pill none">None available</span>';
+  } else {
+    availableFloats.forEach(s=>{
+      const pod=s.podId?podById(s.podId):null;
+      const pill=document.createElement('span');
+      pill.className='vcs-pill float-pill';
+      pill.textContent=s.name.split(' ')[0]; // First name only for compactness
+      if(pod) pill.title=`${s.name} · ${pod.name}`;
+      floatsEl.appendChild(pill);
+    });
+  }
+
+  // PTO / Out for selected day
+  const ptoEl=document.getElementById('vcs-pto');
+  ptoEl.innerHTML='';
+  const ptoList=getPTO(vcsDay);
+  // Also check holidays
+  const holiday=isHoliday(vcsDay)||isHolidayOverride(vcsDay);
+  if(holiday){
+    const hEntry=getHolidayEntry(vcsDay);
+    ptoEl.innerHTML=`<span class="vcs-pill pto-pill">${hEntry?.override?'🕐':'🎉'} ${hEntry?.name||'Holiday'}</span>`;
+  } else if(ptoList.length===0){
+    ptoEl.innerHTML='<span class="vcs-pill none">No absences</span>';
+  } else {
+    ptoList.forEach(sid=>{
+      const s=staffById(sid);if(!s)return;
+      const pill=document.createElement('span');
+      pill.className='vcs-pill pto-pill';
+      pill.textContent=s.name.split(' ')[0];
+      pill.title=s.name;
+      ptoEl.appendChild(pill);
+    });
+  }
+}
+
+function hideViewerContextStrip(){
+  const strip=document.getElementById('viewer-context-strip');
+  if(strip) strip.style.display='none';
+}
 
 function initViewerTabs(){
   const bar=document.getElementById('viewer-tabs');
@@ -5673,7 +5815,6 @@ function applyViewerView(){
   document.querySelectorAll('.drop-cell').forEach(c=>c.classList.remove('has-my-shift'));
 
   if(viewerView==='company'){
-    // Clean simplified grid — hide sidebar, stats, summary, pod strip
     panel.style.display='none';
     gridScroll.style.display='';
     document.body.classList.add('viewer-company-clean');
@@ -5681,9 +5822,9 @@ function applyViewerView(){
     if(statsBar) statsBar.style.display='none';
     if(summaryPanel) summaryPanel.style.display='none';
     if(podStrip) podStrip.style.display='none';
-    // Hide PTO and float bench rows
     document.getElementById('pto-wrap').style.display='none';
     document.getElementById('bench-wrap').style.display='none';
+    renderViewerContextStrip();
     return;
   }
 
@@ -5697,6 +5838,8 @@ function applyViewerView(){
   if(statsBar) statsBar.style.display='none';
   if(summaryPanel) summaryPanel.style.display='none';
   if(podStrip) podStrip.style.display='none';
+
+  renderViewerContextStrip();
 
   if(viewerView==='mine'){
     renderViewerMySchedule(panel);
@@ -5986,8 +6129,8 @@ function applyAccessMode(){
     document.getElementById('view-only-badge').style.display='none';
     document.getElementById('viewer-tabs').style.display='none';
     document.getElementById('viewer-panel').style.display='none';
+    document.getElementById('viewer-context-strip').style.display='none';
     document.getElementById('grid-scroll').style.display='';
-    // Restore editor-only elements
     const aside=document.querySelector('aside');
     if(aside) aside.style.display='';
     document.getElementById('pto-wrap').style.display='';
