@@ -749,6 +749,51 @@ body.view-only .mob-fab { display: none !important; }
 .mob-pcc-item:hover, .mob-pcc-item:active { border-color: var(--brand); background: var(--brand-lt); }
 .mob-pcc-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
+/* ── ACKNOWLEDGED GAPS ── */
+.drop-cell.cell-acked {
+  border-color: #94a3b8 !important;
+  background: #f8fafc !important;
+  opacity: .7;
+}
+.drop-cell.cell-acked .cell-status {
+  background: #94a3b8 !important;
+  color: #fff !important;
+}
+.drop-cell.cell-acked .cov-bar-fill {
+  background: #94a3b8 !important;
+}
+.ack-label {
+  font-size: 9px; font-weight: 700;
+  color: #64748b;
+  display: flex; align-items: center; gap: 3px;
+  margin-top: 2px; flex-shrink: 0;
+}
+.ack-btn {
+  font-size: 9px; font-weight: 700;
+  background: none; border: 1px solid #94a3b8;
+  border-radius: 3px; color: #64748b;
+  cursor: pointer; padding: 1px 5px;
+  font-family: inherit; transition: all .15s;
+  white-space: nowrap; flex-shrink: 0;
+}
+.ack-btn:hover { background: #f1f5f9; border-color: #475569; color: #475569; }
+.unack-btn {
+  font-size: 9px; font-weight: 700;
+  background: none; border: 1px solid #cbd5e1;
+  border-radius: 3px; color: #94a3b8;
+  cursor: pointer; padding: 1px 5px;
+  font-family: inherit; transition: all .15s;
+  opacity: 0;
+}
+.drop-cell:hover .unack-btn { opacity: 1; }
+.unack-btn:hover { border-color: var(--gap-bd); color: var(--gap-tx); }
+
+/* Clear acks toolbar button pulse when acks exist */
+#clear-acks-btn.has-acks {
+  border-color: #94a3b8;
+  color: #64748b;
+}
+
 /* Cell + assign button */
 .cell-add-btn{
   width:18px;height:18px;border-radius:50%;
@@ -974,6 +1019,7 @@ body.focus-mode .fac-label:has(.fstat.ok) {
   <button class="tbtn" id="add-staff-btn">+ Add PCC</button>
   <button class="tbtn" id="fac-hours-btn">🕐 Hours</button>
   <button class="tbtn" id="closures-btn">🗓 Holidays &amp; Closures</button>
+  <button class="tbtn" id="clear-acks-btn" title="Clear all acknowledged gaps for this week" style="display:none;">↺ Clear Acks</button>
   <button class="tbtn" id="focus-mode-btn" title="Hide fully covered cells to focus on gaps">🎯 Focus Gaps</button>
   <button class="tbtn" id="preview-viewer-btn" title="Preview the viewer experience">👁 Preview Viewer</button>
   <button class="tbtn" id="print-btn">🖨 Print</button>
@@ -1415,6 +1461,10 @@ let tmplClosures = {};
 // holidays[weekKey] = [{dayIdx, name}]  — company-wide, affects all facilities
 let holidays = {};
 
+// acknowledged[weekKey][facId][dayIdx] = {by: username, ts: timestamp}
+// Marks a gap as known/accepted — removes visual flag without requiring coverage
+let acknowledged = {};
+
 let mode = 'live';
 let currentMonday = getMonday(new Date());
 let spCollapsed = false;
@@ -1565,6 +1615,29 @@ function setTmplClosure(facId,dayIdx,val){
 }
 function getTmplClosure(facId,dayIdx){
   return tmplClosures[facId]?.[dayIdx]||null;
+}
+
+// ── Acknowledged gap helpers ──────────────────────────────────────
+function getAck(facId,dayIdx){
+  const k=weekKey(currentMonday);
+  return acknowledged[k]?.[facId]?.[dayIdx]||null;
+}
+function setAck(facId,dayIdx,val){
+  const k=weekKey(currentMonday);
+  if(!acknowledged[k]) acknowledged[k]={};
+  if(!acknowledged[k][facId]) acknowledged[k][facId]={};
+  if(val===null) delete acknowledged[k][facId][dayIdx];
+  else acknowledged[k][facId][dayIdx]=val;
+}
+function clearAllAcks(){
+  const k=weekKey(currentMonday);
+  acknowledged[k]={};
+}
+function getWeekAckCount(){
+  const k=weekKey(currentMonday);
+  if(!acknowledged[k]) return 0;
+  return Object.values(acknowledged[k])
+    .reduce((s,fac)=>s+Object.keys(fac).length, 0);
 }
 
 // Hours per PCC per day this week
@@ -1814,6 +1887,7 @@ function renderFacRows(){
       for(let i=0;i<5;i++){
         const oh=effectiveHours(fac.id,i,'live');
         if(!oh) continue;
+        if(getAck(fac.id,i)) continue; // acknowledged — don't count
         const cell=getLiveCell(fac.id,i);
         const present=cell.filter(e=>!isOnPTO(e.staffId,i));
         const {covered,total}=coveredMins(oh.open,oh.close,present);
@@ -2003,7 +2077,12 @@ function buildLiveCell(fac,dayIdx){
   else if(covPct>0){statusCls='cell-partial';covLabel=`${covPct}% · ${(uncovMins/60).toFixed(1)}h gap`;}
   else{statusCls='cell-gap';covLabel=`Open ${fmtRange(oh.open,oh.close)}`;}
 
-  cell.className='drop-cell '+statusCls+(isHalfDay?' cell-override':'');
+  // Check if gap is acknowledged
+  const ack = getAck(fac.id, dayIdx);
+  const isAcked = !!ack;
+
+  const effectiveStatusCls = isAcked ? 'cell-acked' : statusCls;
+  cell.className='drop-cell '+effectiveStatusCls+(isHalfDay?' cell-override':'');
 
   // Override / half-day banner
   if(isHalfDay){
@@ -2022,11 +2101,11 @@ function buildLiveCell(fac,dayIdx){
   top.appendChild(ohLbl);
   if(covLabel){
     const sb=document.createElement('span');
-    sb.className='cell-status '+(covPct>=100?'ok':covPct>0?'partial':'gap');
-    sb.textContent=covLabel;
+    sb.className='cell-status '+(isAcked?'acked':covPct>=100?'ok':covPct>0?'partial':'gap');
+    sb.textContent=isAcked?'✓ Acked':covLabel;
     top.appendChild(sb);
   }
-  // + assign button for editors — visible on hover
+  // + assign button for editors
   if(isEditor){
     const addBtn=document.createElement('button');
     addBtn.className='cell-add-btn';
@@ -2039,6 +2118,44 @@ function buildLiveCell(fac,dayIdx){
     top.appendChild(addBtn);
   }
   cell.appendChild(top);
+
+  // Ack row — shown on gap/partial cells for editors
+  if(isEditor && (statusCls==='cell-gap'||statusCls==='cell-partial')){
+    const ackRow=document.createElement('div');
+    ackRow.style.cssText='display:flex;align-items:center;gap:4px;flex-shrink:0;';
+    if(isAcked){
+      const by=ack.by?ack.by.split('@')[0]:'editor';
+      const label=document.createElement('span');
+      label.className='ack-label';
+      label.innerHTML=`✓ Acked by ${by}`;
+      const unackBtn=document.createElement('button');
+      unackBtn.className='unack-btn';
+      unackBtn.textContent='↺ Revisit';
+      unackBtn.addEventListener('click',e=>{
+        e.stopPropagation();
+        setAck(fac.id,dayIdx,null);
+        saveAcknowledged();
+        render();
+      });
+      ackRow.appendChild(label);
+      ackRow.appendChild(unackBtn);
+    } else {
+      const ackBtn=document.createElement('button');
+      ackBtn.className='ack-btn';
+      ackBtn.textContent='✓ Acknowledge gap';
+      ackBtn.addEventListener('click',e=>{
+        e.stopPropagation();
+        setAck(fac.id,dayIdx,{
+          by: currentUser?.username||'editor',
+          ts: new Date().toISOString()
+        });
+        saveAcknowledged();
+        render();
+      });
+      ackRow.appendChild(ackBtn);
+    }
+    cell.appendChild(ackRow);
+  }
 
   // Coverage bar
   const barWrap=document.createElement('div');
@@ -2070,7 +2187,7 @@ function buildLiveCell(fac,dayIdx){
       hint.className='empty-hint';hint.textContent='Drop PCC';
       cell.appendChild(hint);
     }
-  } else if(statusCls==='cell-gap'||statusCls==='cell-partial'){
+  } else if((statusCls==='cell-gap'||statusCls==='cell-partial') && !isAcked){
     // Gap/partial cells — show cascade trigger for editors
     if(isEditor){
       const gapBtn=document.createElement('div');
@@ -2421,92 +2538,104 @@ function openCellAssignPanel(facId, dayIdx){
 }
 
 // ── Coverage cascade model ────────────────────────────────────────
-// Returns ordered list of coverage suggestions for a gap
+// Returns FULL ordered priority list — available, scheduled, or PTO
 function getCascadeSuggestions(facId, dayIdx){
   const fac=facById(facId);
   const pod=fac?.podId;
   const suggestions=[];
 
-  // Tier 1 — Primary pod float
-  const tier1=staff.filter(s=>
-    s.type==='float' &&
-    s.podPriority?.[0]===pod &&
-    !isOnPTO(s.id,dayIdx) &&
-    !FACILITIES.some(f=>getLiveCell(f.id,dayIdx).some(e=>e.staffId===s.id))
-  );
-  tier1.forEach(s=>suggestions.push({tier:1,label:'Primary float',pcc:s,color:'var(--ok-bd)'}));
-
-  // Tier 2 — Secondary pod float
-  const tier2=staff.filter(s=>
-    s.type==='float' &&
-    s.podPriority?.[1]===pod &&
-    !tier1.find(t=>t.id===s.id) &&
-    !isOnPTO(s.id,dayIdx) &&
-    !FACILITIES.some(f=>getLiveCell(f.id,dayIdx).some(e=>e.staffId===s.id))
-  );
-  tier2.forEach(s=>suggestions.push({tier:2,label:'Secondary float',pcc:s,color:'var(--warn-bd)'}));
-
-  // Tier 3 — Any other available float
-  const tier3=staff.filter(s=>
-    s.type==='float' &&
-    !tier1.find(t=>t.id===s.id) &&
-    !tier2.find(t=>t.id===s.id) &&
-    !isOnPTO(s.id,dayIdx) &&
-    !FACILITIES.some(f=>getLiveCell(f.id,dayIdx).some(e=>e.staffId===s.id))
-  );
-  tier3.forEach(s=>suggestions.push({tier:3,label:'Cross-pod float',pcc:s,color:'var(--float-bd)'}));
-
-  // Tier 4 — Low volume static PCC from same pod
-  if(suggestions.length===0){
-    const podFacs=PODS[pod]?.facIds||[];
-    const tier4=staff.filter(s=>
-      s.type==='static' &&
-      s.podId===pod &&
-      s.primaryFacId!==facId &&
-      !isOnPTO(s.id,dayIdx)
-    ).map(s=>{
-      const homeFac=facById(s.primaryFacId);
-      return { pcc:s, homeVol:homeFac?.volume||'low', homeFac };
-    }).filter(({homeVol})=>homeVol==='low')
-      .sort((a,b)=>a.homeVol.localeCompare(b.homeVol));
-
-    tier4.forEach(({pcc,homeFac})=>{
-      suggestions.push({
-        tier:4,
-        label:`Pull from ${homeFac?.name||'pod'} (Low vol)`,
-        pcc,
-        color:'var(--text-3)',
-        warning:`${homeFac?.name} will be unattended`
-      });
-    });
+  // Find where a PCC is currently scheduled on this day
+  function getScheduledAt(staffId){
+    for(const f of FACILITIES){
+      const entries=getLiveCell(f.id,dayIdx);
+      const entry=entries.find(e=>e.staffId===staffId);
+      if(entry) return {fac:f,entry};
+    }
+    return null;
   }
 
-  // Tier 5 — Escalate
-  if(suggestions.length===0){
+  // All floats sorted by pod priority match
+  const allFloats=staff.filter(s=>s.type==='float'||s.type==='hybrid');
+  const sortedFloats=allFloats.sort((a,b)=>{
+    const aIdx=a.podPriority?.indexOf(pod)??99;
+    const bIdx=b.podPriority?.indexOf(pod)??99;
+    return aIdx-bIdx;
+  });
+
+  const tierLabels=['⭐ Special','🟢 1st Priority','🟡 2nd Priority','🟠 3rd Priority','⚪ 4th Priority'];
+  const tierColors=['var(--ok-bd)','var(--ok-bd)','var(--warn-bd)','var(--float-bd)','var(--text-3)'];
+
+  sortedFloats.forEach(s=>{
+    const priorityRank=s.podPriority?.indexOf(pod)??99;
+    const tierNum=Math.min(priorityRank+1,4);
+
+    const onPTO=isOnPTO(s.id,dayIdx);
+    const scheduledAt=!onPTO?getScheduledAt(s.id):null;
+    const alreadyHere=scheduledAt?.fac?.id===facId;
+    const isAvailable=!onPTO&&!scheduledAt;
+
+    let status,statusColor,canAssign;
+    if(onPTO){
+      status='🏖 Out / PTO';statusColor='var(--pto-tx)';canAssign=false;
+    } else if(alreadyHere){
+      const e=scheduledAt.entry;
+      status=`✓ Already here ${fmtRange(e.start,e.end)}`;statusColor='var(--ok-tx)';canAssign=false;
+    } else if(scheduledAt){
+      const e=scheduledAt.entry;
+      status=`📍 Scheduled @ ${scheduledAt.fac.name} ${fmtRange(e.start,e.end)}`;
+      statusColor='var(--warn-tx)';canAssign=true;
+    } else {
+      status='✅ Available';statusColor='var(--ok-tx)';canAssign=true;
+    }
+
     suggestions.push({
-      tier:5,
-      label:'Manager escalation needed',
-      pcc:null,
-      color:'var(--gap-bd)',
-      warning:'No coverage options available'
+      tier:tierNum,tierLabel:tierLabels[tierNum]||'',
+      pcc:s,color:isAvailable?tierColors[tierNum]||'var(--border2)':`var(--border2)`,
+      status,statusColor,canAssign,isAvailable,scheduledAt,
     });
-  }
+  });
 
-  // Special: Summer swap suggestion for Shawnee gaps
-  if(facId==='f11' && (dayIdx===0||dayIdx===2)){
+  // Summer swap (prepend as special tier 0)
+  if(facId==='f11'&&(dayIdx===0||dayIdx===2)){
     const summer=staffById('s17');
     if(summer&&!isOnPTO('s17',dayIdx)){
       const summerAtKCK=getLiveCell('f3',dayIdx).some(e=>e.staffId==='s17');
       if(summerAtKCK){
         suggestions.unshift({
-          tier:0,
-          label:'Summer swap (KCK→Shawnee)',
-          pcc:summer,
-          color:'var(--ok-bd)',
-          note:'Send float to KCK instead',
-          isSwap:true
+          tier:0,tierLabel:'⭐ Special Swap',pcc:summer,color:'var(--ok-bd)',
+          status:'📍 Scheduled @ KCK — swap available',statusColor:'var(--ok-tx)',
+          canAssign:true,isAvailable:false,scheduledAt:null,isSwap:true,
+          note:'Move Summer to Shawnee, send float to KCK instead',
         });
       }
+    }
+  }
+
+  // Tier 4 — Low vol static (only if no floats available)
+  const anyAvailable=suggestions.some(s=>s.isAvailable);
+  if(!anyAvailable){
+    staff.filter(s=>
+      s.type==='static'&&s.podId===pod&&s.primaryFacId!==facId&&
+      !isOnPTO(s.id,dayIdx)&&facById(s.primaryFacId)?.volume==='low'
+    ).forEach(s=>{
+      const homeFac=facById(s.primaryFacId);
+      suggestions.push({
+        tier:4,tierLabel:'⚪ Tier 4 — Pull from low vol clinic',pcc:s,
+        color:'var(--text-3)',status:`📍 Static @ ${homeFac?.name}`,
+        statusColor:'var(--text-3)',canAssign:true,isAvailable:false,
+        warning:`${homeFac?.name} will be unattended`,
+      });
+    });
+
+    // Tier 5 — escalate
+    const anyAssignable=suggestions.some(s=>s.canAssign);
+    if(!anyAssignable){
+      suggestions.push({
+        tier:5,tierLabel:'🔴 Escalation needed',pcc:null,
+        color:'var(--gap-bd)',status:'No coverage options available',
+        statusColor:'var(--gap-tx)',canAssign:false,isAvailable:false,
+        warning:'Contact manager',
+      });
     }
   }
 
@@ -2588,15 +2717,23 @@ function renderCascadePanel(facId, dayIdx){
     </div>`;
   }
 
-  // Suggestions
-  html+=`<div class="cascade-suggestions-title">Coverage Options:</div>`;
+  // Suggestions — full priority list
+  html+=`<div class="cascade-suggestions-title">Float Priority List — ${DAYS[dayIdx]}:</div>`;
   suggestions.forEach(sug=>{
-    const tierLabel=['','🟢 Tier 1','🟡 Tier 2','🟠 Tier 3','⚪ Tier 4','🔴 Tier 5'][sug.tier]||'⭐';
-    html+=`<div class="cascade-suggestion" style="border-left-color:${sug.color}">
-      <div class="cascade-sug-tier">${tierLabel} — ${sug.label}</div>
-      ${sug.pcc?`<div class="cascade-sug-name">${sug.pcc.name}${sug.note?` <span class="cascade-sug-note">${sug.note}</span>`:''}</div>`:''}
-      ${sug.warning?`<div class="cascade-sug-warning">⚠️ ${sug.warning}</div>`:''}
-      ${sug.pcc&&isEditor?`<button class="tbtn cascade-assign-btn" data-staff="${sug.pcc.id}" data-fac="${facId}" data-day="${dayIdx}">Assign →</button>`:''}
+    const dimmed = !sug.isAvailable && !sug.isSwap && sug.pcc;
+    html+=`<div class="cascade-suggestion" style="border-left-color:${sug.color};${dimmed?'opacity:.8;':''}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+        <div style="flex:1;">
+          <div class="cascade-sug-tier">${sug.tierLabel}</div>
+          ${sug.pcc?`<div class="cascade-sug-name">${sug.pcc.name}</div>`:''}
+          <div class="cascade-sug-tier" style="color:${sug.statusColor};margin-top:2px;">${sug.status}</div>
+          ${sug.note?`<div class="cascade-sug-note" style="margin-top:2px;font-style:italic;color:var(--text-3);">💡 ${sug.note}</div>`:''}
+          ${sug.warning?`<div class="cascade-sug-warning">⚠️ ${sug.warning}</div>`:''}
+        </div>
+        ${sug.pcc&&sug.canAssign&&isEditor
+          ?`<button class="tbtn cascade-assign-btn" style="flex-shrink:0;" data-staff="${sug.pcc.id}" data-fac="${facId}" data-day="${dayIdx}">${sug.isAvailable?'Assign →':'Shuffle →'}</button>`
+          :''}
+      </div>
     </div>`;
   });
 
@@ -3224,18 +3361,30 @@ function updateToolbar(){
     let gaps=0,total=0;
     FACILITIES.forEach(fac=>{
       for(let i=0;i<5;i++){
-        const oh=fac.officeHours[i];if(!oh)continue;
+        const oh=effectiveHours(fac.id,i,'live');if(!oh)continue;
         total++;
+        if(getAck(fac.id,i)) continue; // exclude acked
         const present=getLiveCell(fac.id,i).filter(e=>!isOnPTO(e.staffId,i));
-        const{covered,total:tot}=coveredMins(oh.open,oh.close,present);
-        if(covered<tot)gaps++;
+        const{covered,tot}=coveredMins(oh.open,oh.close,present);
+        if(covered<(tot||0))gaps++;
       }
     });
-    document.getElementById('tinfo').textContent=`${total-gaps}/${total} cells fully covered`;
+    const ackCount=getWeekAckCount();
+    document.getElementById('tinfo').textContent=
+      `${total-gaps}/${total} covered${ackCount>0?` · ${ackCount} ack'd`:''}`;
+    // Show/hide clear acks button
+    const clearBtn=document.getElementById('clear-acks-btn');
+    if(clearBtn){
+      clearBtn.style.display=ackCount>0&&isEditor?'':'none';
+      clearBtn.classList.toggle('has-acks',ackCount>0);
+      clearBtn.textContent=`↺ Clear Acks (${ackCount})`;
+    }
   } else {
     let cfg=0;
     FACILITIES.forEach(fac=>{for(let i=0;i<5;i++){const t=getTemplate(fac.id,i);if(t.staffIds.length>0||t.minCount>0)cfg++;}});
     document.getElementById('tinfo').textContent=`${cfg}/60 cells configured`;
+    const clearBtn=document.getElementById('clear-acks-btn');
+    if(clearBtn) clearBtn.style.display='none';
   }
 }
 
@@ -3804,6 +3953,17 @@ document.getElementById('hc-save').addEventListener('click',()=>{
 });
 
 document.getElementById('closures-btn').addEventListener('click', openHCModal);
+
+// ── Acknowledged gaps ─────────────────────────────────────────────
+document.getElementById('clear-acks-btn').addEventListener('click',()=>{
+  const count=getWeekAckCount();
+  if(count===0) return;
+  if(!confirm(`Clear all ${count} acknowledged gap${count>1?'s':''} for this week? They will re-appear as active gaps.`)) return;
+  clearAllAcks();
+  saveAcknowledged();
+  render();
+  showToast('Acknowledgements cleared — gaps restored','ok');
+});
 
 // ── Preview Viewer Mode (editors only) ───────────────────────────
 let previewingAsViewer = false;
@@ -4562,6 +4722,34 @@ async function saveHolidays(){
   } catch(e){ console.error('saveHolidays error',e); }
 }
 
+async function saveAcknowledged(){
+  if(!spReady||!isEditor) return;
+  try {
+    const k=weekKey(currentMonday);
+    // Store in holidays list with a special WeekKey prefix to avoid new list
+    const ackKey=`ack_${k}`;
+    const existing=await listGetAll(LISTS.holidays,i=>i.fields.WeekKey===ackKey);
+    for(const item of existing) await listDelete(LISTS.holidays,item.id);
+    const ackData=acknowledged[k];
+    if(ackData&&Object.keys(ackData).length>0){
+      await listCreate(LISTS.holidays,{
+        Title:ackKey, WeekKey:ackKey,
+        HolidayData:JSON.stringify(ackData),
+      });
+    }
+  } catch(e){ console.error('saveAcknowledged error',e); }
+}
+
+async function loadAcknowledgedForWeek(){
+  const k=weekKey(currentMonday);
+  const ackKey=`ack_${k}`;
+  const items=await listGetAll(LISTS.holidays,i=>i.fields.WeekKey===ackKey);
+  acknowledged[k]={};
+  for(const item of items){
+    try{ acknowledged[k]=JSON.parse(item.fields.HolidayData||'{}'); }catch(e){}
+  }
+}
+
 // ── Load functions ─────────────────────────────────────────────────
 async function loadAll(){
   updateSyncStatus('syncing','Loading data from SharePoint…');
@@ -4573,6 +4761,7 @@ async function loadAll(){
       loadPTOForWeek(),
       loadClosuresForWeek(),
       loadHolidaysForWeek(),
+      loadAcknowledgedForWeek(),
     ]);
     // Log any individual failures but don't crash
     results.forEach((r,i)=>{
@@ -4693,6 +4882,7 @@ async function changeWeek(delta){
     await loadPTOForWeek();
     await loadClosuresForWeek();
     await loadHolidaysForWeek();
+    await loadAcknowledgedForWeek();
   }
   render();
 }
