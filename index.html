@@ -749,6 +749,59 @@ body.view-only .mob-fab { display: none !important; }
 .mob-pcc-item:hover, .mob-pcc-item:active { border-color: var(--brand); background: var(--brand-lt); }
 .mob-pcc-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
+/* ── SCHEDULE LOCK ── */
+.lock-banner {
+  display:none; background:#1a1a2e; color:#fff;
+  font-size:11px; font-weight:700; text-align:center;
+  padding:4px 12px; flex-shrink:0; letter-spacing:.04em;
+}
+.lock-banner.active { display:block; }
+body.schedule-locked .drop-cell { cursor:not-allowed !important; }
+body.schedule-locked .shift-chip { cursor:not-allowed !important; }
+body.schedule-locked .cell-add-btn { display:none !important; }
+body.schedule-locked .xbtn { display:none !important; }
+body.schedule-locked .gap-cascade-trigger { display:none !important; }
+body.schedule-locked .ack-btn { display:none !important; }
+#lock-btn.locked { background:var(--brand) !important; color:#fff !important; border-color:var(--brand) !important; }
+
+/* ── EDIT SHIFT IN PLACE ── */
+.shift-chip { cursor:pointer; }
+.shift-chip .edit-chip-btn {
+  width:13px; height:13px; border-radius:50%;
+  border:none; background:rgba(0,0,0,.1); color:inherit;
+  font-size:8px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  opacity:0; transition:opacity .15s; flex-shrink:0;
+}
+.shift-chip:hover .edit-chip-btn { opacity:1; }
+
+/* ── HOURS INTELLIGENCE ── */
+.sp-coord.over-target { border-color:var(--gap-bd); background:var(--gap-bg); }
+.sp-coord.under-target { border-color:var(--warn-bd); background:var(--warn-bg); }
+.sp-coord.on-target { border-color:var(--ok-bd); }
+.hours-badge {
+  font-size:9px; font-weight:700; padding:1px 5px;
+  border-radius:3px; margin-top:2px; display:inline-flex; align-items:center; gap:2px;
+}
+.hours-badge.over { background:var(--gap-bg); color:var(--gap-tx); }
+.hours-badge.under { background:var(--warn-bg); color:var(--warn-tx); }
+.hours-badge.ok { background:var(--ok-bg); color:var(--ok-tx); }
+.hours-badge.projected { background:#f0f4ff; color:#3b5bdb; }
+.override-chip {
+  font-size:9px; font-weight:700; padding:1px 6px;
+  border-radius:999px; background:#f0f4ff; color:#3b5bdb;
+  border:1px solid #c5d0e6; cursor:pointer; margin-top:2px;
+  display:inline-flex; align-items:center; gap:3px;
+}
+.override-chip:hover { background:#e0e8ff; }
+.pto-hrs-btn {
+  font-size:9px; cursor:pointer; opacity:.7;
+  background:none; border:none; color:inherit;
+  text-decoration:underline; font-family:inherit;
+  padding:0; margin-top:1px;
+}
+.pto-hrs-btn:hover { opacity:1; }
+
 /* ── ACKNOWLEDGED GAPS ── */
 .drop-cell.cell-acked {
   border-color: #94a3b8 !important;
@@ -1022,6 +1075,7 @@ body.focus-mode .fac-label:has(.fstat.ok) {
   <button class="tbtn" id="clear-acks-btn" title="Clear all acknowledged gaps for this week" style="display:none;">↺ Clear Acks</button>
   <button class="tbtn" id="focus-mode-btn" title="Hide fully covered cells to focus on gaps">🎯 Focus Gaps</button>
   <button class="tbtn" id="preview-viewer-btn" title="Preview the viewer experience">👁 Preview Viewer</button>
+  <button class="tbtn" id="lock-btn" style="display:none;">🔒 Lock Schedule</button>
   <button class="tbtn" id="print-btn">🖨 Print</button>
   <div class="toolbar-divider"></div>
   <label class="tlabel" style="flex-shrink:0;">🔍 Filter:</label>
@@ -1038,6 +1092,9 @@ body.focus-mode .fac-label:has(.fstat.ok) {
 
 <!-- Preview mode banner -->
 <div class="preview-banner" id="preview-banner">👁 VIEWER PREVIEW MODE — click "✏ Back to Editor" in the toolbar to exit</div>
+
+<!-- Schedule lock banner -->
+<div class="lock-banner" id="lock-banner">🔒 SCHEDULE LOCKED — Click "🔓 Unlock" to make changes</div>
 
 <!-- Coverage Stats Bar -->
 <div class="stats-bar" id="stats-bar">
@@ -1336,6 +1393,65 @@ body.focus-mode .fac-label:has(.fstat.ok) {
   </div>
 </div>
 
+<!-- Schedule Lock Modal -->
+<div class="modal-overlay" id="lock-modal">
+  <div class="modal" style="width:400px;">
+    <h3>🔒 Lock Schedule</h3>
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:12px;">Locking prevents any changes to this week's schedule. Other editors will need to request an unlock.</p>
+    <label>Lock reason <span style="font-weight:400;color:var(--text-3)">(optional)</span></label>
+    <input type="text" id="lock-reason" placeholder="e.g. Schedule finalized for week of May 18">
+    <div class="modal-btns">
+      <button class="mbtn cancel" onclick="closeModal('lock-modal')">Cancel</button>
+      <button class="mbtn save" id="lock-confirm-btn">🔒 Lock Schedule</button>
+    </div>
+  </div>
+</div>
+
+<!-- Schedule Unlock Modal -->
+<div class="modal-overlay" id="unlock-modal">
+  <div class="modal" style="width:400px;">
+    <h3>🔓 Unlock Schedule</h3>
+    <div id="unlock-lock-info" style="background:var(--warn-bg);border:1px solid var(--warn-bd);border-radius:var(--r-sm);padding:10px 12px;font-size:12px;margin-bottom:14px;"></div>
+    <label>Reason for unlocking <span style="color:var(--brand)">*</span></label>
+    <input type="text" id="unlock-reason" placeholder="e.g. Adjusting Dawn's shift — float conflict">
+    <div class="modal-btns">
+      <button class="mbtn cancel" onclick="closeModal('unlock-modal')">Cancel</button>
+      <button class="mbtn save" id="unlock-confirm-btn">🔓 Unlock &amp; Edit</button>
+    </div>
+  </div>
+</div>
+
+<!-- Weekly Override Modal -->
+<div class="modal-overlay" id="override-modal">
+  <div class="modal" style="width:380px;">
+    <h3 id="override-modal-title">Weekly Adjustment</h3>
+    <p style="font-size:12px;color:var(--text-3);margin-bottom:12px;">Override applies to this week only — does not change the permanent target.</p>
+    <label>Adjusted target hours this week</label>
+    <input type="number" id="override-target" min="0" max="60" step="0.5" placeholder="e.g. 32">
+    <label style="margin-top:4px;">Note <span style="font-weight:400;color:var(--text-3)">(reason for adjustment)</span></label>
+    <input type="text" id="override-note" placeholder="e.g. Agreed reduced schedule this week">
+    <div class="modal-btns">
+      <button class="mbtn cancel" id="override-clear-btn" style="margin-right:auto;">Clear Override</button>
+      <button class="mbtn cancel" onclick="closeModal('override-modal')">Cancel</button>
+      <button class="mbtn save" id="override-save-btn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- PTO Hours Edit Modal -->
+<div class="modal-overlay" id="pto-hrs-modal">
+  <div class="modal" style="width:360px;">
+    <h3 id="pto-hrs-title">PTO Hours</h3>
+    <p style="font-size:12px;color:var(--text-3);margin-bottom:12px;">Default is based on templated shift. Adjust if they are recouping hours on another day.</p>
+    <label>PTO hours for this day</label>
+    <input type="number" id="pto-hrs-input" min="0" max="12" step="0.5">
+    <div class="modal-btns">
+      <button class="mbtn cancel" onclick="closeModal('pto-hrs-modal')">Cancel</button>
+      <button class="mbtn save" id="pto-hrs-save">Save</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- Schedule Card overlay -->
@@ -1464,6 +1580,23 @@ let holidays = {};
 // acknowledged[weekKey][facId][dayIdx] = {by: username, ts: timestamp}
 // Marks a gap as known/accepted — removes visual flag without requiring coverage
 let acknowledged = {};
+
+// weeklyOverrides[weekKey][staffId] = {target: number, note: string}
+// Per-week target adjustments — don't touch permanent target
+let weeklyOverrides = {};
+
+// ptoHours[weekKey][staffId][dayIdx] = number (hours, editor-adjustable)
+// Defaults to templated shift hours for that day
+let ptoHours = {};
+
+// scheduleLock[weekKey] = {locked: bool, by: string, ts: string, reason: string}
+let scheduleLock = {};
+
+// Senior editors who can lock/unlock the schedule
+const LOCK_EDITORS = [
+  'jim@fitmjc.com',
+  'brett@fitmjc.com',
+];
 
 let mode = 'live';
 let currentMonday = getMonday(new Date());
@@ -1639,6 +1772,88 @@ function getWeekAckCount(){
   return Object.values(acknowledged[k])
     .reduce((s,fac)=>s+Object.keys(fac).length, 0);
 }
+
+// ── Weekly override helpers ───────────────────────────────────────
+function getWeeklyOverride(staffId){
+  const k=weekKey(currentMonday);
+  return weeklyOverrides[k]?.[staffId]||null;
+}
+function setWeeklyOverride(staffId,val){
+  const k=weekKey(currentMonday);
+  if(!weeklyOverrides[k]) weeklyOverrides[k]={};
+  if(val===null) delete weeklyOverrides[k][staffId];
+  else weeklyOverrides[k][staffId]=val;
+}
+function getEffectiveTarget(staffId){
+  const override=getWeeklyOverride(staffId);
+  if(override?.target) return override.target;
+  return staffById(staffId)?.target||40;
+}
+
+// ── PTO hours helpers ─────────────────────────────────────────────
+function getPTOHours(staffId,dayIdx){
+  const k=weekKey(currentMonday);
+  const stored=ptoHours[k]?.[staffId]?.[dayIdx];
+  if(stored!==undefined) return stored;
+  // Default: use templated shift hours for that day
+  return getTemplatedHoursForDay(staffId,dayIdx);
+}
+function setPTOHours(staffId,dayIdx,hrs){
+  const k=weekKey(currentMonday);
+  if(!ptoHours[k]) ptoHours[k]={};
+  if(!ptoHours[k][staffId]) ptoHours[k][staffId]={};
+  ptoHours[k][staffId][dayIdx]=hrs;
+}
+function getTemplatedHoursForDay(staffId,dayIdx){
+  // Find templated shift for this PCC on this day
+  for(const facId of Object.keys(tmpl)){
+    const t=tmpl[facId]?.[dayIdx];
+    if(!t) continue;
+    const entry=t.staffEntries?.find(e=>e.staffId===staffId);
+    if(entry) return shiftHours(entry.start,entry.end,entry.lunch);
+  }
+  return 8; // Default fallback
+}
+
+// ── Projected hours (from template) ──────────────────────────────
+function getProjectedWeekHours(staffId){
+  let total=0;
+  for(let i=0;i<5;i++){
+    for(const facId of Object.keys(tmpl)){
+      const t=tmpl[facId]?.[i];
+      if(!t) continue;
+      const entry=t.staffEntries?.find(e=>e.staffId===staffId);
+      if(entry){ total+=shiftHours(entry.start,entry.end,entry.lunch); break; }
+    }
+  }
+  return total;
+}
+
+// ── Schedule lock helpers ─────────────────────────────────────────
+function getLock(){
+  const k=weekKey(currentMonday);
+  return scheduleLock[k]||null;
+}
+function isLocked(){
+  return !!getLock()?.locked;
+}
+function isSeniorEditor(){
+  const email=(currentUser?.username||'').toLowerCase();
+  return LOCK_EDITORS.map(e=>e.toLowerCase()).includes(email);
+}
+function setLock(val){
+  const k=weekKey(currentMonday);
+  scheduleLock[k]=val;
+}
+
+// Check lock before any edit — returns true if edit is allowed
+function checkLock(){
+  if(!isLocked()) return true;
+  // Show unlock prompt
+  openUnlockModal();
+  return false;
+}
+
 
 // Hours per PCC per day this week
 function coordDayHours(staffId,dayIdx){
@@ -2253,16 +2468,30 @@ function makeChip(s,entry,facId,dayIdx,isAbsent){
     ?`<span class="pod-badge" style="background:${podById(s.podId).color}22;color:${podById(s.podId).color};border:1px solid ${podById(s.podId).color}44;margin-top:2px;">🔀 Hybrid</span>`
     :'';
 
-  chip.innerHTML=`<div class="chip-inner"><div class="chip-name">${s.name}</div><div class="chip-time">${fmtRange(entry.start,entry.end)} · ${hrs.toFixed(1)}h${entry.lunch?' (–30m)':''}</div>${lunchHtml}${tagHtml}${podBadge}${noteHtml}</div>${isAbsent?'':'<button class="xbtn">✕</button>'}`;
+  chip.innerHTML=`<div class="chip-inner"><div class="chip-name">${s.name}</div><div class="chip-time">${fmtRange(entry.start,entry.end)} · ${hrs.toFixed(1)}h${entry.lunch?' (–30m)':''}</div>${lunchHtml}${tagHtml}${podBadge}${noteHtml}</div>${isAbsent?'':`<button class="edit-chip-btn" title="Edit shift">✏</button><button class="xbtn">✕</button>`}`;
 
   if(!isAbsent){
     chip.addEventListener('dragstart',e=>{
+      if(isLocked()){ e.preventDefault(); openUnlockModal(); return; }
       drag={staffId:s.id,fromFacId:facId,fromDayIdx:parseInt(dayIdx),fromPTO:false,shiftEntry:{...entry}};
       e.dataTransfer.effectAllowed='move';e.stopPropagation();
       setTimeout(()=>chip.classList.add('dragging'),0);
       chip.addEventListener('dragend',()=>{chip.classList.remove('dragging');document.querySelectorAll('.drag-over').forEach(el=>el.classList.remove('drag-over'));},{once:true});
     });
+    // Edit button
+    chip.querySelector('.edit-chip-btn').addEventListener('click',e=>{
+      e.stopPropagation();
+      if(!checkLock()) return;
+      openShiftModal(s,facId,dayIdx,entry,(start,end,lunch,tag,note)=>{
+        const arr=getLiveCell(facId,dayIdx);
+        const idx=arr.findIndex(x=>x.staffId===s.id&&x.start===entry.start&&x.end===entry.end);
+        if(idx>=0) arr[idx]={...arr[idx],start,end,lunch:lunch||null,tag:tag||null,note:note||null};
+        setLiveCell(facId,dayIdx,arr);render();
+        scheduleSaveSchedule();
+      });
+    });
     chip.querySelector('.xbtn').addEventListener('click',()=>{
+      if(!checkLock()) return;
       const arr=getLiveCell(facId,dayIdx).filter(e=>!(e.staffId===s.id&&e.start===entry.start&&e.end===entry.end));
       setLiveCell(facId,dayIdx,arr);render();
       scheduleSaveSchedule();
@@ -2278,38 +2507,116 @@ function makeChip(s,entry,facId,dayIdx,isAbsent){
 function renderSummary(){
   const table=document.getElementById('sp-table');
   table.innerHTML='';
-  const maxHrs=Math.max(12,Math.max(...staff.map(s=>coordWeekHours(s.id)),1));
 
   staff.forEach(s=>{
     const wkHrs=coordWeekHours(s.id);
-    const target=s.target||40;
-    const over=wkHrs>target;
-    const col=document.createElement('div');
-    col.className='sp-coord';
-    const primaryFacName = s.primaryFacId ? facById(s.primaryFacId)?.name : '';
+    const projHrs=getProjectedWeekHours(s.id);
+    const override=getWeeklyOverride(s.id);
+    const effectiveTarget=getEffectiveTarget(s.id);
+    const variance=wkHrs-effectiveTarget;
+    const isOver=variance>0;
+    const isUnder=variance<0;
 
+    // PTO hours for this week
+    let ptoTotal=0;
+    for(let d=0;d<5;d++){
+      if(isOnPTO(s.id,d)) ptoTotal+=getPTOHours(s.id,d);
+    }
+    const totalAccountedHrs=wkHrs+ptoTotal;
+    const totalVariance=totalAccountedHrs-effectiveTarget;
+
+    const col=document.createElement('div');
+    col.className=`sp-coord ${isOver?'over-target':totalVariance<0?'under-target':'on-target'}`;
+    const primaryFacName=s.primaryFacId?facById(s.primaryFacId)?.name:'';
+    const typeIcon=s.type==='static'?'📌':s.type==='float'?'🔄':'🔀';
+
+    // Day bars with PTO awareness
     const dayBars=[0,1,2,3,4].map(d=>{
-      const h=coordDayHours(s.id,d);
-      const pct=Math.min(100,h/10*100);// 10h = full bar
+      const onPTO=isOnPTO(s.id,d);
+      const h=onPTO?getPTOHours(s.id,d):coordDayHours(s.id,d);
+      const pct=Math.min(100,h/10*100);
+      const barCls=onPTO?'pto':s.type==='float'?'float':'';
+      const ptoBtn=onPTO&&isEditor
+        ?`<button class="pto-hrs-btn" data-staff="${s.id}" data-day="${d}" title="Edit PTO hours">${h.toFixed(1)}h ✏</button>`
+        :'';
       return `<div class="sp-day-row">
         <span class="sp-day-label">${DAYS[d].slice(0,2)}</span>
-        <div class="sp-day-bar-wrap"><div class="sp-day-bar${s.type==='float'?' float':''}" style="width:${pct}%"></div></div>
-        <span class="sp-day-hrs">${h>0?h.toFixed(1):'-'}</span>
+        <div class="sp-day-bar-wrap">
+          <div class="sp-day-bar ${barCls}" style="width:${pct}%"></div>
+        </div>
+        ${onPTO
+          ?`<span class="sp-day-hrs" style="color:var(--pto-tx)">🏖${ptoBtn}</span>`
+          :`<span class="sp-day-hrs">${h>0?h.toFixed(1):'-'}</span>`}
       </div>`;
     }).join('');
 
+    // Hours badge
+    const badgeCls=isOver?'over':totalVariance<0?'under':'ok';
+    const badgeIcon=isOver?'▲':totalVariance<0?'▼':'✓';
+    const badgeText=isOver
+      ?`+${variance.toFixed(1)}h over`
+      :totalVariance<0
+        ?`${Math.abs(totalVariance).toFixed(1)}h under${ptoTotal>0?' (incl PTO)':''}`
+        :'On target';
+
+    // Projected hours badge (only show if different from scheduled)
+    const projBadge=projHrs>0&&Math.abs(projHrs-wkHrs)>0.1&&wkHrs===0
+      ?`<span class="hours-badge projected">📋 ${projHrs.toFixed(1)}h projected</span>`:'';
+
+    // Override chip
+    const overrideBadge=override
+      ?`<span class="override-chip" data-staff="${s.id}" title="Click to edit">✏ ${override.target}h target${override.note?' · '+override.note:''}</span>`:'';
+
+    // Weekly adjust button for editors
+    const adjustBtn=isEditor
+      ?`<button class="pto-hrs-btn" data-override-staff="${s.id}" style="margin-top:3px;" title="Set weekly adjustment">⚙ Adjust week</button>`:'';
+
     col.innerHTML=`
       <div class="sp-coord-name">${s.name}</div>
-      <div class="sp-coord-type">${s.type==='static'?'📌 Static':'🔄 Float'}${primaryFacName?' · 📍 '+primaryFacName:''}</div>
-      <div class="sp-coord-type" style="font-family:'Fira Code',monospace;font-size:9px;margin-top:1px;opacity:.6;">target ${target}h/wk</div>
+      <div class="sp-coord-type">${typeIcon}${primaryFacName?' · 📍 '+primaryFacName:''}</div>
+      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin:2px 0 4px;">
+        <span style="font-family:'Fira Code',monospace;font-size:9px;opacity:.6;">target ${effectiveTarget}h</span>
+        ${override?`<span style="font-size:9px;color:#3b5bdb">(adj)</span>`:''}
+      </div>
+      ${overrideBadge}
       <div class="sp-bars">${dayBars}</div>
-      <div class="sp-total"><span>Total</span><span class="${over?'over':''}">${wkHrs.toFixed(1)}h${over?' ▲':''}</span></div>`;
+      <div class="sp-total">
+        <span>Scheduled</span>
+        <span>${wkHrs.toFixed(1)}h${ptoTotal>0?` + ${ptoTotal.toFixed(1)}h PTO`:''}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:3px;">
+        <span class="hours-badge ${badgeCls}">${badgeIcon} ${badgeText}</span>
+        ${projBadge}
+      </div>
+      ${adjustBtn}`;
+
+    // Wire PTO hours edit buttons
+    col.querySelectorAll('.pto-hrs-btn[data-day]').forEach(btn=>{
+      btn.addEventListener('click',e=>{
+        e.stopPropagation();
+        openPTOHrsModal(btn.dataset.staff, parseInt(btn.dataset.day));
+      });
+    });
+
+    // Wire override chips and adjust buttons
+    col.querySelectorAll('[data-override-staff],[data-staff].override-chip').forEach(btn=>{
+      btn.addEventListener('click',e=>{
+        e.stopPropagation();
+        const sid=btn.dataset.overrideStaff||btn.dataset.staff;
+        openOverrideModal(sid);
+      });
+    });
+
     table.appendChild(col);
   });
 
-  // subtitle
   const totalHrs=staff.reduce((s,c)=>s+coordWeekHours(c.id),0);
-  document.getElementById('sp-subtitle').textContent=`${totalHrs.toFixed(1)} total hours scheduled this week`;
+  const underCount=staff.filter(s=>{
+    const v=coordWeekHours(s.id)+[0,1,2,3,4].reduce((sum,d)=>sum+(isOnPTO(s.id,d)?getPTOHours(s.id,d):0),0);
+    return v<getEffectiveTarget(s.id);
+  }).length;
+  document.getElementById('sp-subtitle').textContent=
+    `${totalHrs.toFixed(1)}h scheduled this week${underCount>0?' · ⚠ '+underCount+' PCC'+(underCount>1?'s':'')+' under target':''}`;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2817,6 +3124,7 @@ function onDropPTO(e,dayIdx){
   e.preventDefault();
   document.querySelectorAll('.drag-over').forEach(el=>el.classList.remove('drag-over'));
   if(!drag.staffId) return;
+  if(!checkLock()) return;
   const list=getPTO(dayIdx);
   if(!list.includes(drag.staffId)){list.push(drag.staffId);setPTO(dayIdx,list);}
   drag={staffId:null,fromFacId:null,fromDayIdx:null,fromPTO:false,shiftEntry:null};
@@ -3954,6 +4262,139 @@ document.getElementById('hc-save').addEventListener('click',()=>{
 
 document.getElementById('closures-btn').addEventListener('click', openHCModal);
 
+// ═══════════════════════════════════════════════════════════════
+// SCHEDULE LOCK / UNLOCK
+// ═══════════════════════════════════════════════════════════════
+
+function applyLockState(){
+  const lock=getLock();
+  const locked=lock?.locked;
+  document.body.classList.toggle('schedule-locked',!!locked);
+  const banner=document.getElementById('lock-banner');
+  const btn=document.getElementById('lock-btn');
+  if(banner){
+    banner.classList.toggle('active',!!locked);
+    if(locked) banner.textContent=`🔒 LOCKED by ${lock.by?.split('@')[0]||'editor'} — ${lock.reason||'Schedule finalized'} · Click Unlock to edit`;
+  }
+  if(btn&&isSeniorEditor()){
+    btn.style.display='';
+    btn.textContent=locked?'🔓 Unlock':'🔒 Lock Schedule';
+    btn.classList.toggle('locked',!!locked);
+  } else if(btn){
+    btn.style.display='none';
+  }
+}
+
+function openUnlockModal(){
+  const lock=getLock();
+  const info=document.getElementById('unlock-lock-info');
+  if(info) info.innerHTML=`🔒 Locked by <strong>${lock?.by?.split('@')[0]||'editor'}</strong><br>${lock?.reason||'No reason given'}<br><span style="opacity:.7;font-size:10px;">${lock?.ts?new Date(lock.ts).toLocaleString():''}</span>`;
+  document.getElementById('unlock-reason').value='';
+  document.getElementById('unlock-modal').classList.add('open');
+}
+
+document.getElementById('lock-btn').addEventListener('click',()=>{
+  if(isLocked()){ openUnlockModal(); return; }
+  document.getElementById('lock-reason').value='';
+  document.getElementById('lock-modal').classList.add('open');
+});
+
+document.getElementById('lock-confirm-btn').addEventListener('click',()=>{
+  const reason=document.getElementById('lock-reason').value.trim();
+  setLock({locked:true,by:currentUser?.username||'editor',ts:new Date().toISOString(),reason});
+  saveLock();
+  closeModal('lock-modal');
+  applyLockState();
+  render();
+  showToast('Schedule locked 🔒','ok');
+});
+
+document.getElementById('unlock-confirm-btn').addEventListener('click',()=>{
+  const reason=document.getElementById('unlock-reason').value.trim();
+  if(!reason){showToast('Please enter a reason for unlocking','err');return;}
+  setLock({locked:false,by:currentUser?.username||'editor',ts:new Date().toISOString(),reason});
+  saveLock();
+  closeModal('unlock-modal');
+  applyLockState();
+  render();
+  showToast(`Schedule unlocked — ${reason}`,'ok');
+});
+
+document.getElementById('unlock-modal').addEventListener('click',e=>{
+  if(e.target===document.getElementById('unlock-modal')) closeModal('unlock-modal');
+});
+document.getElementById('lock-modal').addEventListener('click',e=>{
+  if(e.target===document.getElementById('lock-modal')) closeModal('lock-modal');
+});
+
+// ═══════════════════════════════════════════════════════════════
+// WEEKLY OVERRIDE MODAL
+// ═══════════════════════════════════════════════════════════════
+
+let overrideStaffId=null;
+function openOverrideModal(staffId){
+  overrideStaffId=staffId;
+  const s=staffById(staffId);
+  const existing=getWeeklyOverride(staffId);
+  document.getElementById('override-modal-title').textContent=`Weekly Adjustment — ${s?.name}`;
+  document.getElementById('override-target').value=existing?.target||s?.target||40;
+  document.getElementById('override-note').value=existing?.note||'';
+  document.getElementById('override-modal').classList.add('open');
+}
+
+document.getElementById('override-save-btn').addEventListener('click',()=>{
+  if(!overrideStaffId) return;
+  const target=parseFloat(document.getElementById('override-target').value);
+  const note=document.getElementById('override-note').value.trim();
+  if(isNaN(target)||target<0){showToast('Enter a valid target','err');return;}
+  setWeeklyOverride(overrideStaffId,{target,note});
+  saveWeeklyOverrides();
+  closeModal('override-modal');
+  render();
+  showToast('Weekly adjustment saved ✓','ok');
+});
+
+document.getElementById('override-clear-btn').addEventListener('click',()=>{
+  if(!overrideStaffId) return;
+  setWeeklyOverride(overrideStaffId,null);
+  saveWeeklyOverrides();
+  closeModal('override-modal');
+  render();
+  showToast('Override cleared','ok');
+});
+
+document.getElementById('override-modal').addEventListener('click',e=>{
+  if(e.target===document.getElementById('override-modal')) closeModal('override-modal');
+});
+
+// ═══════════════════════════════════════════════════════════════
+// PTO HOURS EDIT MODAL
+// ═══════════════════════════════════════════════════════════════
+
+let ptoHrsStaff=null, ptoHrsDay=null;
+function openPTOHrsModal(staffId,dayIdx){
+  ptoHrsStaff=staffId; ptoHrsDay=dayIdx;
+  const s=staffById(staffId);
+  document.getElementById('pto-hrs-title').textContent=`PTO Hours — ${s?.name} ${DAYS[dayIdx]}`;
+  document.getElementById('pto-hrs-input').value=getPTOHours(staffId,dayIdx).toFixed(1);
+  document.getElementById('pto-hrs-modal').classList.add('open');
+}
+
+document.getElementById('pto-hrs-save').addEventListener('click',()=>{
+  if(!ptoHrsStaff) return;
+  const hrs=parseFloat(document.getElementById('pto-hrs-input').value);
+  if(isNaN(hrs)||hrs<0){showToast('Enter valid hours','err');return;}
+  setPTOHours(ptoHrsStaff,ptoHrsDay,hrs);
+  savePTOHours();
+  closeModal('pto-hrs-modal');
+  render();
+  showToast('PTO hours updated ✓','ok');
+});
+
+document.getElementById('pto-hrs-modal').addEventListener('click',e=>{
+  if(e.target===document.getElementById('pto-hrs-modal')) closeModal('pto-hrs-modal');
+});
+
 // ── Acknowledged gaps ─────────────────────────────────────────────
 document.getElementById('clear-acks-btn').addEventListener('click',()=>{
   const count=getWeekAckCount();
@@ -4601,13 +5042,25 @@ async function saveStaff(){
     for(const item of existing) await listDelete(LISTS.staff,item.id);
     for(const s of staff){
       await listCreate(LISTS.staff,{
-        Title:s.name, PCC_Id:s.id, PCC_Name:s.name,
-        PCC_Email:s.email||'', PCC_Type:s.type,
-        PCC_PrimaryFacId:s.primaryFacId||'', PCC_Target:s.target||40,
+        Title:              s.name,
+        PCC_Id:             s.id,
+        PCC_Name:           s.name,
+        PCC_Email:          s.email||'',
+        PCC_Type:           s.type,
+        PCC_PrimaryFacId:   s.primaryFacId||'',
+        PCC_SecondaryFacId: s.secondaryFacId||'',
+        PCC_SecondaryDays:  JSON.stringify(s.secondaryDays||[]),
+        PCC_PodId:          s.podId||'',
+        PCC_Target:         s.target||40,
       });
     }
     updateSyncStatus('connected','Staff saved ✓');
-  } catch(e){ console.error('saveStaff error',e); updateSyncStatus('error','Save failed'); }
+    showToast('PCC roster saved to SharePoint ✓','ok');
+  } catch(e){
+    console.error('saveStaff error',e);
+    updateSyncStatus('error','Staff save failed — check SharePoint column setup');
+    showToast('Staff save failed — columns may need to be added to PCC_Staff list','err');
+  }
 }
 
 async function saveTemplate(){
@@ -4726,18 +5179,53 @@ async function saveAcknowledged(){
   if(!spReady||!isEditor) return;
   try {
     const k=weekKey(currentMonday);
-    // Store in holidays list with a special WeekKey prefix to avoid new list
     const ackKey=`ack_${k}`;
     const existing=await listGetAll(LISTS.holidays,i=>i.fields.WeekKey===ackKey);
     for(const item of existing) await listDelete(LISTS.holidays,item.id);
     const ackData=acknowledged[k];
     if(ackData&&Object.keys(ackData).length>0){
-      await listCreate(LISTS.holidays,{
-        Title:ackKey, WeekKey:ackKey,
-        HolidayData:JSON.stringify(ackData),
-      });
+      await listCreate(LISTS.holidays,{Title:ackKey,WeekKey:ackKey,HolidayData:JSON.stringify(ackData)});
     }
   } catch(e){ console.error('saveAcknowledged error',e); }
+}
+
+async function saveLock(){
+  if(!spReady||!isEditor) return;
+  try {
+    const k=weekKey(currentMonday);
+    const lockKey=`lock_${k}`;
+    const existing=await listGetAll(LISTS.holidays,i=>i.fields.WeekKey===lockKey);
+    for(const item of existing) await listDelete(LISTS.holidays,item.id);
+    if(scheduleLock[k]){
+      await listCreate(LISTS.holidays,{Title:lockKey,WeekKey:lockKey,HolidayData:JSON.stringify(scheduleLock[k])});
+    }
+  } catch(e){ console.error('saveLock error',e); }
+}
+
+async function saveWeeklyOverrides(){
+  if(!spReady||!isEditor) return;
+  try {
+    const k=weekKey(currentMonday);
+    const overKey=`override_${k}`;
+    const existing=await listGetAll(LISTS.holidays,i=>i.fields.WeekKey===overKey);
+    for(const item of existing) await listDelete(LISTS.holidays,item.id);
+    if(weeklyOverrides[k]&&Object.keys(weeklyOverrides[k]).length>0){
+      await listCreate(LISTS.holidays,{Title:overKey,WeekKey:overKey,HolidayData:JSON.stringify(weeklyOverrides[k])});
+    }
+  } catch(e){ console.error('saveWeeklyOverrides error',e); }
+}
+
+async function savePTOHours(){
+  if(!spReady||!isEditor) return;
+  try {
+    const k=weekKey(currentMonday);
+    const ptoKey=`ptohrs_${k}`;
+    const existing=await listGetAll(LISTS.holidays,i=>i.fields.WeekKey===ptoKey);
+    for(const item of existing) await listDelete(LISTS.holidays,item.id);
+    if(ptoHours[k]&&Object.keys(ptoHours[k]).length>0){
+      await listCreate(LISTS.holidays,{Title:ptoKey,WeekKey:ptoKey,HolidayData:JSON.stringify(ptoHours[k])});
+    }
+  } catch(e){ console.error('savePTOHours error',e); }
 }
 
 async function loadAcknowledgedForWeek(){
@@ -4747,6 +5235,36 @@ async function loadAcknowledgedForWeek(){
   acknowledged[k]={};
   for(const item of items){
     try{ acknowledged[k]=JSON.parse(item.fields.HolidayData||'{}'); }catch(e){}
+  }
+}
+
+async function loadLockForWeek(){
+  const k=weekKey(currentMonday);
+  const lockKey=`lock_${k}`;
+  const items=await listGetAll(LISTS.holidays,i=>i.fields.WeekKey===lockKey);
+  scheduleLock[k]=null;
+  for(const item of items){
+    try{ scheduleLock[k]=JSON.parse(item.fields.HolidayData||'null'); }catch(e){}
+  }
+}
+
+async function loadWeeklyOverrides(){
+  const k=weekKey(currentMonday);
+  const overKey=`override_${k}`;
+  const items=await listGetAll(LISTS.holidays,i=>i.fields.WeekKey===overKey);
+  weeklyOverrides[k]={};
+  for(const item of items){
+    try{ weeklyOverrides[k]=JSON.parse(item.fields.HolidayData||'{}'); }catch(e){}
+  }
+}
+
+async function loadPTOHoursForWeek(){
+  const k=weekKey(currentMonday);
+  const ptoKey=`ptohrs_${k}`;
+  const items=await listGetAll(LISTS.holidays,i=>i.fields.WeekKey===ptoKey);
+  ptoHours[k]={};
+  for(const item of items){
+    try{ ptoHours[k]=JSON.parse(item.fields.HolidayData||'{}'); }catch(e){}
   }
 }
 
@@ -4762,6 +5280,9 @@ async function loadAll(){
       loadClosuresForWeek(),
       loadHolidaysForWeek(),
       loadAcknowledgedForWeek(),
+      loadLockForWeek(),
+      loadWeeklyOverrides(),
+      loadPTOHoursForWeek(),
     ]);
     // Log any individual failures but don't crash
     results.forEach((r,i)=>{
@@ -4770,6 +5291,7 @@ async function loadAll(){
     });
     spReady = true;
     updateSyncStatus('connected', `Connected · ${currentUser?.username||''}`);
+    applyLockState();
     render();
   } catch(e){
     console.error('loadAll error',e);
@@ -4781,15 +5303,33 @@ async function loadAll(){
 
 async function loadStaff(){
   const items=await listGetAll(LISTS.staff);
-  if(!items.length) return;
-  staff=items.map(i=>({
-    id:           i.fields.PCC_Id||'s'+i.id,
-    name:         i.fields.PCC_Name||i.fields.Title,
-    email:        i.fields.PCC_Email||'',
-    type:         i.fields.PCC_Type||'static',
-    primaryFacId: i.fields.PCC_PrimaryFacId||null,
-    target:       i.fields.PCC_Target||40,
-  }));
+  if(!items.length) return; // First run — keep hardcoded staff
+  staff=items.map(i=>{
+    let secDays=[];
+    try{ secDays=JSON.parse(i.fields.PCC_SecondaryDays||'[]'); }catch(e){}
+    return {
+      id:             i.fields.PCC_Id||'s'+i.id,
+      name:           i.fields.PCC_Name||i.fields.Title,
+      email:          i.fields.PCC_Email||'',
+      type:           i.fields.PCC_Type||'static',
+      primaryFacId:   i.fields.PCC_PrimaryFacId||null,
+      secondaryFacId: i.fields.PCC_SecondaryFacId||null,
+      secondaryDays:  secDays,
+      podId:          i.fields.PCC_PodId||null,
+      target:         i.fields.PCC_Target||40,
+    };
+  });
+  // Restore podPriority from hardcoded data for floats (not stored in SP)
+  staff.forEach(s=>{
+    const hardcoded=({
+      's4': ['pod2','pod1','pod4','pod3'],
+      's5': ['pod4','pod3','pod2','pod1'],
+      's6': ['pod3','pod1','pod2','pod4'],
+      's9': ['pod1','pod2','pod3','pod4'],
+      's11':['pod4','pod3','pod1','pod2'],
+    })[s.id];
+    if(hardcoded) s.podPriority=hardcoded;
+  });
 }
 
 async function loadTemplate(){
@@ -4883,7 +5423,11 @@ async function changeWeek(delta){
     await loadClosuresForWeek();
     await loadHolidaysForWeek();
     await loadAcknowledgedForWeek();
+    await loadLockForWeek();
+    await loadWeeklyOverrides();
+    await loadPTOHoursForWeek();
   }
+  applyLockState();
   render();
 }
 
