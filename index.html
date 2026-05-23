@@ -5886,81 +5886,14 @@ function renderViewerMySchedule(panel){
   wkLbl.textContent=`Week of ${currentMonday.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}`;
   panel.appendChild(wkLbl);
 
-  // Day cards
+  // Day cards — using shared renderer
   for(let i=0;i<5;i++){
-    const d=addDays(currentMonday,i);
-    const today=isToday(d);
-    const onPTO=isOnPTO(me.id,i);
-    const oh=effectiveHours(me.primaryFacId,i,'live');
-    const isClosed=!oh&&!onPTO;
-
-    // Find all shifts for this PCC on this day
-    const myShifts=[];
-    FACILITIES.forEach(fac=>{
-      const entries=getLiveCell(fac.id,i).filter(e=>e.staffId===me.id);
-      entries.forEach(e=>myShifts.push({fac,entry:e}));
-    });
-    // Also check secondary facility for hybrid
-    if(me.type==='hybrid'&&me.secondaryDays?.includes(i)){
-      const secShifts=getLiveCell(me.secondaryFacId,i).filter(e=>e.staffId===me.id);
-      secShifts.forEach(e=>{
-        if(!myShifts.find(s=>s.fac.id===me.secondaryFacId)) myShifts.push({fac:facById(me.secondaryFacId),entry:e});
-      });
-    }
-
-    const card=document.createElement('div');
-    card.className=`vs-day-card${today?' is-today':''}${myShifts.length===0&&!onPTO?' is-off':''}`;
-
-    let statusLabel, statusCls;
-    if(onPTO){ statusLabel='🏖 PTO'; statusCls='pto'; }
-    else if(isClosed){ statusLabel='🔒 Closed'; statusCls='closed'; }
-    else if(myShifts.length>0){ statusLabel='✓ Scheduled'; statusCls='working'; }
-    else { statusLabel='Off'; statusCls='off'; }
-
-    card.innerHTML=`
-      <div class="vs-day-header">
-        <div class="vs-day-date">${d.getDate()}</div>
-        <div><div class="vs-day-name">${DAYS[i]}</div></div>
-        <span class="vs-day-status ${statusCls}">${statusLabel}</span>
-      </div>`;
-
-    const body=document.createElement('div');
-    body.className='vs-day-body';
-
-    if(onPTO){
-      const ptoHrs=getPTOHours(me.id,i);
-      body.innerHTML=`<div class="vs-off-label">🏖 PTO${ptoHrs>0?` · ${ptoHrs}h`:''}</div>`;
-    } else if(myShifts.length>0){
-      myShifts.forEach(({fac,entry})=>{
-        const hrs=shiftHours(entry.start,entry.end,entry.lunch);
-        const tagHtml=entry.tag?`<div class="vs-shift-tag"><span class="chip-tag ${({
-          'Additional Coverage':'tag-additional','Project Work':'tag-project',
-          'Training':'tag-training','Admin':'tag-admin','On Call':'tag-oncall'
-        }[entry.tag]||'tag-custom')}">📌 ${entry.tag}</span></div>`:'';
-        const noteHtml=entry.note?`<div class="vs-shift-note">💬 ${entry.note}</div>`:'';
-        const lunchHtml=entry.lunch?`<div class="vs-shift-time">🥪 Lunch ${fmtTime(entry.lunch)}</div>`:'';
-
-        const row=document.createElement('div');
-        row.className='vs-shift-row';
-        row.innerHTML=`
-          <div class="vs-shift-dot" style="background:${fac.color}"></div>
-          <div class="vs-shift-info">
-            <div class="vs-shift-fac">${fac.name}</div>
-            <div class="vs-shift-time">${fmtRange(entry.start,entry.end)} · ${hrs.toFixed(1)}h</div>
-            ${lunchHtml}${tagHtml}${noteHtml}
-          </div>`;
-        body.appendChild(row);
-      });
-    } else {
-      body.innerHTML=`<div class="vs-off-label">No shift scheduled</div>`;
-    }
-
-    card.appendChild(body);
+    const card=buildViewerDayCard(me,i);
     panel.appendChild(card);
   }
 }
 
-// ── Facility week view ────────────────────────────────────────────
+// ── Facility week view — day cards with full timeline ─────────────
 function renderViewerFacility(panel, facId){
   panel.innerHTML='';
   if(!facId){
@@ -5969,75 +5902,161 @@ function renderViewerFacility(panel, facId){
   }
   const fac=facById(facId);
   const pod=fac?.podId?podById(fac.podId):null;
+  const volTier=VOLUME_TIERS[fac?.volume||'low'];
 
   // Facility header
   const hdr=document.createElement('div');
-  hdr.className='vs-fac-header';
+  hdr.className='vs-my-header';
   hdr.innerHTML=`
-    <div class="vs-fac-dot" style="background:${fac.color}"></div>
-    <div class="vs-fac-name">${fac.name}</div>
-    ${pod?`<span class="pod-badge" style="background:${pod.color}22;color:${pod.color};border:1px solid ${pod.color}44;">${pod.name}</span>`:''}`;
+    <div class="vs-my-avatar" style="background:${fac.color}">${fac.name.slice(0,2).toUpperCase()}</div>
+    <div>
+      <div class="vs-my-name">${fac.name}</div>
+      <div class="vs-my-meta">
+        ${pod?`<span style="color:${pod.color};font-weight:700;">${pod.name}</span> · `:''}
+        <span style="color:${volTier?.color}">${volTier?.label||''} volume</span>
+      </div>
+    </div>`;
   panel.appendChild(hdr);
 
-  // Week grid
-  const grid=document.createElement('div');
-  grid.className='vs-week-grid';
+  const wkLbl=document.createElement('div');
+  wkLbl.className='vs-week-label';
+  wkLbl.textContent=`Week of ${currentMonday.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}`;
+  panel.appendChild(wkLbl);
 
+  // One day card per day
   for(let i=0;i<5;i++){
     const d=addDays(currentMonday,i);
-    const oh=effectiveHours(facId,i,'live');
     const today=isToday(d);
-    const col=document.createElement('div');
-    col.className='vs-week-col';
+    const oh=effectiveHours(facId,i,'live');
+    const isClosed=!oh;
+    const isHol=isHoliday(i)||isHolidayOverride(i);
+    const hEntry=getHolidayEntry(i);
 
-    const head=document.createElement('div');
-    head.className=`vs-week-col-head${today?' today':''}`;
-    head.innerHTML=`${DAYS[i]}<br><span style="font-size:14px;font-weight:800;">${d.getDate()}</span>`;
-    col.appendChild(head);
+    const entries=isClosed?[]:getLiveCell(facId,i);
+    const present=entries.filter(e=>!isOnPTO(e.staffId,i));
+    const absent=entries.filter(e=>isOnPTO(e.staffId,i));
+
+    // Coverage analysis
+    let covPct=0, gaps=[];
+    if(oh && present.length>0){
+      const {covered,total}=coveredMins(oh.open,oh.close,present);
+      covPct=total>0?Math.round(covered/total*100):0;
+      // Find gap windows
+      const openMin=toMins(oh.open), closeMin=toMins(oh.close);
+      const intervals=present.map(e=>([
+        Math.max(toMins(e.start),openMin),
+        Math.min(toMins(e.end),closeMin)
+      ])).filter(([a,b])=>b>a).sort((a,b)=>a[0]-b[0]);
+      // Merge and find uncovered windows
+      let cur=openMin;
+      intervals.forEach(([s,e])=>{
+        if(s>cur) gaps.push({start:cur,end:s});
+        cur=Math.max(cur,e);
+      });
+      if(cur<closeMin) gaps.push({start:cur,end:closeMin});
+    } else if(oh && present.length===0){
+      gaps=[{start:toMins(oh.open),end:toMins(oh.close)}];
+    }
+
+    let statusLabel,statusCls;
+    if(isClosed){
+      statusLabel=isHol?(hEntry?.override?`🕐 ${hEntry.name}`:`🎉 ${hEntry?.name||'Holiday'}`):'🔒 Closed';
+      statusCls='closed';
+    } else if(present.length===0){
+      statusLabel='⚠ No coverage';statusCls='gap';
+    } else if(covPct>=100){
+      statusLabel='✓ Covered';statusCls='working';
+    } else {
+      statusLabel=`${covPct}% covered`;statusCls='pto';
+    }
+
+    const card=document.createElement('div');
+    card.className=`vs-day-card${today?' is-today':''}${isClosed?' is-off':''}`;
+    card.innerHTML=`
+      <div class="vs-day-header">
+        <div class="vs-day-date">${d.getDate()}</div>
+        <div>
+          <div class="vs-day-name">${DAYS[i]}</div>
+          ${oh?`<div style="font-family:'Fira Code',monospace;font-size:10px;color:var(--text-3);">${fmtRange(oh.open,oh.close)}</div>`:''}
+        </div>
+        <span class="vs-day-status ${statusCls}">${statusLabel}</span>
+      </div>`;
 
     const body=document.createElement('div');
-    body.className='vs-week-col-body';
+    body.className='vs-day-body';
 
-    if(!oh){
-      body.innerHTML=`<div class="vs-closed-indicator">🔒 Closed</div>`;
+    if(isClosed){
+      body.innerHTML=`<div class="vs-off-label">${isHol?`${hEntry?.name||'Holiday'}`:'Facility closed'}</div>`;
     } else {
-      const entries=getLiveCell(facId,i).filter(e=>!isOnPTO(e.staffId,i));
-      const absent=getLiveCell(facId,i).filter(e=>isOnPTO(e.staffId,i));
-
-      if(entries.length===0){
-        // Show pod responsibility
-        if(pod){
-          body.innerHTML=`<div class="vs-pod-indicator" style="color:${pod.color};background:${pod.color}15;">🏷 ${pod.name}<br><span style="font-size:9px;opacity:.7;">${fmtRange(oh.open,oh.close)}</span></div>`;
-        } else {
-          body.innerHTML=`<div class="vs-gap-indicator">⚠ Gap</div>`;
-        }
-      } else {
-        entries.forEach(e=>{
+      // Present PCCs
+      if(present.length>0){
+        present.forEach(e=>{
           const s=staffById(e.staffId);if(!s)return;
           const hrs=shiftHours(e.start,e.end,e.lunch);
-          const chip=document.createElement('div');
-          chip.className=`vs-mini-chip ${s.type}-type`;
-          chip.innerHTML=`${s.name}<div class="vs-chip-time">${fmtRange(e.start,e.end)}</div>`;
-          body.appendChild(chip);
+          const tagHtml=e.tag?`<span class="chip-tag ${({'Additional Coverage':'tag-additional','Project Work':'tag-project','Training':'tag-training','Admin':'tag-admin','On Call':'tag-oncall'}[e.tag]||'tag-custom')}">📌 ${e.tag}</span>`:'';
+          const noteHtml=e.note?`<div class="vs-shift-note">💬 ${e.note}</div>`:'';
+          const row=document.createElement('div');
+          row.className='vs-shift-row';
+          row.innerHTML=`
+            <div class="vs-shift-dot" style="background:${s.type==='float'?'var(--float-bd)':s.type==='hybrid'?'#059669':'var(--static-bd)'}"></div>
+            <div class="vs-shift-info">
+              <div class="vs-shift-fac">${s.name} <span style="font-weight:400;font-size:11px;color:var(--text-3);">${s.type==='float'?'🔄':s.type==='hybrid'?'🔀':'📌'}</span></div>
+              <div class="vs-shift-time">${fmtRange(e.start,e.end)} · ${hrs.toFixed(1)}h${e.lunch?` · 🥪 ${fmtTime(e.lunch)}`:''}</div>
+              ${tagHtml?`<div class="vs-shift-tag">${tagHtml}</div>`:''}${noteHtml}
+            </div>`;
+          body.appendChild(row);
         });
       }
-      // Show PTO
-      absent.forEach(e=>{
-        const s=staffById(e.staffId);if(!s)return;
-        const chip=document.createElement('div');
-        chip.className='vs-mini-chip static-type';
-        chip.style.cssText='opacity:.4;text-decoration:line-through;';
-        chip.textContent=s.name+' (PTO)';
-        body.appendChild(chip);
+
+      // Gaps
+      gaps.forEach(gap=>{
+        const gapMins=gap.end-gap.start;
+        if(gapMins<=0) return;
+        const gapHrs=(gapMins/60).toFixed(1);
+        const gapRow=document.createElement('div');
+        gapRow.className='vs-shift-row';
+        gapRow.innerHTML=`
+          <div class="vs-shift-dot" style="background:var(--gap-bd);"></div>
+          <div class="vs-shift-info">
+            <div class="vs-shift-fac" style="color:var(--gap-tx);">⚠ Gap</div>
+            <div class="vs-shift-time" style="color:var(--gap-tx);">${fmtRange(fromMins(gap.start),fromMins(gap.end))} · ${gapHrs}h uncovered</div>
+          </div>`;
+        body.appendChild(gapRow);
       });
+
+      // PTO / absent
+      if(absent.length>0){
+        absent.forEach(e=>{
+          const s=staffById(e.staffId);if(!s)return;
+          const row=document.createElement('div');
+          row.className='vs-shift-row';
+          row.style.opacity='.5';
+          row.innerHTML=`
+            <div class="vs-shift-dot" style="background:var(--pto-bd);"></div>
+            <div class="vs-shift-info">
+              <div class="vs-shift-fac" style="text-decoration:line-through;">${s.name}</div>
+              <div class="vs-shift-time">🏖 Out / PTO</div>
+            </div>`;
+          body.appendChild(row);
+        });
+      }
+
+      // No coverage at all
+      if(present.length===0&&absent.length===0){
+        const podFlag=document.createElement('div');
+        podFlag.innerHTML=pod
+          ?`<div style="color:${pod.color};font-size:12px;font-weight:700;padding:4px 0;">🏷 ${pod.name} coverage needed</div>`
+          :`<div class="vs-off-label">⚠ No coverage assigned</div>`;
+        body.appendChild(podFlag);
+      }
     }
-    col.appendChild(body);
-    grid.appendChild(col);
+
+    card.appendChild(body);
+    panel.appendChild(card);
   }
-  panel.appendChild(grid);
 }
 
-// ── PCC week view ─────────────────────────────────────────────────
+// ── PCC week view — same day card layout as My Schedule ───────────
 function renderViewerPCC(panel, staffId){
   panel.innerHTML='';
   if(!staffId){
@@ -6050,6 +6069,7 @@ function renderViewerPCC(panel, staffId){
   const initials=s.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
   const typeLabel=s.type==='static'?'📌 Static':s.type==='float'?'🔄 Float':'🔀 Hybrid';
 
+  // Same header style as My Schedule
   const hdr=document.createElement('div');
   hdr.className='vs-my-header';
   hdr.innerHTML=`
@@ -6065,61 +6085,65 @@ function renderViewerPCC(panel, staffId){
   wkLbl.textContent=`Week of ${currentMonday.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}`;
   panel.appendChild(wkLbl);
 
-  // Re-use My Schedule card renderer
+  // Same day-card format as My Schedule — delegates to shared renderer
   for(let i=0;i<5;i++){
-    const d=addDays(currentMonday,i);
-    const today=isToday(d);
-    const onPTO=isOnPTO(s.id,i);
-    const myShifts=[];
-    FACILITIES.forEach(fac=>{
-      const entries=getLiveCell(fac.id,i).filter(e=>e.staffId===s.id);
-      entries.forEach(e=>myShifts.push({fac,entry:e}));
-    });
-
-    const card=document.createElement('div');
-    card.className=`vs-day-card${today?' is-today':''}${myShifts.length===0&&!onPTO?' is-off':''}`;
-
-    let statusLabel,statusCls;
-    if(onPTO){statusLabel='🏖 PTO';statusCls='pto';}
-    else if(myShifts.length>0){statusLabel='✓ Scheduled';statusCls='working';}
-    else{statusLabel='Off';statusCls='off';}
-
-    card.innerHTML=`
-      <div class="vs-day-header">
-        <div class="vs-day-date">${d.getDate()}</div>
-        <div><div class="vs-day-name">${DAYS[i]}</div></div>
-        <span class="vs-day-status ${statusCls}">${statusLabel}</span>
-      </div>`;
-
-    const body=document.createElement('div');
-    body.className='vs-day-body';
-
-    if(onPTO){
-      body.innerHTML=`<div class="vs-off-label">🏖 PTO</div>`;
-    } else if(myShifts.length>0){
-      myShifts.forEach(({fac,entry})=>{
-        const hrs=shiftHours(entry.start,entry.end,entry.lunch);
-        const row=document.createElement('div');
-        row.className='vs-shift-row';
-        row.innerHTML=`
-          <div class="vs-shift-dot" style="background:${fac.color}"></div>
-          <div class="vs-shift-info">
-            <div class="vs-shift-fac">${fac.name}</div>
-            <div class="vs-shift-time">${fmtRange(entry.start,entry.end)} · ${hrs.toFixed(1)}h${entry.lunch?` · 🥪 ${fmtTime(entry.lunch)}`:''}</div>
-            ${entry.tag?`<div class="vs-shift-tag"><span class="chip-tag ${({
-              'Additional Coverage':'tag-additional','Project Work':'tag-project',
-              'Training':'tag-training','Admin':'tag-admin','On Call':'tag-oncall'
-            }[entry.tag]||'tag-custom')}">📌 ${entry.tag}</span></div>`:''}
-            ${entry.note?`<div class="vs-shift-note">💬 ${entry.note}</div>`:''}
-          </div>`;
-        body.appendChild(row);
-      });
-    } else {
-      body.innerHTML=`<div class="vs-off-label">No shift scheduled</div>`;
-    }
-    card.appendChild(body);
+    const card=buildViewerDayCard(s,i);
     panel.appendChild(card);
   }
+}
+
+// Shared day card builder — used by both My Schedule and PCC view
+function buildViewerDayCard(s, dayIdx){
+  const d=addDays(currentMonday,dayIdx);
+  const today=isToday(d);
+  const onPTO=isOnPTO(s.id,dayIdx);
+  const myShifts=[];
+  FACILITIES.forEach(fac=>{
+    getLiveCell(fac.id,dayIdx).filter(e=>e.staffId===s.id)
+      .forEach(e=>myShifts.push({fac,entry:e}));
+  });
+
+  let statusLabel,statusCls;
+  if(onPTO){statusLabel='🏖 PTO';statusCls='pto';}
+  else if(myShifts.length>0){statusLabel='✓ Scheduled';statusCls='working';}
+  else{statusLabel='Off';statusCls='off';}
+
+  const card=document.createElement('div');
+  card.className=`vs-day-card${today?' is-today':''}${myShifts.length===0&&!onPTO?' is-off':''}`;
+  card.innerHTML=`
+    <div class="vs-day-header">
+      <div class="vs-day-date">${d.getDate()}</div>
+      <div><div class="vs-day-name">${DAYS[dayIdx]}</div></div>
+      <span class="vs-day-status ${statusCls}">${statusLabel}</span>
+    </div>`;
+
+  const body=document.createElement('div');
+  body.className='vs-day-body';
+
+  if(onPTO){
+    const hrs=getPTOHours(s.id,dayIdx);
+    body.innerHTML=`<div class="vs-off-label">🏖 PTO${hrs>0?` · ${hrs}h`:''}</div>`;
+  } else if(myShifts.length>0){
+    myShifts.forEach(({fac,entry})=>{
+      const hrs=shiftHours(entry.start,entry.end,entry.lunch);
+      const tagHtml=entry.tag?`<div class="vs-shift-tag"><span class="chip-tag ${({'Additional Coverage':'tag-additional','Project Work':'tag-project','Training':'tag-training','Admin':'tag-admin','On Call':'tag-oncall'}[entry.tag]||'tag-custom')}">📌 ${entry.tag}</span></div>`:'';
+      const noteHtml=entry.note?`<div class="vs-shift-note">💬 ${entry.note}</div>`:'';
+      const row=document.createElement('div');
+      row.className='vs-shift-row';
+      row.innerHTML=`
+        <div class="vs-shift-dot" style="background:${fac.color}"></div>
+        <div class="vs-shift-info">
+          <div class="vs-shift-fac">${fac.name}</div>
+          <div class="vs-shift-time">${fmtRange(entry.start,entry.end)} · ${hrs.toFixed(1)}h${entry.lunch?` · 🥪 ${fmtTime(entry.lunch)}`:''}</div>
+          ${tagHtml}${noteHtml}
+        </div>`;
+      body.appendChild(row);
+    });
+  } else {
+    body.innerHTML=`<div class="vs-off-label">No shift scheduled</div>`;
+  }
+  card.appendChild(body);
+  return card;
 }
 
 // ── Apply read-only or editor mode to the UI ──────────────────────
