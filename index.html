@@ -5276,6 +5276,16 @@ document.getElementById('hc-holiday-type').addEventListener('change',function(){
     this.value==='halfday'?'flex':'none';
 });
 
+// Pre-fill sign-in button with stored email if available
+try {
+  const hint = localStorage.getItem('fit_login_hint') ||
+               sessionStorage.getItem('fit_login_hint');
+  if(hint){
+    const btn=document.getElementById('signin-btn');
+    if(btn) btn.textContent=`Sign in as ${hint.split('@')[0]}`;
+  }
+} catch(e){}
+
 // Add holiday button
 document.getElementById('hc-holiday-add').addEventListener('click',()=>{
   const dayIdx=document.getElementById('hc-holiday-day').value;
@@ -6223,41 +6233,37 @@ async function spSignIn(){
     if(!spToken){
       const accounts = msalApp.getAllAccounts();
 
-      // Try silent auth first — works if user already logged into Microsoft
-      // Option B: ssoSilent — reuses existing Microsoft/SharePoint session
-      // Option C: loginHint — passes known account to speed up silent auth
-      if(!spToken){
-        try {
-          const hint = accounts[0]?.username || accounts[0]?.homeAccountId;
-          const ssoReq = { scopes: SP_CONFIG.scopes };
-          if(hint) ssoReq.loginHint = hint;
-          const sso = await msalApp.ssoSilent(ssoReq);
-          spToken = sso.accessToken;
-          currentUser = sso.account;
-        } catch(ssoErr){
-          // ssoSilent failed — try acquireTokenSilent with cached account
-          if(accounts.length > 0){
-            try {
-              const silent = await msalApp.acquireTokenSilent({
-                scopes: SP_CONFIG.scopes, account: accounts[0]
-              });
-              spToken = silent.accessToken;
-              currentUser = accounts[0];
-            } catch(silentErr){
-              // Need interactive — popup for iframe, redirect for standalone
-              if(inIframe){
-                const result = await msalApp.loginPopup({ scopes: SP_CONFIG.scopes });
-                spToken = result.accessToken;
-                currentUser = result.account;
-              } else {
-                await msalApp.acquireTokenRedirect({ scopes: SP_CONFIG.scopes });
-                return;
-              }
-            }
-          } else {
-            // No accounts at all — interactive login
+      // Retrieve any stored login hint from previous sessions
+      let storedHint = null;
+      try {
+        storedHint = localStorage.getItem('fit_login_hint') ||
+                     sessionStorage.getItem('fit_login_hint');
+      } catch(e){}
+      const hint = accounts[0]?.username || storedHint;
+
+      // Option B+C: ssoSilent with login hint
+      try {
+        const ssoReq = { scopes: SP_CONFIG.scopes };
+        if(hint) ssoReq.loginHint = hint;
+        const sso = await msalApp.ssoSilent(ssoReq);
+        spToken = sso.accessToken;
+        currentUser = sso.account;
+      } catch(ssoErr){
+        // ssoSilent failed — try cached account silent
+        if(accounts.length > 0){
+          try {
+            const silent = await msalApp.acquireTokenSilent({
+              scopes: SP_CONFIG.scopes, account: accounts[0]
+            });
+            spToken = silent.accessToken;
+            currentUser = accounts[0];
+          } catch(silentErr){
+            // Need interactive login
             if(inIframe){
-              const result = await msalApp.loginPopup({ scopes: SP_CONFIG.scopes });
+              // Pre-fill the hint so user just taps their account — no typing
+              const popupReq = { scopes: SP_CONFIG.scopes };
+              if(hint) popupReq.loginHint = hint;
+              const result = await msalApp.loginPopup(popupReq);
               spToken = result.accessToken;
               currentUser = result.account;
             } else {
@@ -6265,11 +6271,31 @@ async function spSignIn(){
               return;
             }
           }
+        } else {
+          // No cached accounts — popup with hint pre-filled
+          if(inIframe){
+            const popupReq = { scopes: SP_CONFIG.scopes };
+            if(hint) popupReq.loginHint = hint;
+            const result = await msalApp.loginPopup(popupReq);
+            spToken = result.accessToken;
+            currentUser = result.account;
+          } else {
+            await msalApp.acquireTokenRedirect({ scopes: SP_CONFIG.scopes });
+            return;
+          }
         }
       }
     }
 
     currentUser = currentUser || msalApp.getAllAccounts()[0];
+
+    // Store login hint for faster re-auth on next visit
+    try {
+      if(currentUser?.username){
+        sessionStorage.setItem('fit_login_hint', currentUser.username);
+        localStorage.setItem('fit_login_hint', currentUser.username);
+      }
+    } catch(e){}
 
     // Check if signed-in user is an editor
     const userEmail = (currentUser?.username||'').toLowerCase();
