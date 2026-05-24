@@ -4420,12 +4420,13 @@ const TAG_COLORS = {
 function renderMobile(){
   if(!isMobile()) return;
 
-  // Show/hide viewer tabs
-  const mobViewerTabs=document.getElementById('mob-viewer-tabs');
-  if(mobViewerTabs) mobViewerTabs.style.display=(!isEditor&&!previewingAsViewer)?'flex':'none';
+  // Editors in preview mode see the same viewer layout as real viewers
+  const effectiveViewer = !isEditor || previewingAsViewer;
 
-  // Viewer mode
-  if(!isEditor){
+  const mobViewerTabs=document.getElementById('mob-viewer-tabs');
+  if(mobViewerTabs) mobViewerTabs.style.display=effectiveViewer?'flex':'none';
+
+  if(effectiveViewer){
     if(mobViewerTabs&&!mobViewerTabs.dataset.initialized){
       initMobViewerTabs();
       mobViewerTabs.dataset.initialized='1';
@@ -5481,10 +5482,14 @@ document.getElementById('preview-viewer-btn').addEventListener('click',()=>{
   if(previewingAsViewer){
     document.body.classList.add('view-only','previewing');
     initViewerTabs();
+    // Reset mobile viewer tab init so it re-inits with preview context
+    const mvt=document.getElementById('mob-viewer-tabs');
+    if(mvt) delete mvt.dataset.initialized;
     btn.classList.add('focus-active');
     btn.textContent='✏ Back to Editor';
     btn.title='Return to editor mode';
     showToast('Previewing viewer experience','ok');
+    render(); // Re-render to show viewer layout on mobile
   } else {
     document.body.classList.remove('view-only','view-mine','previewing','viewer-company-clean');
     document.getElementById('viewer-tabs').style.display='none';
@@ -5494,7 +5499,11 @@ document.getElementById('preview-viewer-btn').addEventListener('click',()=>{
     if(aside) aside.style.display='';
     document.getElementById('pto-wrap').style.display='';
     document.getElementById('bench-wrap').style.display='';
+    // Reset mobile viewer tabs too
+    const mvt=document.getElementById('mob-viewer-tabs');
+    if(mvt){ mvt.style.display='none'; delete mvt.dataset.initialized; }
     viewerView='company'; viewerSubId=null;
+    mobViewerView='mine'; mobViewerSubId=null;
     document.querySelectorAll('.fac-row').forEach(r=>r.classList.remove('dim-row'));
     document.querySelectorAll('.shift-chip').forEach(c=>c.classList.remove('dim-chip','my-shift'));
     btn.classList.remove('focus-active');
@@ -5822,8 +5831,303 @@ function copyCardLink(){
 // ═══════════════════════════════════════════════════════════════
 
 document.getElementById('print-btn').addEventListener('click',()=>{
-  window.print();
+  // Print what the user is currently seeing
+  const isViewerMode = !isEditor || previewingAsViewer;
+
+  if(isViewerMode){
+    // Viewer — print the current viewer panel content
+    printViewerContent();
+  } else {
+    // Editor — print the full schedule grid
+    printEditorGrid();
+  }
 });
+
+function printEditorGrid(){
+  // Create a print window with just the grid
+  const style = `
+    <style>
+      * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      body { font-family: 'Plus Jakarta Sans', sans-serif; margin: 0; padding: 12px; font-size: 11px; }
+      .print-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #cc0000; }
+      .print-title { font-size: 16px; font-weight: 800; }
+      .print-week { font-size: 11px; color: #666; }
+      table { width: 100%; border-collapse: collapse; font-size: 10px; }
+      th { background: #1a1a2e; color: #fff; padding: 6px 8px; text-align: center; font-size: 10px; font-weight: 700; }
+      td { border: 1px solid #e0e0e0; padding: 5px 6px; vertical-align: top; min-width: 80px; }
+      .fac-cell { font-weight: 700; font-size: 11px; background: #f8f8f8; min-width: 100px; }
+      .chip { border-left: 3px solid; padding: 3px 5px; margin-bottom: 3px; background: #f5f5f5; border-radius: 2px; font-size: 9px; }
+      .chip-name { font-weight: 700; }
+      .chip-time { font-family: monospace; color: #333; }
+      .gap-chip { border-left: 3px solid #cc0000; background: #fff0f0; padding: 3px 5px; margin-bottom: 3px; border-radius: 2px; font-size: 9px; color: #cc0000; font-weight: 700; }
+      .closed-cell { color: #aaa; font-style: italic; text-align: center; font-size: 9px; }
+      .today-col { background: #fff8f8 !important; }
+    </style>`;
+
+  const weekStart = currentMonday.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  const weekEnd = addDays(currentMonday,4).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+
+  let html = `<!DOCTYPE html><html><head><title>FIT MJC Schedule</title>${style}</head><body>`;
+  html += `<div class="print-header"><div><div class="print-title">F.I.T. Muscle &amp; Joint Clinic — PCC Schedule</div><div class="print-week">${weekStart} – ${weekEnd}</div></div></div>`;
+  html += `<table><thead><tr><th>Facility</th>`;
+  for(let i=0;i<5;i++){
+    const d=addDays(currentMonday,i);
+    const today=isToday(d);
+    html+=`<th${today?' class="today-col"':''}>${DAYS[i]} ${d.getDate()}</th>`;
+  }
+  html+=`</tr></thead><tbody>`;
+
+  FACILITIES.forEach(fac=>{
+    html+=`<tr><td class="fac-cell">${fac.name}</td>`;
+    for(let i=0;i<5;i++){
+      const oh=effectiveHours(fac.id,i,'live');
+      const today=isToday(addDays(currentMonday,i));
+      html+=`<td${today?' class="today-col"':''}>`;
+      if(!oh){
+        html+=`<div class="closed-cell">Closed</div>`;
+      } else {
+        const entries=[...getLiveCell(fac.id,i)].sort((a,b)=>toMins(a.start)-toMins(b.start));
+        const present=entries.filter(e=>!isOnPTO(e.staffId,i));
+        const absent=entries.filter(e=>isOnPTO(e.staffId,i));
+
+        // Gaps
+        const openMin=toMins(oh.open),closeMin=toMins(oh.close);
+        const ivs=present.map(e=>[Math.max(toMins(e.start),openMin),Math.min(toMins(e.end),closeMin)])
+          .filter(([a,b])=>b>a).sort((a,b)=>a[0]-b[0]);
+        let cur=openMin;
+        ivs.forEach(([s,e])=>{ if(s>cur) html+=`<div class="gap-chip">⚠ Gap ${fmtRange(fromMins(cur),fromMins(s))}</div>`; cur=Math.max(cur,e); });
+        if(cur<closeMin) html+=`<div class="gap-chip">⚠ Gap ${fmtRange(fromMins(cur),fromMins(closeMin))}</div>`;
+
+        present.forEach(entry=>{
+          const s=staffById(entry.staffId);if(!s)return;
+          const hrs=shiftHours(entry.start,entry.end,entry.lunch);
+          const color=s.type==='float'?'#0284c7':s.type==='hybrid'?'#059669':'#cc0000';
+          html+=`<div class="chip" style="border-color:${color}"><div class="chip-name">${s.name}</div><div class="chip-time">${fmtRange(entry.start,entry.end)} · ${hrs.toFixed(1)}h${entry.lunch?` · 🥪${fmtTime(entry.lunch)}`:''}</div>${entry.note?`<div style="font-size:8px;color:#666;">💬 ${entry.note}</div>`:''}</div>`;
+        });
+        absent.forEach(entry=>{
+          const s=staffById(entry.staffId);if(!s)return;
+          html+=`<div class="chip" style="border-color:#f59e0b;opacity:.6"><div class="chip-name" style="text-decoration:line-through;">${s.name}</div><div class="chip-time">🏖 PTO</div></div>`;
+        });
+      }
+      html+=`</td>`;
+    }
+    html+=`</tr>`;
+  });
+
+  html+=`</tbody></table></body></html>`;
+
+  const w=window.open('','_blank','width=1100,height=800');
+  w.document.write(html);
+  w.document.close();
+  w.onload=()=>{ w.print(); };
+}
+
+function printViewerContent(){
+  const style=`
+    <style>
+      * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      body { font-family: 'Plus Jakarta Sans', sans-serif; margin: 0; padding: 16px; font-size: 12px; color: #111; }
+      .print-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #cc0000; }
+      .print-title { font-size: 18px; font-weight: 800; }
+      .print-sub { font-size: 11px; color: #666; margin-top: 2px; }
+      /* Day cards */
+      .day-card { border: 1.5px solid #e0e0e0; border-radius: 8px; margin-bottom: 10px; overflow: hidden; page-break-inside: avoid; }
+      .day-card.today { border-color: #cc0000; }
+      .day-card.today::before { content:''; display:block; height:4px; background:#cc0000; }
+      .day-head { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #f5f5f5; border-bottom: 1px solid #e0e0e0; }
+      .day-card.today .day-head { background: #fff0f0; }
+      .day-num { font-size: 22px; font-weight: 900; min-width: 28px; }
+      .day-card.today .day-num { color: #cc0000; }
+      .day-name { font-size: 13px; font-weight: 700; flex: 1; }
+      .day-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+      .day-badge.working { background: #dcfce7; color: #166534; }
+      .day-badge.pto { background: #fef3c7; color: #92400e; }
+      .day-badge.off { background: #f3f4f6; color: #6b7280; }
+      .shift-block { display: flex; padding: 10px 12px; border-bottom: 1px solid #f0f0f0; }
+      .shift-block:last-child { border-bottom: none; }
+      .shift-accent { width: 4px; border-radius: 2px; margin-right: 12px; flex-shrink: 0; }
+      .shift-fac { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
+      .shift-time { font-size: 22px; font-weight: 900; font-family: monospace; line-height: 1.1; }
+      .shift-hrs { font-size: 11px; color: #666; margin-top: 2px; }
+      .off-msg { padding: 10px 12px; color: #999; font-style: italic; }
+      /* Grid view (facility / company) */
+      table { width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 16px; }
+      th { padding: 6px 8px; font-weight: 700; text-align: center; border: 1px solid #e0e0e0; background: #f5f5f5; }
+      th.today-th { background: #fff0f0; color: #cc0000; }
+      td { border: 1px solid #e0e0e0; padding: 5px 6px; vertical-align: top; }
+      td.today-td { background: #fff8f8; }
+      .grid-chip { border-left: 3px solid; padding: 2px 4px; margin-bottom: 2px; background: #fafafa; border-radius: 2px; }
+      .grid-chip-name { font-weight: 700; font-size: 9px; }
+      .grid-chip-time { font-family: monospace; font-size: 9px; color: #444; }
+      .grid-gap { border-left: 3px solid #cc0000; background: #fff0f0; padding: 2px 4px; margin-bottom: 2px; border-radius: 2px; font-size: 9px; font-weight: 700; color: #cc0000; }
+      .pod-header { padding: 6px 10px; font-weight: 800; font-size: 12px; color: #fff; border-radius: 4px; margin: 12px 0 4px; }
+      .fac-row-header { font-weight: 700; font-size: 11px; background: #f8f8f8; }
+      .closed-cell { color: #aaa; font-style: italic; font-size: 9px; }
+    </style>`;
+
+  const weekStart=currentMonday.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  const weekEnd=addDays(currentMonday,4).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+
+  let html=`<!DOCTYPE html><html><head><title>FIT MJC — ${viewerView}</title>${style}</head><body>`;
+
+  // Determine what we're printing based on current viewer view
+  const view = isMobile() ? mobViewerView : viewerView;
+  const subId = isMobile() ? mobViewerSubId : viewerSubId;
+
+  // Title
+  const userEmail=(currentUser?.username||'').toLowerCase();
+  const me=staff.find(s=>(s.email||'').toLowerCase()===userEmail);
+  let titleText='Schedule';
+  if(view==='mine') titleText=`My Schedule — ${me?.name||''}`;
+  else if(view==='facility') titleText=`${facById(subId)?.name||'Facility'} Schedule`;
+  else if(view==='pcc') titleText=`${staffById(subId)?.name||'PCC'} Schedule`;
+  else titleText='Company Schedule';
+
+  html+=`<div class="print-header"><div><div class="print-title">F.I.T. Muscle &amp; Joint Clinic</div><div class="print-sub">${titleText} · ${weekStart} – ${weekEnd}</div></div></div>`;
+
+  if(view==='mine'||view==='pcc'){
+    // Day card format
+    const pcc = view==='mine' ? me : staffById(subId);
+    if(!pcc){ html+=`<p>No PCC found.</p></body></html>`; }
+    else {
+      const todayDayIdx=new Date().getDay()-1;
+      const dayOrder=todayDayIdx>=0&&todayDayIdx<=4
+        ?[todayDayIdx,...[0,1,2,3,4].filter(x=>x!==todayDayIdx)]:[0,1,2,3,4];
+      dayOrder.forEach(i=>{
+        const d=addDays(currentMonday,i);
+        const today=isToday(d);
+        const onPTO=isOnPTO(pcc.id,i);
+        const shifts=[];
+        FACILITIES.forEach(fac=>{
+          getLiveCell(fac.id,i).filter(e=>e.staffId===pcc.id)
+            .forEach(e=>shifts.push({fac,entry:e}));
+        });
+        shifts.sort((a,b)=>toMins(a.entry.start)-toMins(b.entry.start));
+        const hasShift=shifts.length>0;
+        const badgeCls=onPTO?'pto':hasShift?'working':'off';
+        const badgeLabel=onPTO?'🏖 PTO':hasShift?'✓ Scheduled':'Off';
+        html+=`<div class="day-card${today?' today':''}">
+          <div class="day-head">
+            <div class="day-num">${d.getDate()}</div>
+            <div class="day-name">${DAYS[i]}${today?' · TODAY':''}</div>
+            <span class="day-badge ${badgeCls}">${badgeLabel}</span>
+          </div>`;
+        if(onPTO){
+          const hrs=getPTOHours(pcc.id,i);
+          html+=`<div class="off-msg">🏖 Out / PTO${hrs>0?` · ${hrs}h`:''}</div>`;
+        } else if(hasShift){
+          shifts.forEach(({fac,entry})=>{
+            const hrs=shiftHours(entry.start,entry.end,entry.lunch);
+            html+=`<div class="shift-block">
+              <div class="shift-accent" style="background:${fac.color}"></div>
+              <div>
+                <div class="shift-fac" style="color:${fac.color}">${fac.name}</div>
+                <div class="shift-time">${fmtRange(entry.start,entry.end)}</div>
+                <div class="shift-hrs">${hrs.toFixed(1)} hrs${entry.lunch?` · 🥪 Lunch ${fmtTime(entry.lunch)}`:''}</div>
+                ${entry.note?`<div style="font-size:10px;color:#666;margin-top:2px;">💬 ${entry.note}</div>`:''}
+              </div></div>`;
+          });
+        } else {
+          html+=`<div class="off-msg">No shift scheduled</div>`;
+        }
+        html+=`</div>`;
+      });
+    }
+  } else if(view==='facility'){
+    // Facility grid
+    const fac=facById(subId);
+    if(!fac){ html+=`<p>Select a facility.</p>`; }
+    else {
+      html+=`<table><thead><tr><th>Coverage</th>`;
+      for(let i=0;i<5;i++){
+        const d=addDays(currentMonday,i);
+        html+=`<th${isToday(d)?' class="today-th"':''}>${DAYS[i]} ${d.getDate()}</th>`;
+      }
+      html+=`</tr></thead><tbody>`;
+      // Get all PCCs at this facility this week
+      const pccSet=new Set();
+      for(let i=0;i<5;i++) getLiveCell(fac.id,i).forEach(e=>pccSet.add(e.staffId));
+      [...pccSet].forEach(sid=>{
+        const s=staffById(sid);if(!s)return;
+        html+=`<tr><td class="fac-row-header">${s.name}</td>`;
+        for(let i=0;i<5;i++){
+          const today=isToday(addDays(currentMonday,i));
+          const entry=getLiveCell(fac.id,i).find(e=>e.staffId===sid);
+          html+=`<td${today?' class="today-td"':''}>`;
+          if(entry){
+            const hrs=shiftHours(entry.start,entry.end,entry.lunch);
+            const color=s.type==='float'?'#0284c7':s.type==='hybrid'?'#059669':'#cc0000';
+            html+=`<div class="grid-chip" style="border-color:${color}"><div class="grid-chip-name">${fmtRange(entry.start,entry.end)}</div><div class="grid-chip-time">${hrs.toFixed(1)}h${entry.lunch?` · 🥪`:''}</div></div>`;
+          }
+          html+=`</td>`;
+        }
+        html+=`</tr>`;
+      });
+      // Gap row
+      html+=`<tr><td class="fac-row-header" style="color:#cc0000;">⚠ Gaps</td>`;
+      for(let i=0;i<5;i++){
+        const oh=effectiveHours(fac.id,i,'live');
+        const today=isToday(addDays(currentMonday,i));
+        html+=`<td${today?' class="today-td"':''}>`;
+        if(!oh){ html+=`<div class="closed-cell">Closed</div>`; }
+        else {
+          const present=[...getLiveCell(fac.id,i).filter(e=>!isOnPTO(e.staffId,i))].sort((a,b)=>toMins(a.start)-toMins(b.start));
+          const openMin=toMins(oh.open),closeMin=toMins(oh.close);
+          const ivs=present.map(e=>[Math.max(toMins(e.start),openMin),Math.min(toMins(e.end),closeMin)]).filter(([a,b])=>b>a).sort((a,b)=>a[0]-b[0]);
+          let cur=openMin;
+          ivs.forEach(([s,e])=>{ if(s>cur) html+=`<div class="grid-gap">${fmtRange(fromMins(cur),fromMins(s))}</div>`; cur=Math.max(cur,e); });
+          if(cur<closeMin) html+=`<div class="grid-gap">${fmtRange(fromMins(cur),fromMins(closeMin))}</div>`;
+          if(present.length===0) html+=`<div class="grid-gap">All day</div>`;
+        }
+        html+=`</td>`;
+      }
+      html+=`</tr></tbody></table>`;
+    }
+  } else {
+    // Company view — pod-grouped
+    Object.entries(PODS).forEach(([podId,pod])=>{
+      if(podId==='null'||!pod.facIds?.length) return;
+      html+=`<div class="pod-header" style="background:${pod.color}">${pod.name}</div>`;
+      html+=`<table><thead><tr><th>Facility</th>`;
+      for(let i=0;i<5;i++){
+        const d=addDays(currentMonday,i);
+        html+=`<th${isToday(d)?' class="today-th"':''}>${DAYS[i]} ${d.getDate()}</th>`;
+      }
+      html+=`</tr></thead><tbody>`;
+      pod.facIds.forEach(facId=>{
+        const fac=facById(facId);if(!fac)return;
+        html+=`<tr><td class="fac-row-header">${fac.name}</td>`;
+        for(let i=0;i<5;i++){
+          const oh=effectiveHours(facId,i,'live');
+          const today=isToday(addDays(currentMonday,i));
+          html+=`<td${today?' class="today-td"':''}>`;
+          if(!oh){ html+=`<div class="closed-cell">Closed</div>`; }
+          else {
+            const present=[...getLiveCell(facId,i).filter(e=>!isOnPTO(e.staffId,i))].sort((a,b)=>toMins(a.start)-toMins(b.start));
+            if(present.length===0){
+              html+=`<div class="grid-gap">⚠ No coverage</div>`;
+            } else {
+              present.forEach(entry=>{
+                const s=staffById(entry.staffId);if(!s)return;
+                const color=s.type==='float'?'#0284c7':s.type==='hybrid'?'#059669':'#cc0000';
+                html+=`<div class="grid-chip" style="border-color:${color}"><div class="grid-chip-name">${s.name.split(' ')[0]}</div><div class="grid-chip-time">${fmtRange(entry.start,entry.end)}</div></div>`;
+              });
+            }
+          }
+          html+=`</td>`;
+        }
+        html+=`</tr>`;
+      });
+      html+=`</tbody></table>`;
+    });
+  }
+
+  html+=`</body></html>`;
+  const w=window.open('','_blank','width=1100,height=800');
+  w.document.write(html);
+  w.document.close();
+  w.onload=()=>{ w.print(); };
+}
 
 // ═══════════════════════════════════════════════════════════════
 // WEEK NAV
@@ -5891,7 +6195,7 @@ let spReady = false;
 // ── Auth ─────────────────────────────────────────────────────────
 async function spSignIn(){
   try {
-    updateSyncStatus('signing-in','Signing in to Microsoft…');
+    updateSyncStatus('signing-in','Signing in…');
 
     if(!msalApp){
       msalApp = new msal.PublicClientApplication({
@@ -5900,50 +6204,67 @@ async function spSignIn(){
           authority: `https://login.microsoftonline.com/${SP_CONFIG.tenantId}`,
           redirectUri: window.location.href.split('?')[0],
         },
-        cache: { cacheLocation: 'sessionStorage' },
+        // localStorage persists tokens across iframes and tabs
+        // so SharePoint-embedded users don't need to sign in again
+        cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true },
       });
     }
 
     await msalApp.initialize();
 
-    // Detect if running in iframe — use popup, otherwise redirect
     const inIframe = window.parent !== window;
 
-    // Handle redirect response (only relevant when not in iframe)
+    // Handle redirect response (standalone only)
     if(!inIframe){
       const resp = await msalApp.handleRedirectPromise();
-      if(resp) spToken = resp.accessToken;
+      if(resp){ spToken=resp.accessToken; currentUser=resp.account; }
     }
 
     if(!spToken){
       const accounts = msalApp.getAllAccounts();
-      if(accounts.length > 0){
+
+      // Try silent auth first — works if user already logged into Microsoft
+      // Option B: ssoSilent — reuses existing Microsoft/SharePoint session
+      // Option C: loginHint — passes known account to speed up silent auth
+      if(!spToken){
         try {
-          const silent = await msalApp.acquireTokenSilent({
-            scopes: SP_CONFIG.scopes, account: accounts[0]
-          });
-          spToken = silent.accessToken;
-          currentUser = accounts[0];
-        } catch(e){
-          // Silent failed — use popup or redirect depending on context
-          if(inIframe){
-            const result = await msalApp.acquireTokenPopup({ scopes: SP_CONFIG.scopes });
-            spToken = result.accessToken;
-            currentUser = result.account;
+          const hint = accounts[0]?.username || accounts[0]?.homeAccountId;
+          const ssoReq = { scopes: SP_CONFIG.scopes };
+          if(hint) ssoReq.loginHint = hint;
+          const sso = await msalApp.ssoSilent(ssoReq);
+          spToken = sso.accessToken;
+          currentUser = sso.account;
+        } catch(ssoErr){
+          // ssoSilent failed — try acquireTokenSilent with cached account
+          if(accounts.length > 0){
+            try {
+              const silent = await msalApp.acquireTokenSilent({
+                scopes: SP_CONFIG.scopes, account: accounts[0]
+              });
+              spToken = silent.accessToken;
+              currentUser = accounts[0];
+            } catch(silentErr){
+              // Need interactive — popup for iframe, redirect for standalone
+              if(inIframe){
+                const result = await msalApp.loginPopup({ scopes: SP_CONFIG.scopes });
+                spToken = result.accessToken;
+                currentUser = result.account;
+              } else {
+                await msalApp.acquireTokenRedirect({ scopes: SP_CONFIG.scopes });
+                return;
+              }
+            }
           } else {
-            await msalApp.acquireTokenRedirect({ scopes: SP_CONFIG.scopes });
-            return;
+            // No accounts at all — interactive login
+            if(inIframe){
+              const result = await msalApp.loginPopup({ scopes: SP_CONFIG.scopes });
+              spToken = result.accessToken;
+              currentUser = result.account;
+            } else {
+              await msalApp.acquireTokenRedirect({ scopes: SP_CONFIG.scopes });
+              return;
+            }
           }
-        }
-      } else {
-        // No accounts — sign in fresh
-        if(inIframe){
-          const result = await msalApp.loginPopup({ scopes: SP_CONFIG.scopes });
-          spToken = result.accessToken;
-          currentUser = result.account;
-        } else {
-          await msalApp.acquireTokenRedirect({ scopes: SP_CONFIG.scopes });
-          return;
         }
       }
     }
@@ -5954,7 +6275,7 @@ async function spSignIn(){
     const userEmail = (currentUser?.username||'').toLowerCase();
     isEditor = EDITORS.map(e=>e.toLowerCase()).includes(userEmail);
 
-    // Hide sign-in overlay
+    // Auto-hide sign-in overlay (silent auth succeeds without user interaction)
     const overlay=document.getElementById('signin-overlay');
     if(overlay) overlay.style.display='none';
 
@@ -5963,7 +6284,7 @@ async function spSignIn(){
     await spInit();
   } catch(err){
     console.error('Auth error:', err);
-    updateSyncStatus('error', 'Sign-in failed — working offline');
+    updateSyncStatus('error', 'Sign-in failed');
     const errEl=document.getElementById('signin-error');
     if(errEl) errEl.textContent=`Sign-in error: ${err.message||err}. Try again or refresh.`;
     render();
