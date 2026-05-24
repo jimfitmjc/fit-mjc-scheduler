@@ -8082,11 +8082,19 @@ function renderViewerMySchedule(panel){
           </div>`;
         card.appendChild(blk);
       });
+    } else {
+      const blk=document.createElement('div');
+      blk.className='vs2-off-block';
+      blk.textContent='No shift scheduled';
+      card.appendChild(blk);
+    }
 
-      // Specialty badges — queues this PCC covers today
+    // Specialty badges — show on any day the PCC has a queue assignment
+    // (appears after shift block or after PTO/off message)
+    if(!onPTO){
       activeQueues().forEach(q=>{
-        if(getQueueAssignment(q.id,dayIdx)!==me.id) return;
-        const conflicts=getSpecialtyConflicts(dayIdx).some(c=>c.queue.id===q.id&&c.staffId===me.id);
+        if(getQueueAssignment(q.id,i)!==me.id) return;
+        const conflicts=getSpecialtyConflicts(i).some(c=>c.queue.id===q.id&&c.staffId===me.id);
         const badge=document.createElement('div');
         badge.className='vs2-shift-block';
         badge.innerHTML=`
@@ -8098,28 +8106,22 @@ function renderViewerMySchedule(panel){
           </div>`;
         card.appendChild(badge);
       });
-
-      // Meeting blocks — meetings this PCC has today
-      getMeetingsForDay(dayIdx).forEach(mtg=>{
-        if(!mtg.staffIds.includes(me.id)) return;
-        const conflict=getSpecialtyConflicts(dayIdx).some(c=>c.meeting.id===mtg.id&&c.staffId===me.id);
-        const blk=document.createElement('div');
-        blk.className='vs2-meeting-block';
-        blk.innerHTML=`
-          <div class="vs2-meeting-accent" style="${conflict?'background:var(--brand)':''}"></div>
-          <div>
-            <div class="vs2-meeting-name${conflict?' vs2-meeting-conflict':''}">📅 ${mtg.name}${conflict?' ⚠ Specialty conflict':''}</div>
-            <div class="vs2-meeting-time">${fmtTime(mtg.startTime)} · ${mtg.duration}min</div>
-          </div>`;
-        card.appendChild(blk);
-      });
-
-    } else {
-      const blk=document.createElement('div');
-      blk.className='vs2-off-block';
-      blk.textContent='No shift scheduled';
-      card.appendChild(blk);
     }
+
+    // Meeting blocks — show on any day the PCC has a meeting
+    getMeetingsForDay(i).forEach(mtg=>{
+      if(!mtg.staffIds.includes(me.id)) return;
+      const conflict=getSpecialtyConflicts(i).some(c=>c.meeting.id===mtg.id&&c.staffId===me.id);
+      const blk=document.createElement('div');
+      blk.className='vs2-meeting-block';
+      blk.innerHTML=`
+        <div class="vs2-meeting-accent" style="${conflict?'background:var(--brand)':''}"></div>
+        <div>
+          <div class="vs2-meeting-name${conflict?' vs2-meeting-conflict':''}">📅 ${mtg.name}${conflict?' ⚠ Specialty conflict':''}</div>
+          <div class="vs2-meeting-time">${fmtTime(mtg.startTime)} · ${mtg.duration}min</div>
+        </div>`;
+      card.appendChild(blk);
+    });
     panel.appendChild(card);
   });
 }
