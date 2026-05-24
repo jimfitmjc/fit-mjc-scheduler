@@ -2912,9 +2912,8 @@ function render(){
   updateToolbar();
   populateFilterDropdown();
   applyFilter();
-  // Reapply viewer view after each render
-  if(!isEditor && viewerView!=='company') setTimeout(applyViewerView,0);
-  else if(!isEditor && viewerView==='company') setTimeout(applyViewerView,0);
+  // Reapply viewer view after each render — for both real viewers and editors in preview mode
+  if(!isEditor || previewingAsViewer) setTimeout(applyViewerView, 0);
   // In template mode hide live-only toolbar controls and stats bar
   const isLive = mode==='live';
   document.getElementById('stats-bar').style.display = isLive ? '' : 'none';
@@ -6903,23 +6902,28 @@ function printViewerContent(){
   let html=`<!DOCTYPE html><html><head><title>FIT MJC — ${viewerView}</title>${style}</head><body>`;
 
   // Determine what we're printing based on current viewer view
-  const view = isMobile() ? mobViewerView : viewerView;
-  const subId = isMobile() ? mobViewerSubId : viewerSubId;
+  const mobView = isMobile() ? mobViewerView : viewerView;
+  const mobSub = isMobile() ? mobViewerSubId : viewerSubId;
+
+  // For preview mode, use the active viewer tab to determine view
+  const activeTab = document.querySelector('.viewer-tab.active');
+  const effectiveView = (isViewerMode && activeTab) ? activeTab.dataset.view : mobView;
+  const effectiveSubId = mobSub;
 
   // Title
   const userEmail=(currentUser?.username||'').toLowerCase();
   const me=staff.find(s=>(s.email||'').toLowerCase()===userEmail);
   let titleText='Schedule';
-  if(view==='mine') titleText=`My Schedule — ${me?.name||''}`;
-  else if(view==='facility') titleText=`${facById(subId)?.name||'Facility'} Schedule`;
-  else if(view==='pcc') titleText=`${staffById(subId)?.name||'PCC'} Schedule`;
+  if(effectiveView==='mine') titleText=`My Schedule — ${me?.name||''}`;
+  else if(effectiveView==='facility') titleText=`${facById(effectiveSubId)?.name||'Facility'} Schedule`;
+  else if(effectiveView==='pcc') titleText=`${staffById(effectiveSubId)?.name||'PCC'} Schedule`;
   else titleText='Company Schedule';
 
   html+=`<div class="print-header"><div><div class="print-title">F.I.T. Muscle &amp; Joint Clinic</div><div class="print-sub">${titleText} · ${weekStart} – ${weekEnd}</div></div></div>`;
 
-  if(view==='mine'||view==='pcc'){
+  if(effectiveView==='mine'||effectiveView==='pcc'){
     // Day card format
-    const pcc = view==='mine' ? me : staffById(subId);
+    const pcc = effectiveView==='mine' ? me : staffById(effectiveSubId);
     if(!pcc){ html+=`<p>No PCC found.</p></body></html>`; }
     else {
       const todayDayIdx=new Date().getDay()-1;
@@ -6962,12 +6966,34 @@ function printViewerContent(){
         } else {
           html+=`<div class="off-msg">No shift scheduled</div>`;
         }
+        // Specialty queue assignments
+        if(!onPTO){
+          activeQueues().forEach(q=>{
+            if(getQueueAssignment(q.id,i)!==pcc.id) return;
+            const conflict=getSpecialtyConflicts(i).some(c=>c.queue.id===q.id&&c.staffId===pcc.id);
+            html+=`<div class="shift-block">
+              <div class="shift-accent" style="background:${q.color}"></div>
+              <div>
+                <div class="shift-fac" style="color:${q.color}">🔬 ${q.name} coverage${conflict?' ⚠ Meeting conflict':''}</div>
+              </div></div>`;
+          });
+        }
+        // Meetings
+        getMeetingsForDay(i).forEach(mtg=>{
+          if(!mtg.staffIds.includes(pcc.id)) return;
+          const conflict=getSpecialtyConflicts(i).some(c=>c.meeting.id===mtg.id&&c.staffId===pcc.id);
+          html+=`<div class="shift-block" style="border-left:3px solid #1a1a2e;background:#f0f0f8;">
+            <div>
+              <div style="font-weight:700;color:${conflict?'#cc0000':'#1a1a2e'};">📅 ${mtg.name}${conflict?' ⚠ Specialty conflict':''}</div>
+              <div style="font-size:11px;color:#555;font-family:monospace;">${fmtTime(mtg.startTime)} · ${mtg.duration}min</div>
+            </div></div>`;
+        });
         html+=`</div>`;
       });
     }
-  } else if(view==='facility'){
+  } else if(effectiveView==='facility'){
     // Facility grid
-    const fac=facById(subId);
+    const fac=facById(effectiveSubId);
     if(!fac){ html+=`<p>Select a facility.</p>`; }
     else {
       html+=`<table><thead><tr><th>Coverage</th>`;
@@ -7929,6 +7955,17 @@ function initViewerTabs(){
 }
 
 function applyViewerView(){
+  // Only run in viewer mode or preview mode
+  if(isEditor && !previewingAsViewer) return;
+
+  // Default to My Schedule when entering viewer/preview mode
+  if(!viewerView || viewerView==='company' && previewingAsViewer && !document.querySelector('.viewer-tab.active[data-view="company"]')){
+    viewerView='mine';
+    document.querySelectorAll('.viewer-tab').forEach(b=>b.classList.remove('active'));
+    const mineBtn=document.querySelector('.viewer-tab[data-view="mine"]');
+    if(mineBtn) mineBtn.classList.add('active');
+  }
+
   const panel=document.getElementById('viewer-panel');
   const gridScroll=document.getElementById('grid-scroll');
   const aside=document.querySelector('aside');
