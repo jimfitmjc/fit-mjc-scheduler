@@ -1003,6 +1003,105 @@ body.schedule-locked .ack-btn { display:none !important; }
   background: var(--brand); color: #fff; border-color: var(--brand);
 }
 
+/* ── MEETINGS & SPECIALTY QUEUES ── */
+/* Meeting chip on schedule grid */
+.meeting-chip {
+  display: flex; align-items: flex-start; gap: 5px;
+  padding: 4px 6px; border-radius: var(--r-xs);
+  border-left: 3px solid #1a1a2e;
+  background: #f0f0f8; margin-bottom: 3px;
+  font-size: 10px;
+}
+.meeting-chip-icon { font-size: 11px; flex-shrink: 0; margin-top: 1px; }
+.meeting-chip-info { flex: 1; min-width: 0; }
+.meeting-chip-name { font-weight: 700; color: #1a1a2e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.meeting-chip-time { font-family: 'Fira Code', monospace; font-size: 9px; color: #555; }
+.meeting-chip-conflict { border-color: var(--brand); background: #fff0f0; }
+.meeting-chip-conflict .meeting-chip-name { color: var(--brand); }
+
+/* Specialty queue row */
+.specialty-wrap {
+  background: var(--surface); border-top: 1px solid var(--border);
+  padding: 6px 14px; display: flex; align-items: center;
+  gap: 12px; overflow-x: auto; flex-shrink: 0;
+  -webkit-overflow-scrolling: touch;
+}
+.specialty-wrap::-webkit-scrollbar { display: none; }
+.specialty-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--text-3); flex-shrink: 0;
+}
+.specialty-queue-pill {
+  display: flex; align-items: center; gap: 5px;
+  padding: 3px 10px 3px 8px;
+  border-radius: 999px; font-size: 11px; font-weight: 600;
+  border: 1.5px solid; white-space: nowrap; flex-shrink: 0;
+  cursor: pointer; transition: all .15s;
+}
+.specialty-queue-pill:hover { opacity: .85; }
+.specialty-queue-pill .sq-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+}
+.specialty-queue-pill.conflict {
+  border-color: var(--brand) !important;
+  background: var(--brand-lt) !important;
+  color: var(--brand) !important;
+}
+.specialty-queue-pill.unassigned {
+  border-color: var(--gap-bd);
+  background: var(--gap-bg);
+  color: var(--gap-tx);
+}
+
+/* Specialty badge on My Schedule day card */
+.vs2-specialty-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 999px;
+  font-size: 10px; font-weight: 700; margin-top: 4px;
+  border: 1.5px solid;
+}
+/* Meeting block on My Schedule day card */
+.vs2-meeting-block {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px 8px 0; border-bottom: 1px solid var(--border);
+}
+.vs2-meeting-accent {
+  width: 4px; background: #1a1a2e; align-self: stretch;
+  flex-shrink: 0; min-height: 32px;
+}
+.vs2-meeting-name { font-size: 13px; font-weight: 700; color: #1a1a2e; }
+.vs2-meeting-time { font-size: 11px; color: var(--text-2); margin-top: 1px; font-family: 'Fira Code', monospace; }
+.vs2-meeting-conflict { color: var(--brand); }
+
+/* Meetings modal */
+.meetings-modal { width: 580px; max-height: 88vh; overflow-y: auto; }
+.mtg-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.mtg-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border: 1px solid var(--border);
+  border-radius: var(--r-sm); background: var(--surface2);
+}
+.mtg-item-dot { width: 8px; height: 8px; border-radius: 50%; background: #1a1a2e; flex-shrink: 0; }
+.mtg-item-info { flex: 1; font-size: 12px; }
+.mtg-item-name { font-weight: 700; }
+.mtg-item-meta { font-size: 10px; color: var(--text-3); margin-top: 1px; }
+.mtg-item-conflict { border-color: var(--brand); background: var(--brand-lt); }
+.mtg-form { border: 1px solid var(--border); border-radius: var(--r-sm); padding: 12px; background: var(--surface2); }
+.mtg-form-title { font-size: 12px; font-weight: 700; margin-bottom: 10px; }
+.mtg-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mtg-scope-sel { margin-bottom: 8px; }
+
+/* Specialty assignment panel */
+.specialty-panel { width: 520px; max-height: 88vh; overflow-y: auto; }
+.sq-template-grid { display: grid; grid-template-columns: 140px repeat(5, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--r-sm); overflow: hidden; margin-bottom: 10px; }
+.sq-grid-head { background: var(--surface2); padding: 6px 8px; font-size: 10px; font-weight: 700; text-align: center; color: var(--text-2); }
+.sq-grid-head.queue-head { text-align: left; }
+.sq-grid-cell { background: var(--surface); padding: 4px 6px; }
+.sq-grid-cell select { width: 100%; font-size: 10px; padding: 3px 4px; border: 1px solid var(--border2); border-radius: 3px; background: var(--surface); font-family: inherit; }
+.sq-queue-label { font-size: 11px; font-weight: 700; padding: 6px 8px; background: var(--surface); display: flex; align-items: center; gap: 5px; }
+.sq-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.sq-conflict-badge { font-size: 9px; font-weight: 700; color: var(--brand); background: var(--brand-lt); border-radius: 3px; padding: 1px 5px; }
+
 /* ── VIEWER PANEL — REDESIGNED ── */
 .viewer-panel { flex:1; overflow-y:auto; padding:0; background:var(--bg); }
 
@@ -1694,6 +1793,8 @@ body.focus-mode .fac-label:has(.fstat.ok) {
   <button class="tbtn" id="add-staff-btn">+ Add PCC</button>
   <button class="tbtn" id="fac-hours-btn">🕐 Hours</button>
   <button class="tbtn" id="closures-btn">🗓 Holidays &amp; Closures</button>
+  <button class="tbtn" id="meetings-btn">📅 Meetings</button>
+  <button class="tbtn" id="specialty-btn">🔬 Specialty</button>
   <button class="tbtn" id="clear-acks-btn" title="Clear all acknowledged gaps for this week" style="display:none;">↺ Clear Acks</button>
   <button class="tbtn" id="focus-mode-btn" title="Hide fully covered cells to focus on gaps">🎯 Focus Gaps</button>
   <button class="tbtn" id="preview-viewer-btn" title="Preview the viewer experience">👁 Preview Viewer</button>
@@ -1801,6 +1902,11 @@ body.focus-mode .fac-label:has(.fstat.ok) {
           <div class="bench-hdr">🔄 Float Availability <span>— PCCs without a shift today, available for coverage</span><span class="bench-count" id="bench-count">0</span></div>
           <div class="bench-grid" id="bench-grid"><div class="bench-label">Available</div></div>
         </div>
+        <!-- Specialty queue coverage strip -->
+        <div class="specialty-wrap" id="specialty-wrap" style="display:none;">
+          <span class="specialty-label">🔬 Specialty:</span>
+          <div id="specialty-pills" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+        </div>
         <div id="fac-rows"></div>
       </div>
     </div>
@@ -1894,6 +2000,8 @@ body.focus-mode .fac-label:has(.fstat.ok) {
     </div>
     <label>Weekly Hours Target</label>
     <input type="number" id="new-target" value="40" min="1" max="80">
+    <label style="margin-top:8px;">🔬 Cross-Training Specialties</label>
+    <div id="new-specialties" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;padding:8px;border:1px solid var(--border2);border-radius:var(--r-sm);background:var(--surface2);min-height:36px;"></div>
     <div class="modal-btns">
       <button class="mbtn danger" id="staff-delete" style="margin-right:auto;display:none;">🗑 Delete</button>
       <button class="mbtn cancel" onclick="closeModal('staff-modal')">Cancel</button>
@@ -2102,6 +2210,117 @@ body.focus-mode .fac-label:has(.fstat.ok) {
   </div>
 </div>
 
+<!-- Meetings Modal -->
+<div class="modal-overlay" id="meetings-modal">
+  <div class="modal meetings-modal">
+    <h3>📅 Meetings</h3>
+    <div class="hc-section">
+      <div class="hc-section-title">This Week's Meetings</div>
+      <div id="mtg-week-list" class="mtg-list"></div>
+    </div>
+    <div class="hc-section">
+      <div class="hc-section-title">All Meetings <span style="font-weight:400;font-size:10px;">(recurring + one-time)</span></div>
+      <div id="mtg-all-list" class="mtg-list"></div>
+      <button class="mbtn save" id="mtg-add-btn" style="width:100%;margin-top:4px;">+ Add Meeting</button>
+    </div>
+    <!-- Add/Edit form (hidden by default) -->
+    <div class="mtg-form" id="mtg-form" style="display:none;">
+      <div class="mtg-form-title" id="mtg-form-title">New Meeting</div>
+      <label>Meeting Name</label>
+      <input type="text" id="mtg-name" placeholder="e.g. Monthly All-Hands">
+      <div class="mtg-form-row">
+        <div>
+          <label>Type</label>
+          <select id="mtg-type">
+            <option value="company">🏢 Company-wide</option>
+            <option value="pod">🏷 Pod</option>
+            <option value="facility">🏥 Facility</option>
+            <option value="individual">👤 Individual</option>
+          </select>
+        </div>
+        <div>
+          <label>Duration (minutes)</label>
+          <input type="number" id="mtg-duration" value="30" min="15" max="480" step="15">
+        </div>
+      </div>
+      <div id="mtg-scope-row" class="mtg-scope-sel">
+        <label id="mtg-scope-label">Select scope</label>
+        <select id="mtg-scope-sel" multiple style="height:80px;"></select>
+      </div>
+      <label>Start Time</label>
+      <input type="time" id="mtg-start-time" value="14:00">
+      <label>Recurrence</label>
+      <select id="mtg-recurrence">
+        <option value="none">One-time</option>
+        <option value="weekly">Weekly</option>
+        <option value="monthly">Monthly (same weekday)</option>
+      </select>
+      <div id="mtg-date-row">
+        <label>Date</label>
+        <input type="date" id="mtg-date">
+      </div>
+      <div id="mtg-dow-row" style="display:none;">
+        <label>Day of Week</label>
+        <select id="mtg-dow">
+          <option value="0">Monday</option>
+          <option value="1">Tuesday</option>
+          <option value="2">Wednesday</option>
+          <option value="3">Thursday</option>
+          <option value="4">Friday</option>
+        </select>
+      </div>
+      <div id="mtg-wom-row" style="display:none;">
+        <label>Week of Month</label>
+        <select id="mtg-wom">
+          <option value="1">1st</option>
+          <option value="2">2nd</option>
+          <option value="3">3rd</option>
+          <option value="4">4th</option>
+        </select>
+      </div>
+      <div class="modal-btns" style="margin-top:10px;">
+        <button class="mbtn cancel" id="mtg-delete-btn" style="display:none;margin-right:auto;">🗑 Delete</button>
+        <button class="mbtn cancel" id="mtg-form-cancel">Cancel</button>
+        <button class="mbtn save" id="mtg-form-save">Save Meeting</button>
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="mbtn cancel" onclick="closeModal('meetings-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Specialty Coverage Modal -->
+<div class="modal-overlay" id="specialty-modal">
+  <div class="modal specialty-panel">
+    <h3>🔬 Specialty Coverage</h3>
+    <!-- Queue management -->
+    <div class="hc-section">
+      <div class="hc-section-title">Active Queues <span style="font-weight:400;font-size:10px;">— drag to reorder, click to rename</span></div>
+      <div id="sq-queue-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input type="text" id="sq-new-queue-name" placeholder="New queue name…" style="flex:1;font-size:12px;padding:5px 8px;border:1px solid var(--border2);border-radius:var(--r-sm);font-family:inherit;">
+        <button class="mbtn save" id="sq-add-queue-btn" style="padding:5px 12px;">+ Add</button>
+      </div>
+    </div>
+    <!-- Template rotation grid -->
+    <div class="hc-section">
+      <div class="hc-section-title" id="sq-grid-title">Weekly Rotation Template</div>
+      <div id="sq-template-grid"></div>
+      <p style="font-size:10px;color:var(--text-3);margin:4px 0 0;">Template loads automatically each week. Adjust individual days in the live week below.</p>
+    </div>
+    <!-- This week's assignments -->
+    <div class="hc-section">
+      <div class="hc-section-title">This Week's Assignments <span style="font-weight:400;font-size:10px;">— overrides template for this week only</span></div>
+      <div id="sq-week-grid"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="mbtn cancel" onclick="closeModal('specialty-modal')">Close</button>
+      <button class="mbtn save" id="sq-save-btn">Save &amp; Apply</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- Schedule Card overlay -->
@@ -2233,6 +2452,30 @@ let tmplClosures = {};
 
 // holidays[weekKey] = [{dayIdx, name}]  — company-wide, affects all facilities
 let holidays = {};
+
+// ── Specialty Queues ──────────────────────────────────────────────
+// queues = [{id, name, color, active}]
+let queues = [
+  {id:'wcomp',   name:'Workers\' Comp',  color:'#0284c7', active:true},
+  {id:'refs',    name:'Referrals',        color:'#7c3aed', active:true},
+  {id:'prereg',  name:'Preregistration',  color:'#059669', active:true},
+  {id:'auths',   name:'Authorizations',   color:'#d97706', active:true},
+];
+
+// queueAssignments[weekKey][queueId][dayIdx] = staffId
+let queueAssignments = {};
+
+// queueTemplate[queueId][dayIdx] = staffId  — default weekly rotation
+let queueTemplate = {};
+
+// ── Meetings ──────────────────────────────────────────────────────
+// meetings = [{id, name, type, scope, scopeIds, startTime, duration, recurrence, color}]
+// type: 'company'|'pod'|'facility'|'individual'
+// recurrence: null | {freq:'weekly'|'monthly', dayOfWeek, weekOfMonth}
+let meetings = [];
+
+// meetingInstances[weekKey][dayIdx] = [{meetingId, staffIds, skipped}]
+let meetingInstances = {};
 
 // acknowledged[weekKey][facId][dayIdx] = {by: username, ts: timestamp}
 // Marks a gap as known/accepted — removes visual flag without requiring coverage
@@ -2407,7 +2650,126 @@ function getTmplClosure(facId,dayIdx){
   return tmplClosures[facId]?.[dayIdx]||null;
 }
 
-// ── Acknowledged gap helpers ──────────────────────────────────────
+// ── Specialty queue helpers ───────────────────────────────────────
+function queueById(id){ return queues.find(q=>q.id===id)||null; }
+function activeQueues(){ return queues.filter(q=>q.active); }
+
+function getQueueAssignment(queueId, dayIdx){
+  const k=weekKey(currentMonday);
+  return queueAssignments[k]?.[queueId]?.[dayIdx]||null;
+}
+function setQueueAssignment(queueId, dayIdx, staffId){
+  const k=weekKey(currentMonday);
+  if(!queueAssignments[k]) queueAssignments[k]={};
+  if(!queueAssignments[k][queueId]) queueAssignments[k][queueId]={};
+  queueAssignments[k][queueId][dayIdx]=staffId;
+}
+function getQueueTemplateAssignment(queueId, dayIdx){
+  return queueTemplate[queueId]?.[dayIdx]||null;
+}
+function setQueueTemplateAssignment(queueId, dayIdx, staffId){
+  if(!queueTemplate[queueId]) queueTemplate[queueId]={};
+  queueTemplate[queueId][dayIdx]=staffId;
+}
+function loadQueueTemplateForWeek(){
+  const k=weekKey(currentMonday);
+  if(queueAssignments[k]) return; // already set for this week
+  if(!queueAssignments[k]) queueAssignments[k]={};
+  activeQueues().forEach(q=>{
+    if(!queueAssignments[k][q.id]) queueAssignments[k][q.id]={};
+    for(let i=0;i<5;i++){
+      const tmplStaff=getQueueTemplateAssignment(q.id,i);
+      if(tmplStaff) queueAssignments[k][q.id][i]=tmplStaff;
+    }
+  });
+}
+
+// Check if a PCC has a specialty conflict with a meeting on a given day/time
+function getSpecialtyConflicts(dayIdx){
+  const k=weekKey(currentMonday);
+  const conflicts=[];
+  const instances=meetingInstances[k]?.[dayIdx]||[];
+  activeQueues().forEach(q=>{
+    const assignedId=getQueueAssignment(q.id,dayIdx);
+    if(!assignedId) return;
+    instances.forEach(inst=>{
+      if(inst.skipped) return;
+      const mtg=meetings.find(m=>m.id===inst.meetingId);
+      if(!mtg) return;
+      // Check if assigned PCC is affected by this meeting
+      const affected=getMeetingStaffIds(mtg,dayIdx);
+      if(affected.includes(assignedId)){
+        conflicts.push({queue:q, staffId:assignedId, meeting:mtg, instance:inst});
+      }
+    });
+  });
+  return conflicts;
+}
+
+// Get cross-trained backups for a queue (excluding current assignee)
+function getQueueBackups(queueId, dayIdx, excludeStaffId=null){
+  return staff.filter(s=>{
+    if(s.id===excludeStaffId) return false;
+    if(isOnPTO(s.id,dayIdx)) return false;
+    const specialties=s.specialties||[];
+    return specialties.includes(queueId);
+  });
+}
+
+// ── Meeting helpers ───────────────────────────────────────────────
+function getMeetingStaffIds(mtg, dayIdx){
+  if(!mtg) return [];
+  if(mtg.type==='company') return staff.map(s=>s.id);
+  if(mtg.type==='pod') return staff.filter(s=>mtg.scopeIds?.includes(s.podId)).map(s=>s.id);
+  if(mtg.type==='facility') return staff.filter(s=>mtg.scopeIds?.includes(s.primaryFacId)).map(s=>s.id);
+  if(mtg.type==='individual') return mtg.scopeIds||[];
+  return [];
+}
+
+function getMeetingsForDay(dayIdx){
+  const k=weekKey(currentMonday);
+  const instances=meetingInstances[k]?.[dayIdx]||[];
+  return instances.filter(i=>!i.skipped).map(i=>{
+    const mtg=meetings.find(m=>m.id===i.meetingId);
+    return mtg?{...mtg, instance:i, staffIds:i.staffIds||getMeetingStaffIds(mtg,dayIdx)}:null;
+  }).filter(Boolean);
+}
+
+function generateMeetingInstancesForWeek(){
+  const k=weekKey(currentMonday);
+  if(!meetingInstances[k]) meetingInstances[k]={};
+  meetings.forEach(mtg=>{
+    for(let i=0;i<5;i++){
+      const d=addDays(currentMonday,i);
+      const dow=d.getDay()-1; // 0=Mon..4=Fri
+      let applies=false;
+      if(!mtg.recurrence){
+        // One-time — check if it falls this week on this day
+        if(mtg.date){
+          const mtgDate=new Date(mtg.date);
+          applies=mtgDate.toDateString()===d.toDateString();
+        }
+      } else if(mtg.recurrence.freq==='weekly'){
+        applies=mtg.recurrence.dayOfWeek===dow;
+      } else if(mtg.recurrence.freq==='monthly'){
+        // e.g. first Tuesday of month
+        const weekOfMonth=Math.ceil(d.getDate()/7);
+        applies=mtg.recurrence.dayOfWeek===dow&&weekOfMonth===mtg.recurrence.weekOfMonth;
+      }
+      if(applies){
+        if(!meetingInstances[k][i]) meetingInstances[k][i]=[];
+        const existing=meetingInstances[k][i].find(x=>x.meetingId===mtg.id);
+        if(!existing){
+          meetingInstances[k][i].push({
+            meetingId:mtg.id,
+            staffIds:getMeetingStaffIds(mtg,i),
+            skipped:false,
+          });
+        }
+      }
+    }
+  });
+}
 function getAck(facId,dayIdx){
   const k=weekKey(currentMonday);
   return acknowledged[k]?.[facId]?.[dayIdx]||null;
@@ -2544,6 +2906,7 @@ function render(){
   renderSummary();
   renderStatsBar();
   renderPodSummary();
+  renderSpecialtyStrip();
   renderMobile();
   fixMobileTop();
   updateToolbar();
@@ -3093,6 +3456,9 @@ function buildLiveCell(fac,dayIdx){
     const s=staffById(e.staffId);if(!s)return;
     cell.appendChild(makeChip(s,e,fac.id,dayIdx,false));
   });
+
+  // Meeting chips — show meetings affecting PCCs at this facility today
+  renderMeetingChipsForCell(fac.id,dayIdx).forEach(chip=>cell.appendChild(chip));
 
   cell.addEventListener('dragover',e=>{e.preventDefault();cell.classList.add('drag-over');});
   cell.addEventListener('dragleave',()=>cell.classList.remove('drag-over'));
@@ -4095,8 +4461,39 @@ document.getElementById('rename-input').addEventListener('keydown',e=>{if(e.key=
 
 let editingStaffId = null; // null = adding new, string = editing existing
 
+function populateSpecialtiesCheckboxes(selectedIds=[]){
+  const container=document.getElementById('new-specialties');
+  container.innerHTML='';
+  if(!queues.length){
+    container.innerHTML='<span style="font-size:11px;color:var(--text-3);font-style:italic;">No specialty queues defined yet — add them in 🔬 Specialty</span>';
+    return;
+  }
+  queues.forEach(q=>{
+    const label=document.createElement('label');
+    label.style.cssText='display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;cursor:pointer;padding:3px 8px;border-radius:999px;border:1.5px solid;';
+    label.style.borderColor=selectedIds.includes(q.id)?q.color:'var(--border2)';
+    label.style.background=selectedIds.includes(q.id)?q.color+'18':'var(--surface)';
+    label.style.color=selectedIds.includes(q.id)?q.color:'var(--text-2)';
+    const cb=document.createElement('input');
+    cb.type='checkbox'; cb.value=q.id;
+    cb.checked=selectedIds.includes(q.id);
+    cb.style.display='none';
+    cb.addEventListener('change',()=>{
+      label.style.borderColor=cb.checked?q.color:'var(--border2)';
+      label.style.background=cb.checked?q.color+'18':'var(--surface)';
+      label.style.color=cb.checked?q.color:'var(--text-2)';
+    });
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(q.name));
+    container.appendChild(label);
+  });
+}
+
+function getSelectedSpecialties(){
+  return [...document.querySelectorAll('#new-specialties input[type=checkbox]:checked')].map(cb=>cb.value);
+}
+
 function populatePrimaryFacDropdown(selectedFacId=''){
-  const sel=document.getElementById('new-primary-fac');
   sel.innerHTML='<option value="">— Not assigned —</option>';
   FACILITIES.forEach(f=>{
     const opt=document.createElement('option');
@@ -4163,6 +4560,7 @@ function openAddStaffModal() {
   document.getElementById('staff-delete').style.display = 'none';
   populatePrimaryFacDropdown();
   populateSecondaryFacDropdown();
+  populateSpecialtiesCheckboxes([]);
   [0,1,2,3,4].forEach(d=>{ document.getElementById(`sec-day-${d}`).checked=false; });
   togglePrimaryFacRow();
   document.getElementById('staff-modal').classList.add('open');
@@ -4182,6 +4580,7 @@ function openEditStaffModal(staffId) {
   document.getElementById('staff-delete').style.display = 'inline-flex';
   populatePrimaryFacDropdown(s.primaryFacId||'');
   populateSecondaryFacDropdown(s.secondaryFacId||'');
+  populateSpecialtiesCheckboxes(s.specialties||[]);
   [0,1,2,3,4].forEach(d=>{
     document.getElementById(`sec-day-${d}`).checked = s.secondaryDays?.includes(d)||false;
   });
@@ -4208,6 +4607,7 @@ document.getElementById('staff-save').addEventListener('click',()=>{
     ? [0,1,2,3,4].filter(d=>document.getElementById(`sec-day-${d}`).checked)
     : [];
   const target     = parseInt(document.getElementById('new-target').value) || 40;
+  const specialties = getSelectedSpecialties();
 
   if (editingStaffId) {
     const s = staffById(editingStaffId);
@@ -4216,13 +4616,13 @@ document.getElementById('staff-save').addEventListener('click',()=>{
       if(oldFacId && oldFacId!==primaryFacId) removeFromPrimaryFacTemplate(editingStaffId, oldFacId);
       s.name=name; s.email=email; s.type=type;
       s.primaryFacId=primaryFacId; s.secondaryFacId=secondaryFacId;
-      s.secondaryDays=secondaryDays; s.target=target;
+      s.secondaryDays=secondaryDays; s.target=target; s.specialties=specialties;
       applyPrimaryFacToTemplate(editingStaffId);
     }
     showToast('PCC updated ✓', 'ok');
   } else {
     const newId='s'+Date.now();
-    staff.push({ id:newId, name, email, type, primaryFacId, secondaryFacId, secondaryDays, target });
+    staff.push({ id:newId, name, email, type, primaryFacId, secondaryFacId, secondaryDays, target, specialties });
     applyPrimaryFacToTemplate(newId);
     showToast('PCC added ✓', 'ok');
   }
@@ -5111,8 +5511,530 @@ function fixMobileTop(){
 }
 
 // ═══════════════════════════════════════════════════════════════
-// FILTER BAR
+// MEETINGS MODAL
 // ═══════════════════════════════════════════════════════════════
+
+let editingMeetingId = null;
+
+function openMeetingsModal(){
+  generateMeetingInstancesForWeek();
+  renderMtgWeekList();
+  renderMtgAllList();
+  document.getElementById('mtg-form').style.display='none';
+  document.getElementById('meetings-modal').classList.add('open');
+}
+
+function renderMtgWeekList(){
+  const list=document.getElementById('mtg-week-list');
+  list.innerHTML='';
+  let any=false;
+  for(let i=0;i<5;i++){
+    const dayMtgs=getMeetingsForDay(i);
+    dayMtgs.forEach(mtg=>{
+      any=true;
+      const conflicts=getSpecialtyConflicts(i).filter(c=>c.meeting.id===mtg.id);
+      const item=document.createElement('div');
+      item.className='mtg-item'+(conflicts.length?' mtg-item-conflict':'');
+      const typeIcon={company:'🏢',pod:'🏷',facility:'🏥',individual:'👤'}[mtg.type]||'📅';
+      item.innerHTML=`
+        <div class="mtg-item-dot"></div>
+        <div class="mtg-item-info">
+          <div class="mtg-item-name">${typeIcon} ${mtg.name}</div>
+          <div class="mtg-item-meta">${DAYS[i]} · ${fmtTime(mtg.startTime)} · ${mtg.duration}min · ${mtg.staffIds?.length||0} PCCs${conflicts.length?` · <span style="color:var(--brand)">⚠ Specialty conflict</span>`:''}</div>
+        </div>
+        <button class="pto-hrs-btn" data-mtg-skip="${mtg.id}" data-day="${i}">Skip this week</button>`;
+      item.querySelector('[data-mtg-skip]').addEventListener('click',()=>{
+        const k=weekKey(currentMonday);
+        const inst=meetingInstances[k]?.[i]?.find(x=>x.meetingId===mtg.id);
+        if(inst){ inst.skipped=true; saveMeetingInstances(); renderMtgWeekList(); render(); showToast('Meeting skipped for this week','ok'); }
+      });
+      list.appendChild(item);
+    });
+  }
+  if(!any) list.innerHTML='<div style="font-size:12px;color:var(--text-3);font-style:italic;">No meetings scheduled this week</div>';
+}
+
+function renderMtgAllList(){
+  const list=document.getElementById('mtg-all-list');
+  list.innerHTML='';
+  if(!meetings.length){
+    list.innerHTML='<div style="font-size:12px;color:var(--text-3);font-style:italic;">No meetings defined yet</div>';
+    return;
+  }
+  meetings.forEach(mtg=>{
+    const recLabel=!mtg.recurrence?`One-time${mtg.date?' · '+new Date(mtg.date).toLocaleDateString('en-US',{month:'short',day:'numeric'}):''}`:mtg.recurrence.freq==='weekly'?`Weekly · ${['Mon','Tue','Wed','Thu','Fri'][mtg.recurrence.dayOfWeek]}`:`Monthly · ${['1st','2nd','3rd','4th'][mtg.recurrence.weekOfMonth-1]} ${['Mon','Tue','Wed','Thu','Fri'][mtg.recurrence.dayOfWeek]}`;
+    const typeIcon={company:'🏢',pod:'🏷',facility:'🏥',individual:'👤'}[mtg.type]||'📅';
+    const item=document.createElement('div');
+    item.className='mtg-item';
+    item.style.cursor='pointer';
+    item.innerHTML=`
+      <div class="mtg-item-dot"></div>
+      <div class="mtg-item-info">
+        <div class="mtg-item-name">${typeIcon} ${mtg.name}</div>
+        <div class="mtg-item-meta">${recLabel} · ${fmtTime(mtg.startTime)} · ${mtg.duration}min</div>
+      </div>
+      <span style="font-size:10px;color:var(--brand);font-weight:700;cursor:pointer;">Edit ✏</span>`;
+    item.addEventListener('click',()=>openMtgForm(mtg.id));
+    list.appendChild(item);
+  });
+}
+
+function openMtgForm(meetingId=null){
+  editingMeetingId=meetingId;
+  const form=document.getElementById('mtg-form');
+  form.style.display='block';
+  document.getElementById('mtg-form-title').textContent=meetingId?'Edit Meeting':'New Meeting';
+  document.getElementById('mtg-delete-btn').style.display=meetingId?'inline-flex':'none';
+
+  const mtg=meetings.find(m=>m.id===meetingId);
+  document.getElementById('mtg-name').value=mtg?.name||'';
+  document.getElementById('mtg-type').value=mtg?.type||'company';
+  document.getElementById('mtg-duration').value=mtg?.duration||30;
+  document.getElementById('mtg-start-time').value=mtg?.startTime||'14:00';
+  document.getElementById('mtg-date').value=mtg?.date||'';
+
+  const rec=mtg?.recurrence;
+  document.getElementById('mtg-recurrence').value=rec?rec.freq:'none';
+  document.getElementById('mtg-dow').value=rec?.dayOfWeek??0;
+  document.getElementById('mtg-wom').value=rec?.weekOfMonth??1;
+
+  updateMtgFormFields();
+  populateMtgScopeSelect(mtg?.type||'company', mtg?.scopeIds||[]);
+  form.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function updateMtgFormFields(){
+  const type=document.getElementById('mtg-type').value;
+  const rec=document.getElementById('mtg-recurrence').value;
+  const scopeLbl={company:'(All PCCs — no selection needed)',pod:'Select Pod(s)',facility:'Select Facility/ies',individual:'Select PCC(s)'}[type]||'';
+  document.getElementById('mtg-scope-label').textContent=scopeLbl;
+  document.getElementById('mtg-scope-row').style.display=type==='company'?'none':'block';
+  document.getElementById('mtg-date-row').style.display=rec==='none'?'block':'none';
+  document.getElementById('mtg-dow-row').style.display=rec!=='none'?'block':'none';
+  document.getElementById('mtg-wom-row').style.display=rec==='monthly'?'block':'none';
+}
+
+function populateMtgScopeSelect(type, selectedIds){
+  const sel=document.getElementById('mtg-scope-sel');
+  sel.innerHTML='';
+  if(type==='pod'){
+    Object.entries(PODS).forEach(([id,pod])=>{
+      if(id==='null') return;
+      const o=document.createElement('option');
+      o.value=id; o.textContent=pod.name;
+      if(selectedIds.includes(id)) o.selected=true;
+      sel.appendChild(o);
+    });
+  } else if(type==='facility'){
+    FACILITIES.forEach(fac=>{
+      const o=document.createElement('option');
+      o.value=fac.id; o.textContent=fac.name;
+      if(selectedIds.includes(fac.id)) o.selected=true;
+      sel.appendChild(o);
+    });
+  } else if(type==='individual'){
+    staff.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(s=>{
+      const o=document.createElement('option');
+      o.value=s.id; o.textContent=s.name;
+      if(selectedIds.includes(s.id)) o.selected=true;
+      sel.appendChild(o);
+    });
+  }
+}
+
+document.getElementById('mtg-type').addEventListener('change',()=>{
+  updateMtgFormFields();
+  populateMtgScopeSelect(document.getElementById('mtg-type').value,[]);
+});
+document.getElementById('mtg-recurrence').addEventListener('change',updateMtgFormFields);
+document.getElementById('mtg-add-btn').addEventListener('click',()=>openMtgForm(null));
+document.getElementById('mtg-form-cancel').addEventListener('click',()=>{
+  document.getElementById('mtg-form').style.display='none';
+  editingMeetingId=null;
+});
+
+document.getElementById('mtg-form-save').addEventListener('click',()=>{
+  const name=document.getElementById('mtg-name').value.trim();
+  if(!name){showToast('Enter a meeting name','err');return;}
+  const type=document.getElementById('mtg-type').value;
+  const duration=parseInt(document.getElementById('mtg-duration').value)||30;
+  const startTime=document.getElementById('mtg-start-time').value;
+  const rec=document.getElementById('mtg-recurrence').value;
+  const scopeIds=type==='company'?[]:
+    [...document.getElementById('mtg-scope-sel').selectedOptions].map(o=>o.value);
+
+  let recurrence=null;
+  if(rec==='weekly') recurrence={freq:'weekly',dayOfWeek:parseInt(document.getElementById('mtg-dow').value)};
+  else if(rec==='monthly') recurrence={freq:'monthly',dayOfWeek:parseInt(document.getElementById('mtg-dow').value),weekOfMonth:parseInt(document.getElementById('mtg-wom').value)};
+
+  const mtgData={
+    id: editingMeetingId||`mtg_${Date.now()}`,
+    name, type, scopeIds, startTime, duration, recurrence,
+    date: rec==='none'?document.getElementById('mtg-date').value:null,
+  };
+
+  if(editingMeetingId){
+    const idx=meetings.findIndex(m=>m.id===editingMeetingId);
+    if(idx>=0) meetings[idx]=mtgData;
+  } else {
+    meetings.push(mtgData);
+  }
+
+  // Regenerate instances for this week
+  const k=weekKey(currentMonday);
+  if(meetingInstances[k]) delete meetingInstances[k];
+  generateMeetingInstancesForWeek();
+  saveMeetings();
+  saveMeetingInstances();
+  document.getElementById('mtg-form').style.display='none';
+  editingMeetingId=null;
+  renderMtgWeekList();
+  renderMtgAllList();
+  render();
+  showToast('Meeting saved ✓','ok');
+});
+
+document.getElementById('mtg-delete-btn').addEventListener('click',()=>{
+  if(!editingMeetingId) return;
+  if(!confirm('Delete this meeting?')) return;
+  meetings=meetings.filter(m=>m.id!==editingMeetingId);
+  const k=weekKey(currentMonday);
+  if(meetingInstances[k]){
+    Object.keys(meetingInstances[k]).forEach(d=>{
+      meetingInstances[k][d]=meetingInstances[k][d].filter(x=>x.meetingId!==editingMeetingId);
+    });
+  }
+  saveMeetings();
+  saveMeetingInstances();
+  document.getElementById('mtg-form').style.display='none';
+  editingMeetingId=null;
+  renderMtgWeekList();
+  renderMtgAllList();
+  render();
+  showToast('Meeting deleted','ok');
+});
+
+document.getElementById('meetings-btn').addEventListener('click',openMeetingsModal);
+document.getElementById('meetings-modal').addEventListener('click',e=>{
+  if(e.target===document.getElementById('meetings-modal')) closeModal('meetings-modal');
+});
+
+// ═══════════════════════════════════════════════════════════════
+// SPECIALTY QUEUES MODAL
+// ═══════════════════════════════════════════════════════════════
+
+function openSpecialtyModal(){
+  renderSqQueueList();
+  renderSqTemplateGrid();
+  renderSqWeekGrid();
+  document.getElementById('specialty-modal').classList.add('open');
+}
+
+function renderSqQueueList(){
+  const el=document.getElementById('sq-queue-list');
+  el.innerHTML='';
+  queues.forEach(q=>{
+    const pill=document.createElement('span');
+    pill.className='specialty-queue-pill';
+    pill.style.cssText=`background:${q.color}22;color:${q.color};border-color:${q.color}44;`;
+    pill.innerHTML=`<span class="sq-dot" style="background:${q.color}"></span>${q.name}${q.active?'':' (inactive)'}<button style="background:none;border:none;cursor:pointer;color:${q.color};font-size:10px;margin-left:4px;" data-sq-toggle="${q.id}">${q.active?'✓':'○'}</button>`;
+    pill.querySelector('[data-sq-toggle]').addEventListener('click',e=>{
+      e.stopPropagation(); q.active=!q.active;
+      renderSqQueueList(); renderSqTemplateGrid(); renderSqWeekGrid();
+    });
+    el.appendChild(pill);
+  });
+}
+
+function renderSqTemplateGrid(){
+  const grid=document.getElementById('sq-template-grid');
+  grid.innerHTML='';
+  grid.className='sq-template-grid';
+
+  // Headers
+  const corner=document.createElement('div');
+  corner.className='sq-grid-head queue-head';
+  corner.textContent='Queue \\ Day';
+  grid.appendChild(corner);
+  DAYS.forEach(d=>{
+    const h=document.createElement('div');
+    h.className='sq-grid-head';
+    h.textContent=d;
+    grid.appendChild(h);
+  });
+
+  // One row per active queue
+  activeQueues().forEach(q=>{
+    const lbl=document.createElement('div');
+    lbl.className='sq-queue-label';
+    lbl.innerHTML=`<span class="sq-dot" style="background:${q.color}"></span>${q.name}`;
+    grid.appendChild(lbl);
+
+    for(let i=0;i<5;i++){
+      const cell=document.createElement('div');
+      cell.className='sq-grid-cell';
+      const sel=document.createElement('select');
+      sel.dataset.queue=q.id; sel.dataset.day=i; sel.dataset.mode='template';
+      sel.innerHTML='<option value="">—</option>';
+      staff.filter(s=>s.specialties?.includes(q.id)||true).forEach(s=>{
+        const trained=s.specialties?.includes(q.id);
+        const o=document.createElement('option');
+        o.value=s.id;
+        o.textContent=s.name.split(' ')[0]+(trained?'':' *');
+        if(getQueueTemplateAssignment(q.id,i)===s.id) o.selected=true;
+        sel.appendChild(o);
+      });
+      sel.addEventListener('change',()=>{
+        setQueueTemplateAssignment(q.id,i,sel.value||null);
+      });
+      cell.appendChild(sel);
+      grid.appendChild(cell);
+    }
+  });
+}
+
+function renderSqWeekGrid(){
+  const grid=document.getElementById('sq-week-grid');
+  grid.innerHTML='';
+  grid.className='sq-template-grid';
+
+  const corner=document.createElement('div');
+  corner.className='sq-grid-head queue-head';
+  corner.textContent='Queue \\ Day';
+  grid.appendChild(corner);
+  DAYS.forEach(d=>{
+    const h=document.createElement('div');
+    h.className='sq-grid-head';
+    h.textContent=d;
+    grid.appendChild(h);
+  });
+
+  activeQueues().forEach(q=>{
+    const lbl=document.createElement('div');
+    lbl.className='sq-queue-label';
+    lbl.innerHTML=`<span class="sq-dot" style="background:${q.color}"></span>${q.name}`;
+    grid.appendChild(lbl);
+
+    for(let i=0;i<5;i++){
+      const cell=document.createElement('div');
+      cell.className='sq-grid-cell';
+      const conflicts=getSpecialtyConflicts(i).filter(c=>c.queue.id===q.id);
+      const sel=document.createElement('select');
+      sel.dataset.queue=q.id; sel.dataset.day=i;
+      if(conflicts.length) sel.style.border='1.5px solid var(--brand)';
+      sel.innerHTML='<option value="">—</option>';
+      staff.forEach(s=>{
+        const trained=s.specialties?.includes(q.id);
+        const o=document.createElement('option');
+        o.value=s.id;
+        o.textContent=s.name.split(' ')[0]+(trained?'':' *');
+        if(getQueueAssignment(q.id,i)===s.id) o.selected=true;
+        sel.appendChild(o);
+      });
+      if(conflicts.length){
+        const badge=document.createElement('div');
+        badge.className='sq-conflict-badge';
+        badge.textContent='⚠ Meeting conflict';
+        cell.appendChild(badge);
+      }
+      cell.appendChild(sel);
+      grid.appendChild(cell);
+    }
+  });
+}
+
+document.getElementById('sq-add-queue-btn').addEventListener('click',()=>{
+  const name=document.getElementById('sq-new-queue-name').value.trim();
+  if(!name){showToast('Enter a queue name','err');return;}
+  const colors=['#0284c7','#7c3aed','#059669','#d97706','#dc2626','#0ea5e9','#8b5cf6'];
+  const color=colors[queues.length%colors.length];
+  queues.push({id:`q_${Date.now()}`,name,color,active:true});
+  document.getElementById('sq-new-queue-name').value='';
+  renderSqQueueList();
+  renderSqTemplateGrid();
+  renderSqWeekGrid();
+  saveQueues();
+});
+
+document.getElementById('sq-save-btn').addEventListener('click',()=>{
+  // Save template assignments from template grid
+  document.querySelectorAll('#sq-template-grid select[data-mode="template"]').forEach(sel=>{
+    setQueueTemplateAssignment(sel.dataset.queue, parseInt(sel.dataset.day), sel.value||null);
+  });
+  // Save week assignments from week grid
+  document.querySelectorAll('#sq-week-grid select').forEach(sel=>{
+    setQueueAssignment(sel.dataset.queue, parseInt(sel.dataset.day), sel.value||null);
+  });
+  saveQueues();
+  saveQueueTemplate();
+  saveQueueAssignments();
+  closeModal('specialty-modal');
+  render();
+  showToast('Specialty coverage saved ✓','ok');
+});
+
+document.getElementById('specialty-btn').addEventListener('click',openSpecialtyModal);
+document.getElementById('specialty-modal').addEventListener('click',e=>{
+  if(e.target===document.getElementById('specialty-modal')) closeModal('specialty-modal');
+});
+
+// ═══════════════════════════════════════════════════════════════
+// SPECIALTY STRIP RENDER
+// ═══════════════════════════════════════════════════════════════
+
+function renderSpecialtyStrip(){
+  const wrap=document.getElementById('specialty-wrap');
+  const pills=document.getElementById('specialty-pills');
+  if(!wrap||!pills) return;
+  if(mode!=='live'||!activeQueues().length){ wrap.style.display='none'; return; }
+  wrap.style.display='flex';
+  pills.innerHTML='';
+
+  // Use the day that has the most context — today if weekday, else Mon
+  const wd=new Date().getDay()-1;
+  const dayIdx=wd>=0&&wd<=4?wd:0;
+
+  activeQueues().forEach(q=>{
+    const assignedId=getQueueAssignment(q.id,dayIdx);
+    const s=assignedId?staffById(assignedId):null;
+    const conflicts=getSpecialtyConflicts(dayIdx).filter(c=>c.queue.id===q.id);
+    const hasConflict=conflicts.length>0;
+    const unassigned=!s;
+
+    const pill=document.createElement('span');
+    pill.className='specialty-queue-pill'+(hasConflict?' conflict':unassigned?' unassigned':'');
+    pill.style.cssText=!hasConflict&&!unassigned?`background:${q.color}18;color:${q.color};border-color:${q.color}44;`:'';
+    pill.title=hasConflict?`⚠ ${conflicts[0].meeting.name} conflicts with ${s?.name}'s specialty assignment`:s?.name||'Unassigned';
+    pill.innerHTML=`<span class="sq-dot" style="background:${hasConflict?'var(--brand)':unassigned?'var(--gap-bd)':q.color}"></span>${q.name}: <strong>${hasConflict?'⚠ Conflict':unassigned?'Unassigned':s.name.split(' ')[0]}</strong>`;
+    pill.addEventListener('click',()=>openSpecialtyModal());
+    pills.appendChild(pill);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MEETINGS ON GRID — add meeting chips to live cells
+// ═══════════════════════════════════════════════════════════════
+
+function renderMeetingChipsForCell(facId, dayIdx){
+  // Returns an array of meeting chip elements for PCCs at this facility on this day
+  const dayMtgs=getMeetingsForDay(dayIdx);
+  const chips=[];
+  dayMtgs.forEach(mtg=>{
+    // Does this meeting affect any PCC at this facility?
+    const presentAtFac=getLiveCell(facId,dayIdx).map(e=>e.staffId);
+    const affected=mtg.staffIds.filter(sid=>presentAtFac.includes(sid));
+    if(!affected.length) return;
+    const conflicts=getSpecialtyConflicts(dayIdx).some(c=>c.meeting.id===mtg.id&&affected.includes(c.staffId));
+    const chip=document.createElement('div');
+    chip.className='meeting-chip'+(conflicts?' meeting-chip-conflict':'');
+    chip.innerHTML=`<div class="meeting-chip-icon">📅</div>
+      <div class="meeting-chip-info">
+        <div class="meeting-chip-name">${mtg.name}</div>
+        <div class="meeting-chip-time">${fmtTime(mtg.startTime)} · ${mtg.duration}min</div>
+      </div>`;
+    chips.push(chip);
+  });
+  return chips;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SAVE / LOAD — Specialty & Meetings
+// ═══════════════════════════════════════════════════════════════
+
+async function saveQueues(){
+  if(!spReady||!isEditor) return;
+  try {
+    const existing=await listGetAll(LISTS.queues);
+    for(const item of existing) await listDelete(LISTS.queues,item.id);
+    await listCreate(LISTS.queues,{Title:'queues',QueueData:JSON.stringify(queues)});
+  } catch(e){ console.error('saveQueues',e); }
+}
+
+async function saveQueueTemplate(){
+  if(!spReady||!isEditor) return;
+  try {
+    const existing=await listGetAll(LISTS.queues,i=>i.fields.Title==='queueTemplate');
+    for(const item of existing) await listDelete(LISTS.queues,item.id);
+    await listCreate(LISTS.queues,{Title:'queueTemplate',QueueData:JSON.stringify(queueTemplate)});
+  } catch(e){ console.error('saveQueueTemplate',e); }
+}
+
+async function saveQueueAssignments(){
+  if(!spReady||!isEditor) return;
+  try {
+    const k=weekKey(currentMonday);
+    const existing=await listGetAll(LISTS.queueAssignments,i=>i.fields.WeekKey===k);
+    for(const item of existing) await listDelete(LISTS.queueAssignments,item.id);
+    if(queueAssignments[k]&&Object.keys(queueAssignments[k]).length){
+      await listCreate(LISTS.queueAssignments,{Title:k,WeekKey:k,AssignmentData:JSON.stringify(queueAssignments[k])});
+    }
+  } catch(e){ console.error('saveQueueAssignments',e); }
+}
+
+async function saveMeetings(){
+  if(!spReady||!isEditor) return;
+  try {
+    const existing=await listGetAll(LISTS.meetings,i=>i.fields.Title==='meetings');
+    for(const item of existing) await listDelete(LISTS.meetings,item.id);
+    await listCreate(LISTS.meetings,{Title:'meetings',MeetingData:JSON.stringify(meetings)});
+  } catch(e){ console.error('saveMeetings',e); }
+}
+
+async function saveMeetingInstances(){
+  if(!spReady||!isEditor) return;
+  try {
+    const k=weekKey(currentMonday);
+    const existing=await listGetAll(LISTS.meetingInstances,i=>i.fields.WeekKey===k);
+    for(const item of existing) await listDelete(LISTS.meetingInstances,item.id);
+    if(meetingInstances[k]&&Object.keys(meetingInstances[k]).length){
+      await listCreate(LISTS.meetingInstances,{Title:k,WeekKey:k,InstanceData:JSON.stringify(meetingInstances[k])});
+    }
+  } catch(e){ console.error('saveMeetingInstances',e); }
+}
+
+async function loadQueues(){
+  try {
+    const items=await listGetAll(LISTS.queues);
+    const qData=items.find(i=>i.fields.Title==='queues');
+    if(qData?.fields?.QueueData) queues=JSON.parse(qData.fields.QueueData);
+    const tmplData=items.find(i=>i.fields.Title==='queueTemplate');
+    if(tmplData?.fields?.QueueData) queueTemplate=JSON.parse(tmplData.fields.QueueData);
+  } catch(e){ console.warn('loadQueues',e); }
+}
+
+async function loadQueueAssignmentsForWeek(){
+  try {
+    const k=weekKey(currentMonday);
+    const items=await listGetAll(LISTS.queueAssignments,i=>i.fields.WeekKey===k);
+    if(items.length){
+      queueAssignments[k]=JSON.parse(items[0].fields.AssignmentData||'{}');
+    } else {
+      // Load from template for this week
+      loadQueueTemplateForWeek();
+    }
+  } catch(e){ console.warn('loadQueueAssignments',e); }
+}
+
+async function loadMeetings(){
+  try {
+    const items=await listGetAll(LISTS.meetings,i=>i.fields.Title==='meetings');
+    if(items.length) meetings=JSON.parse(items[0].fields.MeetingData||'[]');
+  } catch(e){ console.warn('loadMeetings',e); }
+}
+
+async function loadMeetingInstancesForWeek(){
+  try {
+    const k=weekKey(currentMonday);
+    const items=await listGetAll(LISTS.meetingInstances,i=>i.fields.WeekKey===k);
+    if(items.length){
+      meetingInstances[k]=JSON.parse(items[0].fields.InstanceData||'{}');
+    } else {
+      generateMeetingInstancesForWeek();
+    }
+  } catch(e){ console.warn('loadMeetingInstances',e); }
+}
+
+// ── Hook into loadAll and changeWeek ──────────────────────────────
 
 let activeFilter = null; // {type:'coord'|'fac', id:string}
 
@@ -6185,12 +7107,16 @@ const EDITORS = [
 let isEditor = false; // Set to true after sign-in if user is in EDITORS list
 
 const LISTS = {
-  staff:    'PCC_Staff',
-  template: 'PCC_Template',
-  schedule: 'PCC_Schedule',
-  pto:      'PCC_PTO',
-  closures: 'PCC_Closures',
-  holidays: 'PCC_Holidays',
+  staff:             'PCC_Staff',
+  template:          'PCC_Template',
+  schedule:          'PCC_Schedule',
+  pto:               'PCC_PTO',
+  closures:          'PCC_Closures',
+  holidays:          'PCC_Holidays',
+  queues:            'PCC_Queues',
+  queueAssignments:  'PCC_QueueAssignments',
+  meetings:          'PCC_Meetings',
+  meetingInstances:  'PCC_MeetingInstances',
 };
 
 // ── MSAL setup ────────────────────────────────────────────────────
@@ -6466,6 +7392,7 @@ async function saveStaff(){
         PCC_SecondaryFacId: s.secondaryFacId||'',
         PCC_SecondaryDays:  JSON.stringify(s.secondaryDays||[]),
         PCC_PodId:          s.podId||'',
+        PCC_Specialties:    JSON.stringify(s.specialties||[]),
         PCC_Target:         s.target||40,
       });
     }
@@ -6698,6 +7625,10 @@ async function loadAll(){
       loadLockForWeek(),
       loadWeeklyOverrides(),
       loadPTOHoursForWeek(),
+      loadQueues(),
+      loadQueueAssignmentsForWeek(),
+      loadMeetings(),
+      loadMeetingInstancesForWeek(),
     ]);
     // Log any individual failures but don't crash
     results.forEach((r,i)=>{
@@ -6732,6 +7663,7 @@ async function loadStaff(){
       secondaryDays:  secDays,
       podId:          i.fields.PCC_PodId||null,
       target:         i.fields.PCC_Target||40,
+      specialties:    (()=>{ try{ return JSON.parse(i.fields.PCC_Specialties||'[]'); }catch(e){ return []; } })(),
     };
   });
   // Restore podPriority from hardcoded data for floats (not stored in SP)
@@ -6845,6 +7777,8 @@ async function changeWeek(delta){
     await loadLockForWeek();
     await loadWeeklyOverrides();
     await loadPTOHoursForWeek();
+    await loadQueueAssignmentsForWeek();
+    await loadMeetingInstancesForWeek();
   }
   applyLockState();
   render();
@@ -7148,6 +8082,38 @@ function renderViewerMySchedule(panel){
           </div>`;
         card.appendChild(blk);
       });
+
+      // Specialty badges — queues this PCC covers today
+      activeQueues().forEach(q=>{
+        if(getQueueAssignment(q.id,dayIdx)!==me.id) return;
+        const conflicts=getSpecialtyConflicts(dayIdx).some(c=>c.queue.id===q.id&&c.staffId===me.id);
+        const badge=document.createElement('div');
+        badge.className='vs2-shift-block';
+        badge.innerHTML=`
+          <div class="vs2-shift-accent" style="background:${q.color};"></div>
+          <div class="vs2-shift-content">
+            <span class="vs2-specialty-badge" style="background:${q.color}15;color:${q.color};border-color:${q.color}44;">
+              🔬 ${q.name} coverage${conflicts?' ⚠ Meeting conflict':''}
+            </span>
+          </div>`;
+        card.appendChild(badge);
+      });
+
+      // Meeting blocks — meetings this PCC has today
+      getMeetingsForDay(dayIdx).forEach(mtg=>{
+        if(!mtg.staffIds.includes(me.id)) return;
+        const conflict=getSpecialtyConflicts(dayIdx).some(c=>c.meeting.id===mtg.id&&c.staffId===me.id);
+        const blk=document.createElement('div');
+        blk.className='vs2-meeting-block';
+        blk.innerHTML=`
+          <div class="vs2-meeting-accent" style="${conflict?'background:var(--brand)':''}"></div>
+          <div>
+            <div class="vs2-meeting-name${conflict?' vs2-meeting-conflict':''}">📅 ${mtg.name}${conflict?' ⚠ Specialty conflict':''}</div>
+            <div class="vs2-meeting-time">${fmtTime(mtg.startTime)} · ${mtg.duration}min</div>
+          </div>`;
+        card.appendChild(blk);
+      });
+
     } else {
       const blk=document.createElement('div');
       blk.className='vs2-off-block';
@@ -7377,6 +8343,25 @@ function renderViewerPCC(panel, staffId){
 // ── Company view — pods grouped with day strip per facility ────────
 function renderViewerCompany(panel){
   panel.innerHTML='';
+
+  // Specialty coverage strip for today
+  if(activeQueues().length>0){
+    const wd=new Date().getDay()-1;
+    const todayIdx=wd>=0&&wd<=4?wd:0;
+    const strip=document.createElement('div');
+    strip.style.cssText='background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:8px 14px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;';
+    strip.innerHTML=`<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);flex-shrink:0;">🔬 Specialty Today:</span>`;
+    activeQueues().forEach(q=>{
+      const sid=getQueueAssignment(q.id,todayIdx);
+      const s=sid?staffById(sid):null;
+      const conflict=getSpecialtyConflicts(todayIdx).some(c=>c.queue.id===q.id);
+      const pill=document.createElement('span');
+      pill.style.cssText=`display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700;border:1.5px solid;background:${conflict?'var(--brand-lt)':s?q.color+'18':'var(--gap-bg)'};color:${conflict?'var(--brand)':s?q.color:'var(--gap-tx)'};border-color:${conflict?'var(--brand)':s?q.color+'44':'var(--gap-bd)'};`;
+      pill.innerHTML=`<span style="width:7px;height:7px;border-radius:50%;background:${conflict?'var(--brand)':s?q.color:'var(--gap-bd)'}"></span>${q.name}: <strong>${conflict?'⚠ Conflict':s?s.name.split(' ')[0]:'Unassigned'}</strong>`;
+      strip.appendChild(pill);
+    });
+    panel.appendChild(strip);
+  }
   const wrap=document.createElement('div');
   wrap.className='vs2-company-wrap';
 
