@@ -6412,6 +6412,8 @@ document.getElementById('preview-viewer-btn').addEventListener('click',()=>{
 
   if(previewingAsViewer){
     document.body.classList.add('view-only','previewing');
+    // Force My Schedule as the default view before initializing tabs
+    viewerView='mine';
     initViewerTabs();
     // Reset mobile viewer tab init so it re-inits with preview context
     const mvt=document.getElementById('mob-viewer-tabs');
@@ -6420,7 +6422,7 @@ document.getElementById('preview-viewer-btn').addEventListener('click',()=>{
     btn.textContent='✏ Back to Editor';
     btn.title='Return to editor mode';
     showToast('Previewing viewer experience','ok');
-    render(); // Re-render to show viewer layout on mobile
+    render();
   } else {
     document.body.classList.remove('view-only','view-mine','previewing','viewer-company-clean');
     document.getElementById('viewer-tabs').style.display='none';
@@ -7963,13 +7965,18 @@ function applyViewerView(){
   // Only run in viewer mode or preview mode
   if(isEditor && !previewingAsViewer) return;
 
-  // Default to My Schedule when entering viewer/preview mode
-  if(!viewerView || viewerView==='company' && previewingAsViewer && !document.querySelector('.viewer-tab.active[data-view="company"]')){
+  // When previewing as editor, default to My Schedule (not company grid)
+  // Real viewers keep whatever tab they selected
+  if(previewingAsViewer && (!viewerView || viewerView==='company')){
     viewerView='mine';
-    document.querySelectorAll('.viewer-tab').forEach(b=>b.classList.remove('active'));
-    const mineBtn=document.querySelector('.viewer-tab[data-view="mine"]');
-    if(mineBtn) mineBtn.classList.add('active');
   }
+  // If no view set at all, default to mine
+  if(!viewerView) viewerView='mine';
+
+  // Sync active tab highlight
+  document.querySelectorAll('.viewer-tab').forEach(b=>{
+    b.classList.toggle('active', b.dataset.view===viewerView);
+  });
 
   const panel=document.getElementById('viewer-panel');
   const gridScroll=document.getElementById('grid-scroll');
