@@ -7665,6 +7665,11 @@ async function loadAll(){
     updateSyncStatus('connected', `Connected · ${currentUser?.username||''}`);
     applyLockState();
     render();
+    // After all data loads, re-render viewer panel to ensure
+    // meetings and specialty assignments are displayed correctly
+    if(!isEditor || previewingAsViewer){
+      setTimeout(applyViewerView, 200);
+    }
   } catch(e){
     console.error('loadAll error',e);
     updateSyncStatus('error','Load failed — working offline');
@@ -8026,6 +8031,16 @@ function renderViewerMySchedule(panel){
   panel.innerHTML='';
   const userEmail=(currentUser?.username||'').toLowerCase();
   const me=staff.find(s=>(s.email||'').toLowerCase()===userEmail);
+
+  // Debug — log what data is available
+  const k=weekKey(currentMonday);
+  console.log('[Viewer] weekKey:', k);
+  console.log('[Viewer] queues:', JSON.stringify(queues));
+  console.log('[Viewer] queueAssignments:', JSON.stringify(queueAssignments[k]));
+  console.log('[Viewer] meetings:', JSON.stringify(meetings));
+  console.log('[Viewer] meetingInstances:', JSON.stringify(meetingInstances[k]));
+  console.log('[Viewer] me:', me?.name, me?.id);
+  console.log('[Viewer] activeQueues:', activeQueues().map(q=>q.name));
 
   if(!me){
     panel.innerHTML=`<div style="padding:40px;text-align:center;color:var(--text-3);">
