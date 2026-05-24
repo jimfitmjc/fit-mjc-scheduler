@@ -5773,13 +5773,21 @@ function renderSqTemplateGrid(){
       const cell=document.createElement('div');
       cell.className='sq-grid-cell';
       const sel=document.createElement('select');
-      sel.dataset.queue=q.id; sel.dataset.day=i; sel.dataset.mode='template';
-      sel.innerHTML='<option value="">—</option>';
-      staff.filter(s=>s.specialties?.includes(q.id)||true).forEach(s=>{
-        const trained=s.specialties?.includes(q.id);
+      sel.dataset.queue=q.id;
+      sel.dataset.day=i;
+      sel.innerHTML='<option value="">— None —</option>';
+      staff.filter(s=>s.specialties?.includes(q.id)).forEach(s=>{
         const o=document.createElement('option');
         o.value=s.id;
-        o.textContent=s.name.split(' ')[0]+(trained?'':' *');
+        o.textContent=s.name.split(' ')[0]+' '+s.name.split(' ')[1]?.[0]||'';
+        if(getQueueTemplateAssignment(q.id,i)===s.id) o.selected=true;
+        sel.appendChild(o);
+      });
+      // Also add non-trained staff with asterisk
+      staff.filter(s=>!s.specialties?.includes(q.id)).forEach(s=>{
+        const o=document.createElement('option');
+        o.value=s.id;
+        o.textContent=(s.name.split(' ')[0]+' '+(s.name.split(' ')[1]?.[0]||''))+'*';
         if(getQueueTemplateAssignment(q.id,i)===s.id) o.selected=true;
         sel.appendChild(o);
       });
@@ -5821,12 +5829,20 @@ function renderSqWeekGrid(){
       const sel=document.createElement('select');
       sel.dataset.queue=q.id; sel.dataset.day=i;
       if(conflicts.length) sel.style.border='1.5px solid var(--brand)';
-      sel.innerHTML='<option value="">—</option>';
-      staff.forEach(s=>{
-        const trained=s.specialties?.includes(q.id);
+      sel.innerHTML='<option value="">— None —</option>';
+      // Cross-trained staff first
+      staff.filter(s=>s.specialties?.includes(q.id)).forEach(s=>{
         const o=document.createElement('option');
         o.value=s.id;
-        o.textContent=s.name.split(' ')[0]+(trained?'':' *');
+        o.textContent=s.name.split(' ')[0]+' '+(s.name.split(' ')[1]?.[0]||'');
+        if(getQueueAssignment(q.id,i)===s.id) o.selected=true;
+        sel.appendChild(o);
+      });
+      // Non-trained staff with asterisk
+      staff.filter(s=>!s.specialties?.includes(q.id)).forEach(s=>{
+        const o=document.createElement('option');
+        o.value=s.id;
+        o.textContent=(s.name.split(' ')[0]+' '+(s.name.split(' ')[1]?.[0]||''))+'*';
         if(getQueueAssignment(q.id,i)===s.id) o.selected=true;
         sel.appendChild(o);
       });
@@ -5856,13 +5872,23 @@ document.getElementById('sq-add-queue-btn').addEventListener('click',()=>{
 });
 
 document.getElementById('sq-save-btn').addEventListener('click',()=>{
-  // Save template assignments from template grid
-  document.querySelectorAll('#sq-template-grid select[data-mode="template"]').forEach(sel=>{
-    setQueueTemplateAssignment(sel.dataset.queue, parseInt(sel.dataset.day), sel.value||null);
+  // Save template assignments from template grid selects
+  document.querySelectorAll('#sq-template-grid select').forEach(sel=>{
+    const qid=sel.dataset.queue;
+    const day=parseInt(sel.dataset.day);
+    const val=sel.value||null;
+    if(qid!==undefined && !isNaN(day)){
+      setQueueTemplateAssignment(qid, day, val);
+    }
   });
-  // Save week assignments from week grid
+  // Save this week's assignments from week grid selects
   document.querySelectorAll('#sq-week-grid select').forEach(sel=>{
-    setQueueAssignment(sel.dataset.queue, parseInt(sel.dataset.day), sel.value||null);
+    const qid=sel.dataset.queue;
+    const day=parseInt(sel.dataset.day);
+    const val=sel.value||null;
+    if(qid!==undefined && !isNaN(day)){
+      setQueueAssignment(qid, day, val);
+    }
   });
   saveQueues();
   saveQueueTemplate();
@@ -8050,19 +8076,30 @@ function renderViewerMySchedule(panel){
   console.log('[Viewer] activeQueues:', activeQueues().map(q=>q.name));
 
   if(!me){
-    panel.innerHTML=`<div style="padding:40px;text-align:center;color:var(--text-3);">
-      <div style="font-size:36px;margin-bottom:10px;">👤</div>
-      <div style="font-weight:800;font-size:15px;margin-bottom:4px;">Not in PCC list</div>
-      <div style="font-size:12px;">Contact your manager to be added.</div>
-    </div>`;
+    // Editor in preview — show a sample view using first available PCC
+    // so they can see how meetings and specialty look
+    const samplePCC = staff.find(s=>s.type==='static')||staff[0];
+    if(!samplePCC){
+      panel.innerHTML=`<div style="padding:40px;text-align:center;color:var(--text-3);">
+        <div style="font-size:36px;margin-bottom:10px;">👤</div>
+        <div style="font-weight:800;font-size:15px;margin-bottom:4px;">No PCC found</div>
+        <div style="font-size:12px;">Add PCCs to the staff list to see this view.</div>
+      </div>`;
+      return;
+    }
+    // Show preview banner
+    const banner=document.createElement('div');
+    banner.style.cssText='background:#1a1a2e;color:#fff;padding:8px 16px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:8px;flex-shrink:0;';
+    banner.innerHTML=`👁 Preview Mode — showing ${samplePCC.name}'s schedule. Real viewers see their own.`;
+    panel.appendChild(banner);
+    renderPCCDayCards(panel, samplePCC);
     return;
   }
 
+  // Show header
   const pod=me.podId?podById(me.podId):null;
   const initials=me.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
   const typeIcon=me.type==='float'?'🔄':me.type==='hybrid'?'🔀':'📌';
-
-  // Header
   const hdr=document.createElement('div');
   hdr.className='vs2-week-header';
   hdr.innerHTML=`
@@ -8073,7 +8110,11 @@ function renderViewerMySchedule(panel){
     </div>
     <div class="vs2-week-range">${currentMonday.toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${addDays(currentMonday,4).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>`;
   panel.appendChild(hdr);
+  renderPCCDayCards(panel, me);
+}
 
+// ── Shared PCC day card renderer ──────────────────────────────────
+function renderPCCDayCards(panel, me){
   // Sort days: today first if it's a weekday, then rest in order
   const todayDayIdx = new Date().getDay()-1;
   const dayOrder = todayDayIdx>=0&&todayDayIdx<=4
