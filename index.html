@@ -566,7 +566,7 @@ body.view-only #toolbar .tbtn:not(#print-btn):not(#card-print-btn):not(#preview-
 body.view-only #focus-mode-btn { display: none !important; }
 body.view-only .toolbar-divider { display: none !important; }
 body.view-only .tlabel { display: none !important; }
-body.view-only .filter-clear { display: none !important; }
+/* filter-clear: hidden by default for viewers, but shown via JS when a filter IS active */
 body.view-only .mode-toggle { display: none !important; }
 body.view-only .pto-hdr span { display: none !important; }
 /* Keep preview button prominent and always visible */
@@ -1615,12 +1615,43 @@ body.focus-mode .fac-label:has(.fstat.ok) {
 
 /* ── PRINT ── */
 @media print{
-  header,.toolbar,.filter-bar,aside,.summary-panel,#card-overlay,.scard-actions,.scard-close,#toast{display:none!important;}
-  body,html{height:auto;overflow:visible;}
-  .app-body,.main-wrap{height:auto;overflow:visible;display:block;}
-  .grid-wrap{overflow:visible;padding:0;}
-  #print-area{display:block!important;}
-  .no-print{display:none!important;}
+  /* Hide all chrome */
+  header,.toolbar,.filter-bar,aside,.summary-panel,
+  #card-overlay,.scard-actions,.scard-close,#toast,
+  #mobile-view,.mob-fab,.mob-assign-modal,
+  #viewer-tabs,.viewer-context-strip,
+  .lock-banner,.preview-banner,
+  #cascade-overlay,#lock-modal,#unlock-modal,
+  #override-modal,#pto-hrs-modal,
+  .pod-summary-strip,
+  .cell-add-btn,.xbtn,.edit-chip-btn,.ack-btn,
+  .gap-cascade-trigger { display:none!important; }
+
+  body,html { height:auto; overflow:visible; }
+
+  /* Editor grid view — print the main grid */
+  .app-body,.main-wrap { height:auto; overflow:visible; display:block; }
+  .grid-wrap { overflow:visible; padding:0; }
+  #print-area { display:block!important; }
+  .no-print { display:none!important; }
+
+  /* Viewer panel — print the viewer content */
+  .viewer-panel {
+    display:block!important;
+    overflow:visible!important;
+    height:auto!important;
+    max-height:none!important;
+    padding:12px!important;
+  }
+  /* Make viewer day cards and facility grids print-friendly */
+  .vs2-day-card { break-inside:avoid; margin:4px 8px; }
+  .vs2-fac-grid { overflow:visible!important; }
+  .vs2-fac-col { overflow:visible!important; }
+  .vs2-company-fac-card { break-inside:avoid; }
+  .vs2-pod-section { break-inside:avoid; }
+
+  /* Ensure colors print */
+  * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 }
 #print-area{display:none;}
 </style>
@@ -2524,12 +2555,14 @@ function render(){
   // In template mode hide live-only toolbar controls and stats bar
   const isLive = mode==='live';
   document.getElementById('stats-bar').style.display = isLive ? '' : 'none';
-  document.getElementById('apply-tmpl-btn').style.display = isLive ? '' : 'none';
-  document.getElementById('clear-week-btn').style.display = isLive ? '' : 'none';
+  document.getElementById('apply-tmpl-btn').style.display = isLive&&isEditor ? '' : 'none';
+  document.getElementById('clear-week-btn').style.display = isLive&&isEditor ? '' : 'none';
   document.getElementById('filter-type').style.display   = isLive ? '' : 'none';
-  document.getElementById('filter-badge').style.display  = (isLive && activeFilter) ? 'inline-block' : 'none';
-  document.getElementById('filter-clear').style.display  = (isLive && activeFilter) ? 'inline-flex' : 'none';
-  document.getElementById('card-print-btn').style.display= (isLive && activeFilter) ? '' : 'none';
+  // Filter badge and clear — show for both editors and viewers when a filter is active
+  const showFilter = isLive && !!activeFilter;
+  document.getElementById('filter-badge').style.display = showFilter ? 'inline-block' : 'none';
+  document.getElementById('filter-clear').style.display = showFilter ? 'inline-flex' : 'none';
+  document.getElementById('card-print-btn').style.display = (isLive&&activeFilter&&isEditor) ? '' : 'none';
 }
 
 function renderWeekLabel(){
