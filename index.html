@@ -1983,6 +1983,15 @@ body.focus-mode .fac-label:has(.fstat.ok) {
           </div>
         </div>
         <div id="fac-rows"></div>
+
+        <!-- Specialty rotation template — shown only in Template Mode -->
+        <div id="specialty-tmpl-section" style="display:none;margin:12px 0 0;padding:0 4px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:8px 4px;border-top:2px solid var(--border);">
+            <span style="font-size:13px;font-weight:800;">🔬 Specialty Rotation Template</span>
+            <span style="font-size:11px;color:var(--text-3);">Set default coverage per queue per day — up to 3 PCCs. ✓ = cross-trained, * = not trained.</span>
+          </div>
+          <div id="specialty-tmpl-grid"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -2365,33 +2374,28 @@ body.focus-mode .fac-label:has(.fstat.ok) {
   </div>
 </div>
 
-<!-- Specialty Coverage Modal -->
+<!-- Specialty Coverage Modal — queue management and cross-training only -->
 <div class="modal-overlay" id="specialty-modal">
   <div class="modal specialty-panel">
-    <h3>🔬 Specialty Coverage</h3>
+    <h3>🔬 Specialty Queues</h3>
+    <p style="font-size:12px;color:var(--text-3);margin-bottom:14px;">Manage specialty queues and cross-training. Set rotation assignments in <strong>📋 Template Mode</strong> below the shift grid.</p>
     <!-- Queue management -->
     <div class="hc-section">
-      <div class="hc-section-title">Active Queues <span style="font-weight:400;font-size:10px;">— drag to reorder, click to rename</span></div>
+      <div class="hc-section-title">Active Queues</div>
       <div id="sq-queue-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
       <div style="display:flex;gap:6px;align-items:center;">
         <input type="text" id="sq-new-queue-name" placeholder="New queue name…" style="flex:1;font-size:12px;padding:5px 8px;border:1px solid var(--border2);border-radius:var(--r-sm);font-family:inherit;">
         <button class="mbtn save" id="sq-add-queue-btn" style="padding:5px 12px;">+ Add</button>
       </div>
     </div>
-    <!-- Template rotation grid -->
+    <!-- Cross-training summary -->
     <div class="hc-section">
-      <div class="hc-section-title" id="sq-grid-title">Weekly Rotation Template</div>
-      <div id="sq-template-grid"></div>
-      <p style="font-size:10px;color:var(--text-3);margin:4px 0 0;">Template loads automatically each week. Adjust individual days in the live week below.</p>
-    </div>
-    <!-- This week's assignments -->
-    <div class="hc-section">
-      <div class="hc-section-title">This Week's Assignments <span style="font-weight:400;font-size:10px;">— overrides template for this week only</span></div>
-      <div id="sq-week-grid"></div>
+      <div class="hc-section-title">Cross-Training Summary <span style="font-weight:400;font-size:10px;">— edit per PCC in Add/Edit PCC panel</span></div>
+      <div id="sq-crosstraining-list" style="display:flex;flex-direction:column;gap:4px;"></div>
     </div>
     <div class="modal-btns">
       <button class="mbtn cancel" onclick="closeModal('specialty-modal')">Close</button>
-      <button class="mbtn save" id="sq-save-btn">Save &amp; Apply</button>
+      <button class="mbtn save" id="sq-save-btn">Save Queues</button>
     </div>
   </div>
 </div>
@@ -3267,9 +3271,83 @@ function renderFacRows(){
   const badge=document.getElementById('gap-badge');
   if(mode==='live'&&totalGaps>0){badge.style.display='inline-block';badge.textContent='⚠ '+totalGaps+' gap'+(totalGaps>1?'s':'');}
   else badge.style.display='none';
+
+  // Specialty rotation section — only show in template mode
+  const specTmplSection=document.getElementById('specialty-tmpl-section');
+  if(specTmplSection){
+    specTmplSection.style.display=mode==='tmpl'?'block':'none';
+    if(mode==='tmpl') renderSpecialtyTemplateSection();
+  }
 }
 
-// ── Template cell ──
+// ── Specialty rotation template section (shown in Template Mode) ──
+function renderSpecialtyTemplateSection(){
+  const grid=document.getElementById('specialty-tmpl-grid');
+  if(!grid) return;
+  grid.innerHTML='';
+  grid.style.cssText='display:grid;grid-template-columns:140px repeat(5,1fr);border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden;margin-bottom:16px;';
+
+  // Header
+  ['Queue \\ Day',...DAYS].forEach((label,i)=>{
+    const h=document.createElement('div');
+    h.style.cssText=`background:var(--surface2);padding:6px 8px;font-size:10px;font-weight:700;color:var(--text-2);text-align:${i===0?'left':'center'};border-right:${i<5?'1px solid var(--border)':'none'};border-bottom:1px solid var(--border);`;
+    h.textContent=label;
+    grid.appendChild(h);
+  });
+
+  if(!activeQueues().length){
+    const msg=document.createElement('div');
+    msg.style.cssText='grid-column:1/-1;padding:16px;text-align:center;font-size:12px;color:var(--text-3);font-style:italic;';
+    msg.textContent='No specialty queues defined. Click 🔬 Specialty to add queues.';
+    grid.appendChild(msg);
+    return;
+  }
+
+  activeQueues().forEach((q,qi)=>{
+    const isLast=qi===activeQueues().length-1;
+    // Queue label
+    const lbl=document.createElement('div');
+    lbl.style.cssText=`display:flex;align-items:center;gap:6px;padding:6px 10px;font-size:11px;font-weight:700;border-right:1px solid var(--border);${isLast?'':'border-bottom:1px solid var(--border);'}background:var(--surface);`;
+    lbl.innerHTML=`<span style="width:8px;height:8px;border-radius:50%;background:${q.color};flex-shrink:0;display:inline-block;"></span>${q.name}`;
+    grid.appendChild(lbl);
+
+    for(let i=0;i<5;i++){
+      const cell=document.createElement('div');
+      cell.style.cssText=`padding:4px;border-right:${i<4?'1px solid var(--border)':'none'};${isLast?'':'border-bottom:1px solid var(--border);'}background:var(--surface);`;
+      const current=getQueueTemplateAssignment(q.id,i);
+      const sortedStaff=staff.slice().sort((a,b)=>{
+        const aT=(a.specialties||[]).includes(q.id)?0:1;
+        const bT=(b.specialties||[]).includes(q.id)?0:1;
+        return aT-bT||a.name.localeCompare(b.name);
+      });
+      for(let slot=0;slot<3;slot++){
+        const sel=document.createElement('select');
+        sel.dataset.queue=q.id; sel.dataset.day=i; sel.dataset.slot=slot; sel.dataset.tmpl='1';
+        sel.style.cssText='width:100%;font-size:9px;margin-bottom:2px;padding:1px 2px;border:1px solid var(--border2);border-radius:2px;background:var(--surface);font-family:inherit;';
+        sel.innerHTML='<option value="">—</option>';
+        sortedStaff.forEach(s=>{
+          const trained=(s.specialties||[]).includes(q.id);
+          const o=document.createElement('option');
+          o.value=s.id;
+          o.textContent=s.name.split(' ')[0]+(trained?' ✓':'*');
+          if(current[slot]===s.id) o.selected=true;
+          sel.appendChild(o);
+        });
+        // Auto-save on change
+        sel.addEventListener('change',()=>{
+          const vals=[];
+          cell.querySelectorAll('select').forEach(s=>{ if(s.value) vals.push(s.value); });
+          setQueueTemplateAssignment(q.id,i,vals);
+          saveQueueTemplate();
+        });
+        cell.appendChild(sel);
+      }
+      grid.appendChild(cell);
+    }
+  });
+}
+
+// ── Template mode ──────────────────────────────────────────────────
 function buildTmplCell(fac,dayIdx){
   const t=getTemplate(fac.id,dayIdx);
   const cell=document.createElement('div');
@@ -4811,29 +4889,104 @@ document.getElementById('new-name').addEventListener('keydown',e=>{if(e.key==='E
 
 document.getElementById('apply-tmpl-btn').addEventListener('click',()=>{
   const k=weekKey(currentMonday);
-  if(live[k]&&Object.keys(live[k]).length>0){if(!confirm('Overwrite this week\'s schedule with the template?'))return;}
+  const hasExisting=live[k]&&Object.keys(live[k]).length>0;
+  if(hasExisting){
+    if(!confirm('Overwrite this week\'s schedule and specialty assignments with the template?')) return;
+  }
+
+  // ── Load shift template (PTO-aware) ────────────────────────────
   live[k]={};
+  const shiftGaps=[];
   FACILITIES.forEach(fac=>{
     for(let i=0;i<5;i++){
       const t=getTemplate(fac.id,i);
-      if(t.staffIds.length>0){
-        const oh=fac.officeHours[i];
-        if(!live[k][fac.id])live[k][fac.id]={};
-        live[k][fac.id][i]=t.staffIds.map(sid=>{
-          // Use the saved staffEntry if available, fall back to facility hours
+      if(!t.staffIds.length) return;
+      const oh=fac.officeHours[i];
+      if(!live[k][fac.id]) live[k][fac.id]={};
+      const available=[];
+      const skipped=[];
+      t.staffIds.forEach(sid=>{
+        if(isOnPTO(sid,i)) skipped.push(sid);
+        else {
           const entry=t.staffEntries.find(e=>e.staffId===sid);
-          return {
-            staffId: sid,
-            start:  entry?.start || oh?.open  || '08:00',
-            end:    entry?.end   || oh?.close || '17:00',
-            lunch:  entry?.lunch || null
-          };
+          available.push({
+            staffId:sid,
+            start:  entry?.start||oh?.open||'08:00',
+            end:    entry?.end  ||oh?.close||'17:00',
+            lunch:  entry?.lunch||null,
+          });
+        }
+      });
+      live[k][fac.id][i]=available;
+      skipped.forEach(sid=>{
+        shiftGaps.push({
+          pcc:staffById(sid)?.name||sid,
+          fac:fac.name, day:DAYS[i],
         });
-      }
+      });
     }
   });
-  render();showToast('Template loaded for this week ✓','ok');
+
+  // ── Load specialty template (PTO-aware) ────────────────────────
+  if(!queueAssignments[k]) queueAssignments[k]={};
+  const specialtyGaps=[];
+  activeQueues().forEach(q=>{
+    if(!queueAssignments[k][q.id]) queueAssignments[k][q.id]={};
+    for(let i=0;i<5;i++){
+      const tmpl=getQueueTemplateAssignment(q.id,i);
+      const available=[];
+      const skipped=[];
+      tmpl.forEach(sid=>{
+        if(isOnPTO(sid,i)) skipped.push(sid);
+        else available.push(sid);
+      });
+      queueAssignments[k][q.id][i]=available;
+      skipped.forEach(sid=>{
+        specialtyGaps.push({
+          pcc:staffById(sid)?.name||sid,
+          queue:q.name, day:DAYS[i],
+        });
+      });
+    }
+  });
+
   scheduleSaveSchedule();
+  saveQueueAssignments();
+  render();
+
+  // ── Consolidated alert ─────────────────────────────────────────
+  const totalAlerts=shiftGaps.length+specialtyGaps.length;
+  if(totalAlerts===0){
+    showToast('Template loaded ✓','ok');
+    return;
+  }
+
+  // Build alert modal content
+  let alertHtml='<div style="font-size:13px;font-weight:800;margin-bottom:12px;">⚠ Template Loaded — Coverage Alerts</div>';
+  if(shiftGaps.length){
+    alertHtml+=`<div style="font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:6px;">📍 Shift Gaps (${shiftGaps.length}) — PTO conflicts:</div>`;
+    alertHtml+=`<ul style="margin:0 0 12px;padding-left:18px;font-size:11px;">`;
+    shiftGaps.forEach(g=>{ alertHtml+=`<li style="margin-bottom:3px;"><strong>${g.pcc}</strong> out ${g.day} — ${g.fac} needs coverage</li>`; });
+    alertHtml+=`</ul>`;
+  }
+  if(specialtyGaps.length){
+    alertHtml+=`<div style="font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:6px;">🔬 Specialty Gaps (${specialtyGaps.length}) — PTO conflicts:</div>`;
+    alertHtml+=`<ul style="margin:0 0 12px;padding-left:18px;font-size:11px;">`;
+    specialtyGaps.forEach(g=>{ alertHtml+=`<li style="margin-bottom:3px;"><strong>${g.pcc}</strong> out ${g.day} — ${g.queue} needs coverage ${g.day}</li>`; });
+    alertHtml+=`</ul>`;
+  }
+  alertHtml+=`<p style="font-size:11px;color:var(--text-3);margin:0;">Assign coverage manually in the schedule and specialty bench.</p>`;
+
+  // Show in a simple alert modal
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  const box=document.createElement('div');
+  box.style.cssText='background:var(--surface);border-radius:var(--r);padding:24px;max-width:480px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.2);max-height:80vh;overflow-y:auto;';
+  box.innerHTML=alertHtml+`<div style="margin-top:16px;text-align:right;"><button class="mbtn save" id="tmpl-alert-close">Got it</button></div>`;
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  box.querySelector('#tmpl-alert-close').addEventListener('click',()=>overlay.remove());
+  overlay.addEventListener('click',e=>{ if(e.target===overlay) overlay.remove(); });
 });
 
 document.getElementById('clear-week-btn').addEventListener('click',()=>{
@@ -5842,13 +5995,46 @@ document.getElementById('meetings-modal').addEventListener('click',e=>{
 // ═══════════════════════════════════════════════════════════════
 
 function openSpecialtyModal(){
-  // Ensure template fills any unset week assignments before opening
-  loadQueueTemplateForWeek();
   renderSqQueueList();
-  renderSqTemplateGrid();
-  renderSqWeekGrid();
+  renderSqCrossTrainingSummary();
   document.getElementById('specialty-modal').classList.add('open');
 }
+
+function renderSqCrossTrainingSummary(){
+  const el=document.getElementById('sq-crosstraining-list');
+  if(!el) return;
+  el.innerHTML='';
+  if(!activeQueues().length){
+    el.innerHTML='<div style="font-size:12px;color:var(--text-3);font-style:italic;">No queues defined yet.</div>';
+    return;
+  }
+  // Show each queue and who is cross-trained for it
+  activeQueues().forEach(q=>{
+    const trained=staff.filter(s=>(s.specialties||[]).includes(q.id));
+    const row=document.createElement('div');
+    row.style.cssText='padding:6px 0;border-bottom:1px solid var(--border);';
+    row.innerHTML=`
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+        <span style="width:8px;height:8px;border-radius:50%;background:${q.color};display:inline-block;"></span>
+        <span style="font-size:12px;font-weight:700;">${q.name}</span>
+        <span style="font-size:10px;color:var(--text-3);">${trained.length} cross-trained</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;">
+        ${trained.length
+          ? trained.map(s=>`<span style="background:${q.color}18;color:${q.color};border:1px solid ${q.color}33;border-radius:999px;padding:1px 8px;font-size:10px;font-weight:600;">${s.name.split(' ')[0]}</span>`).join('')
+          : '<span style="font-size:10px;color:var(--text-3);font-style:italic;">None assigned — edit PCC profiles</span>'
+        }
+      </div>`;
+    el.appendChild(row);
+  });
+}
+
+document.getElementById('sq-save-btn').addEventListener('click',()=>{
+  saveQueues();
+  closeModal('specialty-modal');
+  render();
+  showToast('Queues saved ✓','ok');
+});
 
 function renderSqQueueList(){
   const el=document.getElementById('sq-queue-list');
@@ -5961,42 +6147,6 @@ document.getElementById('sq-add-queue-btn').addEventListener('click',()=>{
   renderSqTemplateGrid();
   renderSqWeekGrid();
   saveQueues();
-});
-
-document.getElementById('sq-save-btn').addEventListener('click',()=>{
-  // Read template grid — group by queue+day, collect 3 slots into array
-  const tmplMap={};
-  document.querySelectorAll('#sq-template-grid select[data-mode="template"]').forEach(sel=>{
-    const key=sel.dataset.queue+'_'+sel.dataset.day;
-    if(!tmplMap[key]) tmplMap[key]=[];
-    tmplMap[key].push(sel.value||null);
-  });
-  Object.entries(tmplMap).forEach(([key,vals])=>{
-    const [qid,day]=key.split('_');
-    setQueueTemplateAssignment(qid,parseInt(day),vals.filter(Boolean));
-  });
-
-  // Read week grid — group by queue+day, collect 3 slots into array
-  const weekMap={};
-  document.querySelectorAll('#sq-week-grid select').forEach(sel=>{
-    const key=sel.dataset.queue+'_'+sel.dataset.day;
-    if(!weekMap[key]) weekMap[key]=[];
-    weekMap[key].push(sel.value||null);
-  });
-  Object.entries(weekMap).forEach(([key,vals])=>{
-    const [qid,day]=key.split('_');
-    const arr=vals.filter(Boolean);
-    // Fall back to template if week grid is empty
-    const tmpl=getQueueTemplateAssignment(qid,parseInt(day));
-    setQueueAssignment(qid,parseInt(day),arr.length?arr:tmpl);
-  });
-
-  saveQueues();
-  saveQueueTemplate();
-  saveQueueAssignments();
-  closeModal('specialty-modal');
-  render();
-  showToast('Specialty coverage saved ✓','ok');
 });
 
 document.getElementById('specialty-btn').addEventListener('click',openSpecialtyModal);
