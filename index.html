@@ -7732,6 +7732,8 @@ async function listDelete(listName, itemId){
 // ── Save functions ─────────────────────────────────────────────────
 async function saveStaff(){
   if(!spReady||!isEditor) return;
+  // Safety — never wipe if staff somehow empty
+  if(!staff.length){ console.warn('saveStaff: staff array empty — skipping'); return; }
   updateSyncStatus('syncing','Saving staff…');
   try {
     const existing=await listGetAll(LISTS.staff);
@@ -7762,6 +7764,16 @@ async function saveStaff(){
 
 async function saveTemplate(){
   if(!spReady||!isEditor) return;
+
+  // Safety check — never wipe SharePoint if our in-memory template is empty
+  const hasData=Object.values(tmpl).some(fac=>
+    Object.values(fac).some(t=>t.staffIds?.length>0||t.minCount>0)
+  );
+  if(!hasData){
+    console.warn('saveTemplate: tmpl is empty — skipping to avoid data loss');
+    return;
+  }
+
   updateSyncStatus('syncing','Saving template…');
   try {
     const existing=await listGetAll(LISTS.template);
