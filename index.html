@@ -4209,7 +4209,6 @@ function openTCellModal(facId,dayIdx){
   document.getElementById('tcell-oh-note').textContent=oh
     ?`Clinic hours: ${fmtRange(oh.open,oh.close)}`:'No clinic hours set for this day.';
   const t=getTemplate(facId,dayIdx);
-  console.log(`openTCellModal: ${facId} day ${dayIdx} — staffIds:`, t.staffIds, 'entries:', t.staffEntries?.map(e=>e.staffId));
   document.getElementById('tcell-min').value=t.minCount;
 
   const rowsEl=document.getElementById('tcell-pcc-rows');
@@ -7848,7 +7847,7 @@ async function saveTemplate(){
       }
     }
 
-    console.log(`saveTemplate: saved ${Object.keys(toWrite).length} rows`);
+    console.log(`saveTemplate: ${Object.keys(toWrite).length} rows saved`);
     updateSyncStatus('connected','Template saved ✓');
   } catch(e){
     console.error('saveTemplate error',e);
@@ -8166,7 +8165,7 @@ async function loadTemplate(){
       minCount:    f.MinCount||0,
     };
   }
-  console.log('loadTemplate: loaded',items.length,'rows, facilities:',Object.keys(tmpl));
+  console.log('loadTemplate: loaded',items.length,'rows');
 }
 
 async function loadScheduleForWeek(){
