@@ -8166,6 +8166,11 @@ async function loadTemplate(){
     };
   }
   console.log('loadTemplate: loaded',items.length,'rows');
+  // Debug — show Summer's facilities
+  const f3=Object.keys(tmpl['f3']||{}).map(d=>`day${d}:${tmpl['f3'][d]?.staffIds?.join(',')}`);
+  const f11=Object.keys(tmpl['f11']||{}).map(d=>`day${d}:${tmpl['f11'][d]?.staffIds?.join(',')}`);
+  console.log('f3 (KCK):', f3.join(' | '));
+  console.log('f11 (Shawnee):', f11.join(' | '));
 }
 
 async function loadScheduleForWeek(){
