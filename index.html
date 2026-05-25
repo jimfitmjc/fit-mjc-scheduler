@@ -4209,6 +4209,7 @@ function openTCellModal(facId,dayIdx){
   document.getElementById('tcell-oh-note').textContent=oh
     ?`Clinic hours: ${fmtRange(oh.open,oh.close)}`:'No clinic hours set for this day.';
   const t=getTemplate(facId,dayIdx);
+  console.log(`openTCellModal: ${facId} day ${dayIdx} — staffIds:`, t.staffIds, 'entries:', t.staffEntries?.map(e=>e.staffId));
   document.getElementById('tcell-min').value=t.minCount;
 
   const rowsEl=document.getElementById('tcell-pcc-rows');
@@ -7726,7 +7727,13 @@ async function listDelete(listName, itemId){
     return await spFetch(`/sites/${spSiteId}/lists/${listName}/items/${itemId}`,{
       method:'DELETE'
     });
-  } catch(e){ console.warn(`listDelete "${listName}" failed:`,e.message); return null; }
+  } catch(e){
+    if(e.message?.includes('404')||e.message?.includes('itemNotFound')){
+      console.warn(`listDelete "${listName}" item ${itemId}: already gone, skipping`);
+      return null;
+    }
+    throw e;
+  }
 }
 
 // ── Save functions ─────────────────────────────────────────────────
@@ -7787,7 +7794,6 @@ async function saveStaff(){
 async function saveTemplate(){
   if(!spReady||!isEditor) return;
 
-  // Safety check — never wipe SharePoint if our in-memory template is empty
   const hasData=Object.values(tmpl).some(fac=>
     Object.values(fac).some(t=>t.staffIds?.length>0||t.minCount>0)
   );
@@ -7798,8 +7804,15 @@ async function saveTemplate(){
 
   updateSyncStatus('syncing','Saving template…');
   try {
+    // Fetch fresh IDs — don't rely on cached data
     const existing=await listGetAll(LISTS.template);
-    for(const item of existing) await listDelete(LISTS.template,item.id);
+    // Delete one by one, ignore 404s (item may already be gone)
+    for(const item of existing){
+      try { await listDelete(LISTS.template,item.id); }
+      catch(e){ /* ignore 404 — item already deleted */ }
+    }
+    // Write fresh
+    let written=0;
     for(const facId of Object.keys(tmpl)){
       for(const dayIdx of Object.keys(tmpl[facId])){
         const t=tmpl[facId][dayIdx];
@@ -7810,10 +7823,16 @@ async function saveTemplate(){
           StaffEntries:JSON.stringify(t.staffEntries||[]),
           MinCount:t.minCount||0,
         });
+        written++;
       }
     }
+    console.log(`saveTemplate: wrote ${written} rows`);
     updateSyncStatus('connected','Template saved ✓');
-  } catch(e){ console.error('saveTemplate error',e); updateSyncStatus('error','Save failed'); }
+  } catch(e){
+    console.error('saveTemplate error',e);
+    updateSyncStatus('error','Template save failed');
+    showToast('Template save failed — check console','err');
+  }
 }
 
 async function saveSchedule(){
