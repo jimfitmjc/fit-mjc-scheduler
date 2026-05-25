@@ -7619,8 +7619,8 @@ async function spGetSiteId(){
 async function ensureList(name, columns){
   try {
     await spFetch(`/sites/${spSiteId}/lists/${name}`);
-    // List exists — ensure all required columns exist
-    await ensureColumns(name, columns);
+    // List exists — columns must be added manually in SharePoint
+    // (Graph API token lacks column-creation permission)
     return;
   } catch(e){
     if(!e.message.includes('404')) throw e;
@@ -7706,11 +7706,10 @@ async function listGetAll(listName, filterFn=null){
 }
 
 async function listCreate(listName, fields){
-  try {
-    return await spFetch(`/sites/${spSiteId}/lists/${listName}/items`,{
-      method:'POST', body:JSON.stringify({fields})
-    });
-  } catch(e){ console.warn(`listCreate "${listName}" failed:`,e.message); return null; }
+  const resp=await spFetch(`/sites/${spSiteId}/lists/${listName}/items`,{
+    method:'POST', body:JSON.stringify({fields})
+  });
+  return resp;
 }
 
 async function listUpdate(listName, itemId, fields){
@@ -7732,33 +7731,56 @@ async function listDelete(listName, itemId){
 // ── Save functions ─────────────────────────────────────────────────
 async function saveStaff(){
   if(!spReady||!isEditor) return;
-  // Safety — never wipe if staff somehow empty
   if(!staff.length){ console.warn('saveStaff: staff array empty — skipping'); return; }
   updateSyncStatus('syncing','Saving staff…');
   try {
     const existing=await listGetAll(LISTS.staff);
     for(const item of existing) await listDelete(LISTS.staff,item.id);
     for(const s of staff){
-      await listCreate(LISTS.staff,{
-        Title:              s.name,
-        PCC_Id:             s.id,
-        PCC_Name:           s.name,
-        PCC_Email:          s.email||'',
-        PCC_Type:           s.type,
-        PCC_PrimaryFacId:   s.primaryFacId||'',
-        PCC_SecondaryFacId: s.secondaryFacId||'',
-        PCC_SecondaryDays:  JSON.stringify(s.secondaryDays||[]),
-        PCC_PodId:          s.podId||'',
-        PCC_Specialties:    JSON.stringify(s.specialties||[]),
-        PCC_Target:         s.target||40,
-      });
+      // Build payload — start with core columns that always exist
+      const payload={
+        Title:            s.name,
+        PCC_Id:           s.id,
+        PCC_Name:         s.name,
+        PCC_Email:        s.email||'',
+        PCC_Type:         s.type,
+        PCC_PrimaryFacId: s.primaryFacId||'',
+        PCC_Target:       s.target||40,
+      };
+      // Add optional columns only if they have values — SP will 400 if column missing
+      // These require manual column creation in SharePoint first
+      if(s.secondaryFacId!==undefined) payload.PCC_SecondaryFacId=s.secondaryFacId||'';
+      if(s.secondaryDays!==undefined)  payload.PCC_SecondaryDays=JSON.stringify(s.secondaryDays||[]);
+      if(s.podId!==undefined)          payload.PCC_PodId=s.podId||'';
+      if(s.specialties!==undefined)    payload.PCC_Specialties=JSON.stringify(s.specialties||[]);
+
+      try {
+        await listCreate(LISTS.staff, payload);
+      } catch(e){
+        // If optional columns cause 400, retry with core columns only
+        if(e.message?.includes('400')||e.message?.includes('not recognized')){
+          console.warn('saveStaff: optional columns not found, saving core only');
+          const corePayload={
+            Title:            s.name,
+            PCC_Id:           s.id,
+            PCC_Name:         s.name,
+            PCC_Email:        s.email||'',
+            PCC_Type:         s.type,
+            PCC_PrimaryFacId: s.primaryFacId||'',
+            PCC_Target:       s.target||40,
+          };
+          await listCreate(LISTS.staff, corePayload);
+        } else {
+          throw e;
+        }
+      }
     }
     updateSyncStatus('connected','Staff saved ✓');
-    showToast('PCC roster saved to SharePoint ✓','ok');
+    showToast('PCC roster saved ✓','ok');
   } catch(e){
     console.error('saveStaff error',e);
-    updateSyncStatus('error','Staff save failed — check SharePoint column setup');
-    showToast('Staff save failed — columns may need to be added to PCC_Staff list','err');
+    updateSyncStatus('error','Staff save failed');
+    showToast('Staff save failed — check console','err');
   }
 }
 
