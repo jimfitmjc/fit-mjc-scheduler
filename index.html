@@ -1304,6 +1304,33 @@ body.schedule-locked .ack-btn { display:none !important; }
 
 /* Today column is brought forward with wider width — set via grid-template-columns */
 
+/* ── PRIORITY LAYERS (below My Schedule) ── */
+.vg-priority-section { flex-shrink: 0; }
+.vg-priority-divider {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px 6px;
+  border-top: 2px solid var(--border);
+  background: var(--surface2);
+  position: sticky; left: 0;
+}
+.vg-priority-num {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--brand); color: #fff;
+  font-size: 10px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.vg-priority-title { font-size: 12px; font-weight: 800; color: var(--text); }
+.vg-priority-sub { font-size: 10px; color: var(--text-3); margin-left: auto; }
+.vg-priority-all-clear {
+  padding: 6px 16px 10px;
+  font-size: 11px; color: var(--ok-tx); font-weight: 600;
+}
+.vg-gap-window {
+  display: block; font-size: 10px; font-weight: 700;
+  color: var(--brand); font-family: 'Fira Code', monospace;
+  margin-bottom: 1px;
+}
+
 /* ── VIEWER TAB BAR ── */
 /* ── VIEWER TAB BAR ── */
 .viewer-tabs {
@@ -8122,7 +8149,7 @@ function renderViewerMySchedule(panel){
     return;
   }
 
-  // Header
+  // ── Header ────────────────────────────────────────────────────
   const pod=me.podId?podById(me.podId):null;
   const hdr=document.createElement('div');
   hdr.className='vg-header';
@@ -8132,35 +8159,169 @@ function renderViewerMySchedule(panel){
     <div class="vg-meta"><span style="font-size:11px;color:var(--text-3);">Week of ${currentMonday.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</span></div>`;
   panel.appendChild(hdr);
 
-  // Grid
-  const grid=document.createElement('div');
-  grid.className='vg-grid cols-5';
-  setVGColumns(grid, 90);
-  wrap.appendChild(grid);
-
-  // Header row
-  grid.appendChild(buildVGHeader('My Week'));
-
-  // Single row — me
-  const lbl=document.createElement('div');
-  lbl.className='vg-row-label';
-  lbl.textContent=me.name.split(' ')[0]; // first name only for own row
-  grid.appendChild(lbl);
-
+  // ── MY WEEK grid ──────────────────────────────────────────────
+  const myGrid=buildSimpleGrid('My Week', 90);
+  const myLbl=document.createElement('div');
+  myLbl.className='vg-row-label';
+  myLbl.textContent=me.name.split(' ')[0];
+  myGrid.grid.appendChild(myLbl);
   for(let i=0;i<5;i++){
     const onPTO=isOnPTO(me.id,i);
     const {frag,isEmpty,isPTO}=buildVGPCCContent(me.id,i);
     const cell=buildVGCell(i,frag,{pto:isPTO,off:isEmpty&&!isPTO});
-    if(isEmpty&&!isPTO){
-      const empty=document.createElement('span');
-      empty.className='vg-empty';
-      empty.textContent='Off';
-      cell.appendChild(empty);
+    if(isEmpty&&!isPTO){ const e=document.createElement('span'); e.className='vg-empty'; e.textContent='Off'; cell.appendChild(e); }
+    myGrid.grid.appendChild(cell);
+  }
+  wrap.appendChild(myGrid.wrap);
+  panel.appendChild(wrap);
+
+  // ── PRIORITY SECTIONS ─────────────────────────────────────────
+
+  // 1️⃣ MY CLINIC
+  const clinicFacId=getMyClinicFacId(me);
+  if(clinicFacId){
+    const fac=facById(clinicFacId);
+    const section=buildPrioritySection('1','My Clinic',fac?.name||'');
+    const gapGrid=buildSimpleGrid('',120);
+    const covLbl=document.createElement('div'); covLbl.className='vg-row-label'; covLbl.textContent='Coverage'; gapGrid.grid.appendChild(covLbl);
+    let anyClinicGap=false;
+    for(let i=0;i<5;i++){
+      const gaps=getFacilityGapWindows(clinicFacId,i);
+      const cell=buildVGCell(i,null,{});
+      cell.classList.add('gap-only-cell');
+      if(gaps.length){ gaps.forEach(g=>{ const el=document.createElement('span'); el.className='vg-gap-window'; el.textContent='⚠ '+fmtRange(g.start,g.end); cell.appendChild(el); }); anyClinicGap=true; }
+      gapGrid.grid.appendChild(cell);
     }
-    grid.appendChild(cell);
+    section.appendChild(gapGrid.wrap);
+    if(!anyClinicGap){ const ac=document.createElement('div'); ac.className='vg-priority-all-clear'; ac.textContent='✓ Fully covered this week'; section.appendChild(ac); }
+    panel.appendChild(section);
   }
 
-  panel.appendChild(wrap);
+  // 2️⃣ MY SPECIALTIES
+  const section2=buildPrioritySection('2','My Specialties','All queues — gaps only');
+  const specGrid=buildSimpleGrid('',150);
+  let anySpecGap=false;
+  activeQueues().forEach(q=>{
+    const qLbl=document.createElement('div'); qLbl.className='vg-row-label'; qLbl.style.cssText+='font-size:11px;'; qLbl.innerHTML=`<span style="width:7px;height:7px;border-radius:50%;background:${q.color};display:inline-block;flex-shrink:0;margin-right:5px;"></span>${q.name}`; specGrid.grid.appendChild(qLbl);
+    let anyDay=false;
+    for(let i=0;i<5;i++){
+      const gaps=getSpecialtyGaps(q.id,i);
+      const cell=buildVGCell(i,null,{}); cell.classList.add('gap-only-cell');
+      if(gaps.length){ gaps.forEach(g=>{ const el=document.createElement('span'); el.className='vg-gap-window'; el.style.color=q.color; el.textContent='⚠ '+fmtRange(g.start,g.end); cell.appendChild(el); }); anyDay=true; anySpecGap=true; }
+      specGrid.grid.appendChild(cell);
+    }
+  });
+  section2.appendChild(specGrid.wrap);
+  if(!anySpecGap){ const ac=document.createElement('div'); ac.className='vg-priority-all-clear'; ac.textContent='✓ All specialties covered this week'; section2.appendChild(ac); }
+  panel.appendChild(section2);
+
+  // 3️⃣ MY POD
+  if(pod){
+    const section3=buildPrioritySection('3','My Pod',pod.name);
+    const podFacIds=pod.facIds||[];
+    const podGrid=buildSimpleGrid('',130);
+    let anyPodGap=false;
+    podFacIds.forEach(facId=>{
+      if(facId===clinicFacId) return; // skip my own clinic — already shown above
+      const fac=facById(facId); if(!fac) return;
+      const fLbl=document.createElement('div'); fLbl.className='vg-row-label'; fLbl.style.fontSize='11px'; fLbl.textContent=fac.name; podGrid.grid.appendChild(fLbl);
+      for(let i=0;i<5;i++){
+        const gaps=getFacilityGapWindows(facId,i);
+        const cell=buildVGCell(i,null,{}); cell.classList.add('gap-only-cell');
+        if(gaps.length){ gaps.forEach(g=>{ const el=document.createElement('span'); el.className='vg-gap-window'; el.textContent='⚠ '+fmtRange(g.start,g.end); cell.appendChild(el); }); anyPodGap=true; }
+        podGrid.grid.appendChild(cell);
+      }
+    });
+    if(podFacIds.filter(f=>f!==clinicFacId).length===0){
+      const only=document.createElement('div'); only.className='vg-priority-all-clear'; only.textContent='This is the only facility in your pod'; section3.appendChild(only);
+    } else {
+      section3.appendChild(podGrid.wrap);
+      if(!anyPodGap){ const ac=document.createElement('div'); ac.className='vg-priority-all-clear'; ac.textContent='✓ Pod fully covered this week'; section3.appendChild(ac); }
+    }
+    panel.appendChild(section3);
+  }
+
+  // 4️⃣ COMPANY — one row per pod, gaps only
+  const section4=buildPrioritySection('4','Company','Other pods — gaps only');
+  const compGrid=buildSimpleGrid('',100);
+  let anyCompGap=false;
+  Object.entries(PODS).forEach(([podId,podDef])=>{
+    if(!podDef.facIds?.length) return;
+    if(podId===me.podId) return; // skip own pod — shown above
+    const podObj=podById(podId); if(!podObj) return;
+    const podLbl=document.createElement('div'); podLbl.className='vg-row-label'; podLbl.style.cssText+='font-size:11px;'; podLbl.innerHTML=`<span style="width:7px;height:7px;border-radius:50%;background:${podObj.color};display:inline-block;flex-shrink:0;margin-right:5px;"></span>${podObj.name}`; compGrid.grid.appendChild(podLbl);
+    for(let i=0;i<5;i++){
+      // Aggregate gaps across all facilities in this pod for day i
+      const allGaps=[];
+      podDef.facIds.forEach(facId=>{
+        getFacilityGapWindows(facId,i).forEach(g=>allGaps.push({...g,fac:facById(facId)?.name}));
+      });
+      const cell=buildVGCell(i,null,{}); cell.classList.add('gap-only-cell');
+      if(allGaps.length){
+        // Deduplicate and show count
+        const el=document.createElement('span'); el.className='vg-gap-window';
+        el.style.color=podObj.color;
+        el.textContent=`⚠ ${allGaps.length} gap${allGaps.length>1?'s':''}`;
+        cell.appendChild(el);
+        anyCompGap=true;
+      }
+      compGrid.grid.appendChild(cell);
+    }
+  });
+  section4.appendChild(compGrid.wrap);
+  if(!anyCompGap){ const ac=document.createElement('div'); ac.className='vg-priority-all-clear'; ac.textContent='✓ All other pods covered this week'; section4.appendChild(ac); }
+  panel.appendChild(section4);
+}
+
+// ── Shared grid builder ───────────────────────────────────────────
+function buildSimpleGrid(labelText, labelW=130){
+  const outerWrap=document.createElement('div');
+  outerWrap.style.cssText='overflow-x:auto;-webkit-overflow-scrolling:touch;';
+  const grid=document.createElement('div');
+  grid.className='vg-grid cols-5';
+  setVGColumns(grid, labelW);
+  outerWrap.appendChild(grid);
+  grid.appendChild(buildVGHeader(labelText));
+  return {wrap:outerWrap, grid};
+}
+
+// ── Priority section builder ──────────────────────────────────────
+function buildPrioritySection(num, title, sub){
+  const section=document.createElement('div');
+  section.className='vg-priority-section';
+  const div=document.createElement('div');
+  div.className='vg-priority-divider';
+  div.innerHTML=`<div class="vg-priority-num">${num}</div><div class="vg-priority-title">${title}</div><div class="vg-priority-sub">${sub}</div>`;
+  section.appendChild(div);
+  return section;
+}
+
+// ── My clinic facility resolver ───────────────────────────────────
+function getMyClinicFacId(me){
+  if(me.type==='static'||me.type==='hybrid') return me.primaryFacId||null;
+  // Float — find where they are scheduled this week
+  for(let i=0;i<5;i++){
+    for(const fac of FACILITIES){
+      if(getLiveCell(fac.id,i).some(e=>e.staffId===me.id)) return fac.id;
+    }
+  }
+  return null;
+}
+
+// ── Facility gap window calculator ───────────────────────────────
+function getFacilityGapWindows(facId, dayIdx){
+  const oh=effectiveHours(facId,dayIdx,'live');
+  if(!oh) return [];
+  const present=getLiveCell(facId,dayIdx).filter(e=>!isOnPTO(e.staffId,dayIdx));
+  const openMin=toMins(oh.open), closeMin=toMins(oh.close);
+  if(!present.length) return [{start:oh.open,end:oh.close}];
+  const ivs=present.map(e=>[Math.max(toMins(e.start),openMin),Math.min(toMins(e.end),closeMin)])
+    .filter(([a,b])=>b>a).sort((a,b)=>a[0]-b[0]);
+  const gaps=[];
+  let cur=openMin;
+  ivs.forEach(([s,e])=>{ if(s>cur) gaps.push({start:fromMins(cur),end:fromMins(s)}); cur=Math.max(cur,e); });
+  if(cur<closeMin) gaps.push({start:fromMins(cur),end:fromMins(closeMin)});
+  return gaps;
 }
 
 // ── Facility view ─────────────────────────────────────────────────
