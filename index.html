@@ -7676,7 +7676,7 @@ async function provisionLists(){
   await Promise.allSettled([
     ensureList(LISTS.staff, [
       textCol('PCC_Id'), textCol('PCC_Name'), textCol('PCC_Email'),
-      textCol('PCC_Type'), textCol('PCC_PrimaryFacId'), textCol('PCC_SecondaryFacId'),
+      textCol('PCC_Type'), textCol('PCC_PrimaryFacId'), textCol('PCC_SecondaryFacID'),
       textCol('PCC_SecondaryDays'), textCol('PCC_PodId'), multilineCol('PCC_Specialties'),
       numCol('PCC_Target'),
     ]),
@@ -7748,9 +7748,8 @@ async function saveStaff(){
         PCC_PrimaryFacId: s.primaryFacId||'',
         PCC_Target:       s.target||40,
       };
-      // Add optional columns only if they have values — SP will 400 if column missing
-      // These require manual column creation in SharePoint first
-      if(s.secondaryFacId!==undefined) payload.PCC_SecondaryFacId=s.secondaryFacId||'';
+      // Add optional columns only if they have values
+      if(s.secondaryFacId!==undefined) payload.PCC_SecondaryFacID=s.secondaryFacId||'';
       if(s.secondaryDays!==undefined)  payload.PCC_SecondaryDays=JSON.stringify(s.secondaryDays||[]);
       if(s.podId!==undefined)          payload.PCC_PodId=s.podId||'';
       if(s.specialties!==undefined)    payload.PCC_Specialties=JSON.stringify(s.specialties||[]);
@@ -8068,7 +8067,7 @@ async function loadStaff(){
       type:           i.fields.PCC_Type||hc?.type||'static',
       // Structural fields — use SP only if meaningfully set, otherwise hardcoded
       primaryFacId:   i.fields.PCC_PrimaryFacId||hc?.primaryFacId||null,
-      secondaryFacId: i.fields.PCC_SecondaryFacId||hc?.secondaryFacId||null,
+      secondaryFacId: i.fields.PCC_SecondaryFacID||hc?.secondaryFacId||null,
       // SecondaryDays — only use SP value if it parsed to a non-empty array
       secondaryDays:  secDays.length>0?secDays:(hc?.secondaryDays||[]),
       podId:          i.fields.PCC_PodId||hc?.podId||null,
