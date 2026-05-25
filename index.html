@@ -7804,29 +7804,56 @@ async function saveTemplate(){
 
   updateSyncStatus('syncing','Saving template…');
   try {
-    // Fetch fresh IDs — don't rely on cached data
-    const existing=await listGetAll(LISTS.template);
-    // Delete one by one, ignore 404s (item may already be gone)
-    for(const item of existing){
-      try { await listDelete(LISTS.template,item.id); }
-      catch(e){ /* ignore 404 — item already deleted */ }
-    }
-    // Write fresh
-    let written=0;
+    // Build map of what we want to save: key → {FacId, DayIdx, StaffEntries, MinCount}
+    const toWrite={};
     for(const facId of Object.keys(tmpl)){
       for(const dayIdx of Object.keys(tmpl[facId])){
         const t=tmpl[facId][dayIdx];
         if(!t.staffIds.length&&!t.minCount) continue;
-        await listCreate(LISTS.template,{
-          Title:`${facId}_${dayIdx}`, FacId:facId,
+        const key=`${facId}_${dayIdx}`;
+        toWrite[key]={
+          Title:key, FacId:facId,
           DayIdx:parseInt(dayIdx),
           StaffEntries:JSON.stringify(t.staffEntries||[]),
           MinCount:t.minCount||0,
-        });
-        written++;
+        };
       }
     }
-    console.log(`saveTemplate: wrote ${written} rows`);
+
+    // Get existing items — build map by Title key
+    const existing=await listGetAll(LISTS.template);
+    const existingByKey={};
+    existing.forEach(item=>{
+      const key=item.fields.Title||`${item.fields.FacId}_${item.fields.DayIdx}`;
+      existingByKey[key]=item;
+    });
+
+    // Update existing, create new, delete orphans
+    const handled=new Set();
+    for(const [key,data] of Object.entries(toWrite)){
+      if(existingByKey[key]){
+        // Update existing item
+        try {
+          await spFetch(`/sites/${spSiteId}/lists/${LISTS.template}/items/${existingByKey[key].id}/fields`,{
+            method:'PATCH', body:JSON.stringify(data)
+          });
+        } catch(e){ console.warn('template update failed, will recreate:',e.message); }
+      } else {
+        // Create new
+        await listCreate(LISTS.template, data);
+      }
+      handled.add(key);
+    }
+
+    // Delete items no longer in template
+    for(const [key,item] of Object.entries(existingByKey)){
+      if(!handled.has(key)){
+        try { await listDelete(LISTS.template,item.id); }
+        catch(e){ /* ignore */ }
+      }
+    }
+
+    console.log(`saveTemplate: saved ${Object.keys(toWrite).length} rows`);
     updateSyncStatus('connected','Template saved ✓');
   } catch(e){
     console.error('saveTemplate error',e);
