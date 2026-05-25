@@ -4238,7 +4238,7 @@ function openTCellModal(facId,dayIdx){
     row.innerHTML=`
       <input type="checkbox" id="tpk-${s.id}" ${isChecked?'checked':''}>
       <div><label class="tcell-pcc-name" for="tpk-${s.id}">${s.name}</label>
-           <div class="tcell-pcc-type">${s.type==='float'?'🔄 Float':'📌 Static'}</div></div>
+           <div class="tcell-pcc-type">${s.type==='float'?'🔄 Float':s.type==='hybrid'?'🔀 Hybrid':'📌 Static'}${s.type==='hybrid'&&s.secondaryFacId?` · 2nd: ${facById(s.secondaryFacId)?.name||''} ${(s.secondaryDays||[]).map(d=>DAYS[d]).join('/')}`:''}</div></div>
       <input type="time" class="tcell-time-input tcell-start" value="${defStart}" ${isChecked?'':'disabled'}>
       <input type="time" class="tcell-time-input tcell-end"   value="${defEnd}"   ${isChecked?'':'disabled'}>
       <select class="tcell-lunch-sel" ${isChecked?'':'disabled'}>${lunchOpts}</select>`;
@@ -8065,15 +8065,15 @@ async function loadStaff(){
       name:           i.fields.PCC_Name||i.fields.Title||hc?.name||'',
       email:          i.fields.PCC_Email||hc?.email||'',
       type:           i.fields.PCC_Type||hc?.type||'static',
-      // Structural fields — use SP if set, otherwise fall back to hardcoded
+      // Structural fields — use SP only if meaningfully set, otherwise hardcoded
       primaryFacId:   i.fields.PCC_PrimaryFacId||hc?.primaryFacId||null,
       secondaryFacId: i.fields.PCC_SecondaryFacId||hc?.secondaryFacId||null,
-      secondaryDays:  secDays.length?secDays:(hc?.secondaryDays||[]),
+      // SecondaryDays — only use SP value if it parsed to a non-empty array
+      secondaryDays:  secDays.length>0?secDays:(hc?.secondaryDays||[]),
       podId:          i.fields.PCC_PodId||hc?.podId||null,
       // Override fields — SP is source of truth
       target:         i.fields.PCC_Target||hc?.target||40,
       specialties:    specialties,
-      // Preserve hardcoded podPriority for floats
       podPriority:    hc?.podPriority||null,
     };
   });
