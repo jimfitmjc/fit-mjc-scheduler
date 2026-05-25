@@ -1171,487 +1171,140 @@ body.schedule-locked .ack-btn { display:none !important; }
 .sq-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .sq-conflict-badge { font-size: 9px; font-weight: 700; color: var(--brand); background: var(--brand-lt); border-radius: 3px; padding: 1px 5px; }
 
-/* ── VIEWER PANEL — REDESIGNED ── */
-.viewer-panel { flex:1; overflow-y:auto; padding:0; background:var(--bg); }
+/* ── UNIFIED VIEWER GRID ── */
+/* 
+  One consistent weekly grid across all 4 viewer tabs.
+  Rows = entities (PCC / facility / etc)
+  Columns = Mon–Fri, today column slightly wider and elevated
+*/
 
-/* ══ MY SCHEDULE ══ */
-.mys-wrap { padding:16px 16px 32px; max-width:600px; margin:0 auto; }
-.mys-hero { display:flex; align-items:center; gap:14px; padding:16px; margin-bottom:16px; background:var(--black); border-radius:var(--r); color:#fff; }
-.mys-avatar { width:52px; height:52px; border-radius:50%; font-size:20px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; color:#fff; }
-.mys-name { font-size:20px; font-weight:800; color:#fff; }
-.mys-meta { font-size:12px; color:rgba(255,255,255,.55); margin-top:3px; }
-.mys-week { font-size:11px; font-weight:700; color:rgba(255,255,255,.4); margin-top:4px; letter-spacing:.04em; }
-.mys-day { border-radius:var(--r); margin-bottom:10px; overflow:hidden; background:var(--surface); box-shadow:var(--shadow-sm); border:1.5px solid var(--border); }
-.mys-day.today { border-color:var(--brand); box-shadow:0 0 0 3px rgba(204,0,0,.08); }
-.mys-day.is-off { opacity:.4; }
-.mys-day-head { display:flex; align-items:stretch; border-bottom:2px solid var(--border); }
-.mys-day.today .mys-day-head { border-bottom-color:var(--brand); }
-.mys-day-accent { width:6px; flex-shrink:0; }
-.mys-day-date-block { padding:10px 14px; flex-shrink:0; min-width:60px; text-align:center; border-right:1px solid var(--border); display:flex; flex-direction:column; align-items:center; justify-content:center; }
-.mys-day-num { font-size:28px; font-weight:800; line-height:1; color:var(--text); }
-.mys-day.today .mys-day-num { color:var(--brand); }
-.mys-day-name { font-size:9px; font-weight:700; color:var(--text-3); text-transform:uppercase; letter-spacing:.06em; margin-top:2px; }
-.mys-day-body { flex:1; padding:12px 16px; }
-.mys-shift-fac { font-size:12px; font-weight:700; color:var(--text-2); text-transform:uppercase; letter-spacing:.04em; }
-.mys-shift-time { font-size:24px; font-weight:800; font-family:"Fira Code",monospace; color:var(--text); margin:3px 0; line-height:1; }
-.mys-shift-meta { font-size:11px; color:var(--text-3); display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-.mys-shift-tag { margin-top:5px; }
-.mys-shift-note { font-size:11px; color:var(--text-3); font-style:italic; margin-top:3px; }
-.mys-day-badge { padding:12px 16px; display:flex; flex-direction:column; align-items:flex-end; justify-content:center; gap:4px; flex-shrink:0; }
-.mys-status-pill { font-size:11px; font-weight:700; padding:4px 10px; border-radius:999px; white-space:nowrap; }
-.mys-status-pill.working { background:var(--ok-bg); color:var(--ok-tx); }
-.mys-status-pill.pto { background:var(--pto-bg); color:var(--pto-tx); }
-.mys-status-pill.off { background:var(--surface2); color:var(--text-3); border:1px solid var(--border); }
-.mys-status-pill.closed { background:#f0f0f0; color:#888; }
-.mys-off-msg { font-size:13px; color:var(--text-3); font-style:italic; }
-.mys-shift-divider { height:1px; background:var(--border); margin:10px 0; }
+.vg-wrap {
+  flex: 1; overflow: auto; padding: 0;
+  -webkit-overflow-scrolling: touch;
+}
 
-/* ══ FACILITY VIEW ══ */
-.facv-wrap { display:flex; flex-direction:column; height:100%; overflow:hidden; }
-.facv-hero { padding:14px 20px; background:var(--black); display:flex; align-items:center; gap:14px; color:#fff; flex-shrink:0; }
-.facv-dot { width:14px; height:14px; border-radius:50%; flex-shrink:0; }
-.facv-name { font-size:18px; font-weight:800; color:#fff; }
-.facv-meta { font-size:11px; color:rgba(255,255,255,.5); margin-top:2px; }
-.facv-week { display:grid; grid-template-columns:repeat(5,1fr); flex:1; overflow:hidden; }
-.facv-col { border-right:1px solid var(--border); display:flex; flex-direction:column; min-width:0; overflow:hidden; }
-.facv-col:last-child { border-right:none; }
-.facv-col-head { padding:8px 8px; text-align:center; border-bottom:2px solid var(--border); background:var(--surface2); flex-shrink:0; }
-.facv-col-head.today-col { background:var(--brand-lt); border-bottom-color:var(--brand); }
-.fch-date { font-size:22px; font-weight:800; line-height:1; }
-.facv-col-head.today-col .fch-date { color:var(--brand); }
-.fch-day { font-size:9px; font-weight:700; color:var(--text-3); text-transform:uppercase; letter-spacing:.05em; margin-top:1px; }
-.fch-hours { font-size:9px; font-family:"Fira Code",monospace; color:var(--text-3); margin-top:2px; }
-.fch-cov { margin-top:5px; font-size:10px; font-weight:700; padding:2px 6px; border-radius:999px; display:inline-block; }
-.fch-cov.ok { background:var(--ok-bg); color:var(--ok-tx); }
-.fch-cov.partial { background:var(--warn-bg); color:var(--warn-tx); }
-.fch-cov.gap { background:var(--gap-bg); color:var(--gap-tx); }
-.fch-cov.closed { background:#f0f0f0; color:#888; }
-.facv-col-body { padding:8px 6px 12px; flex:1; overflow-y:auto; }
-.facv-entry { padding:7px 8px; border-radius:var(--r-sm); margin-bottom:5px; border-left:4px solid; background:var(--surface2); }
-.facv-entry-name { font-size:12px; font-weight:700; }
-.facv-entry-type { font-size:9px; color:var(--text-3); }
-.facv-entry-time { font-size:13px; font-weight:800; font-family:"Fira Code",monospace; color:var(--text); margin-top:2px; }
-.facv-entry-detail { font-size:9px; color:var(--text-3); margin-top:2px; }
-.facv-gap { padding:6px 8px; border-radius:var(--r-sm); margin-bottom:5px; border-left:4px solid var(--gap-bd); background:var(--gap-bg); }
-.facv-gap-label { font-size:10px; font-weight:700; color:var(--gap-tx); }
-.facv-gap-time { font-size:11px; font-weight:800; font-family:"Fira Code",monospace; color:var(--gap-tx); }
-.facv-closed-col { display:flex; align-items:center; justify-content:center; height:60px; color:#bbb; font-size:11px; font-style:italic; }
-
-/* ══ COMPANY VIEW ══ */
-.compv-wrap { padding:10px 14px 32px; overflow-y:auto; flex:1; }
-.compv-day-bar { display:flex; gap:4px; padding:8px 0 6px; overflow-x:auto; -webkit-overflow-scrolling:touch; flex-shrink:0; }
-.compv-day-bar::-webkit-scrollbar { display:none; }
-.compv-day-btn { padding:4px 12px; border-radius:999px; border:1px solid var(--border); background:var(--surface2); font-size:11px; font-weight:600; color:var(--text-2); cursor:pointer; font-family:inherit; flex-shrink:0; transition:all .15s; }
-.compv-day-btn.active { background:var(--brand); color:#fff; border-color:var(--brand); }
-.compv-float-strip { display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding:6px 0 10px; font-size:11px; border-bottom:1px solid var(--border); margin-bottom:14px; }
-.compv-float-lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text-3); }
-.compv-float-pill { padding:2px 9px; border-radius:999px; font-size:11px; font-weight:700; border:1px solid; }
-.compv-float-pill.available { background:var(--float-bg); color:var(--float-tx); border-color:var(--float-bd); }
-.compv-float-pill.deployed { background:var(--ok-bg); color:var(--ok-tx); border-color:var(--ok-bd); }
-.compv-pod-section { margin-bottom:16px; }
-.compv-pod-header { display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:var(--r-sm) var(--r-sm) 0 0; }
-.compv-pod-name { font-size:13px; font-weight:800; color:#fff; }
-.compv-pod-stats { margin-left:auto; font-size:11px; color:rgba(255,255,255,.7); font-weight:600; }
-.compv-fac-card { background:var(--surface); border:1px solid var(--border); border-top:none; padding:9px 14px; display:flex; align-items:center; gap:10px; }
-.compv-fac-card:last-child { border-radius:0 0 var(--r-sm) var(--r-sm); }
-.compv-fac-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-.compv-fac-name { font-size:13px; font-weight:700; flex:0 0 110px; }
-.compv-fac-pcc { font-size:11px; color:var(--text-3); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.compv-fac-status { font-size:10px; font-weight:700; padding:2px 8px; border-radius:999px; flex-shrink:0; }
-.compv-fac-status.ok { background:var(--ok-bg); color:var(--ok-tx); }
-.compv-fac-status.partial { background:var(--warn-bg); color:var(--warn-tx); }
-.compv-fac-status.gap { background:var(--gap-bg); color:var(--gap-tx); }
-.compv-fac-status.closed { background:#f0f0f0; color:#888; }
-.compv-standalone { margin-bottom:12px; border:1px solid var(--border); border-radius:var(--r-sm); padding:9px 14px; display:flex; align-items:center; gap:10px; background:var(--surface); }
-
-/* My Schedule view */
-
-
-/* ═══════════════════════════════════════════════════════════════
-   VIEWER VISUAL REDESIGN
-   ═══════════════════════════════════════════════════════════════ */
-
-/* ── My Schedule ── */
-.vs2-week-header {
-  padding: 14px 16px 8px;
-  display: flex; align-items: center; gap: 12px;
+/* Sticky header area above the grid */
+.vg-header {
+  padding: 12px 16px 10px;
   border-bottom: 1px solid var(--border);
+  background: var(--surface);
   flex-shrink: 0;
 }
-.vs2-avatar {
-  width: 44px; height: 44px; border-radius: 50%;
-  font-size: 16px; font-weight: 800; color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,.15);
+.vg-title { font-size: 17px; font-weight: 800; }
+.vg-subtitle { font-size: 11px; color: var(--text-3); margin-top: 3px; }
+.vg-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+
+/* The grid itself */
+.vg-grid {
+  display: grid;
+  /* label col + 5 day cols — today col wider */
+  border-collapse: collapse;
+  min-width: 560px; /* ensures horizontal scroll on mobile */
 }
-.vs2-identity { flex: 1; min-width: 0; }
-.vs2-name { font-size: 17px; font-weight: 800; line-height: 1.2; }
-.vs2-meta { font-size: 11px; color: var(--text-3); margin-top: 2px; }
-.vs2-week-range {
-  font-family: 'Fira Code', monospace; font-size: 10px;
-  color: var(--text-3); white-space: nowrap;
+.vg-grid.cols-5 {
+  grid-template-columns: var(--vg-label-w, 130px) var(--vg-today-w, 1fr) 1fr 1fr 1fr 1fr;
 }
 
-/* Day cards — My Schedule — enhanced contrast */
-.vs2-day-card {
-  margin: 8px 12px;
-  border-radius: var(--r);
-  border: 1.5px solid var(--border);
-  overflow: hidden;
-  transition: box-shadow .15s;
+/* Day of week — we set today col wider via JS inline style on the grid */
+
+/* Column header row */
+.vg-col-head {
+  position: sticky; top: 0; z-index: 10;
+  background: var(--surface2);
+  padding: 7px 10px; text-align: center;
+  border-right: 1px solid var(--border);
+  border-bottom: 2px solid var(--border);
+  font-size: 11px; font-weight: 700; color: var(--text-2);
 }
-.vs2-day-card.vs2-today {
-  border-color: var(--brand);
-  box-shadow: 0 4px 16px rgba(204,0,0,.15);
+.vg-col-head:first-child { text-align: left; border-right: 2px solid var(--border); }
+.vg-col-head.vg-today {
+  background: var(--surface);
+  border-bottom: 3px solid var(--brand);
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  z-index: 11;
 }
-.vs2-day-card.vs2-off {
-  opacity: .35; border-style: dashed;
-  filter: grayscale(.4);
+.vg-col-head .vg-date {
+  font-size: 20px; font-weight: 900; line-height: 1; display: block;
+  color: var(--text);
 }
-.vs2-day-card.vs2-pto {
-  border-color: var(--pto-bd);
+.vg-col-head.vg-today .vg-date { color: var(--brand); }
+.vg-col-head .vg-day { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.vg-col-head.vg-today .vg-day { color: var(--brand); }
+
+/* Section header row (e.g. pod name in company view) */
+.vg-section-head {
+  grid-column: 1 / -1;
+  padding: 6px 14px; font-size: 11px; font-weight: 800;
+  color: #fff; letter-spacing: .04em;
+  border-bottom: 1px solid rgba(255,255,255,.15);
+}
+
+/* Row label cell */
+.vg-row-label {
+  padding: 8px 10px; font-size: 12px; font-weight: 700;
+  border-right: 2px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+  display: flex; align-items: flex-start;
+  word-break: break-word; line-height: 1.3;
+  color: var(--text);
+}
+.vg-row-label.dimmed { opacity: .4; font-style: italic; }
+
+/* Data cell */
+.vg-cell {
+  padding: 6px 8px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  vertical-align: top; min-height: 48px;
+  font-size: 11px; line-height: 1.4;
+}
+.vg-cell:last-child { border-right: none; }
+.vg-cell.vg-today {
+  background: #fffafa;
+  box-shadow: inset 0 0 0 1px rgba(204,0,0,.08);
+}
+.vg-cell.vg-closed {
+  background: #f8f8f8; color: #bbb;
+  font-style: italic; font-size: 10px;
+}
+.vg-cell.vg-pto {
   background: var(--pto-bg);
 }
+.vg-cell.vg-off { opacity: .35; }
 
-/* Today card gets a prominent top stripe */
-.vs2-day-card.vs2-today::before {
-  content: '';
-  display: block;
-  height: 4px;
-  background: var(--brand);
+/* Cell content elements */
+.vg-time {
+  font-family: 'Fira Code', monospace;
+  font-size: 11px; font-weight: 700; color: var(--text);
+  display: block; margin-bottom: 2px;
 }
-
-.vs2-day-head {
-  display: flex; align-items: center; gap: 10px;
-  padding: 9px 14px;
-  background: var(--surface2);
-  border-bottom: 1.5px solid var(--border);
+.vg-cell.vg-today .vg-time { color: var(--brand); }
+.vg-specialty {
+  display: block; font-size: 10px; font-weight: 700;
+  margin-top: 2px; padding: 1px 0;
 }
-.vs2-today .vs2-day-head {
-  background: #fff0f0;
-  border-color: var(--brand-md);
+.vg-meeting {
+  display: block; font-size: 10px; color: #1a1a2e;
+  font-weight: 600; margin-top: 2px;
 }
-.vs2-pto .vs2-day-head { background: var(--pto-bg); border-color: var(--pto-bd); }
-
-.vs2-day-num {
-  font-size: 26px; font-weight: 900; line-height: 1;
-  min-width: 32px; color: var(--text);
+.vg-gap {
+  display: block; font-size: 10px; font-weight: 700;
+  color: var(--brand); margin-top: 2px;
 }
-.vs2-today .vs2-day-num { color: var(--brand); }
-.vs2-day-name { font-size: 13px; font-weight: 700; flex: 1; }
-.vs2-day-badge {
-  font-size: 10px; font-weight: 700; padding: 3px 9px;
-  border-radius: 999px; white-space: nowrap;
-}
-.vs2-day-badge.working { background: var(--ok-bg); color: var(--ok-tx); }
-.vs2-day-badge.pto { background: var(--pto-bg); color: var(--pto-tx); border: 1px solid var(--pto-bd); }
-.vs2-day-badge.off { background: var(--surface2); color: var(--text-3); }
-.vs2-day-badge.closed { background: #f0f0f0; color: #999; }
-
-/* Shift block — facility color accent + large time */
-.vs2-shift-block {
-  padding: 12px 14px 12px 0;
-  display: flex; gap: 0; align-items: stretch;
+.vg-pcc-entry {
+  margin-bottom: 6px; padding-bottom: 6px;
   border-bottom: 1px solid var(--border);
 }
-.vs2-shift-block:last-child { border-bottom: none; }
-.vs2-shift-accent {
-  width: 5px; border-radius: 0; align-self: stretch;
-  flex-shrink: 0; min-height: 48px; margin-right: 14px;
-}
-.vs2-shift-content { flex: 1; min-width: 0; }
-.vs2-shift-fac {
-  font-size: 11px; font-weight: 800; margin-bottom: 2px;
-  text-transform: uppercase; letter-spacing: .04em;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-/* TIME is the hero element — biggest thing on the card */
-.vs2-shift-time {
-  font-size: 26px; font-weight: 900; line-height: 1.05;
-  font-family: 'Fira Code', monospace; color: var(--text);
-  letter-spacing: -.03em;
-}
-.vs2-shift-hrs {
-  font-size: 12px; color: var(--text-2); margin-top: 3px;
-  font-weight: 500;
-}
-.vs2-shift-extras {
-  display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px;
-}
-.vs2-off-block {
-  padding: 12px 14px; color: var(--text-3);
-  font-style: italic; font-size: 13px;
-}
-.vs2-pto-block {
-  padding: 12px 14px; color: var(--pto-tx);
-  font-weight: 700; font-size: 14px;
-  display: flex; align-items: center; gap: 8px;
-}
+.vg-pcc-entry:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+.vg-pcc-name { font-size: 11px; font-weight: 700; margin-bottom: 1px; }
+.vg-empty { font-size: 10px; color: var(--text-3); font-style: italic; }
+.vg-pto-label { font-size: 10px; font-weight: 700; color: var(--pto-tx); }
 
-/* Facility column headers — coverage pill more prominent */
-.vs2-fac-col-head .col-cov {
-  margin-top: 5px; padding: 3px 8px; border-radius: 999px;
-  font-size: 10px; font-weight: 800; display: inline-block;
-  letter-spacing: .02em;
-}
-.vs2-fac-col-head .col-cov.ok { background: #16a34a; color: #fff; }
-.vs2-fac-col-head .col-cov.gap { background: var(--brand); color: #fff; }
-.vs2-fac-col-head .col-cov.partial { background: #d97706; color: #fff; }
-.vs2-fac-col-head .col-cov.closed { background: #e5e7eb; color: #6b7280; }
+/* Today column is brought forward with wider width — set via grid-template-columns */
 
-/* PCC chip in facility grid — more readable */
-.vs2-fac-pcc-chip {
-  border-radius: var(--r-sm); margin-bottom: 5px;
-  border-left: 4px solid; overflow: hidden;
-  background: var(--surface);
-  box-shadow: 0 1px 3px rgba(0,0,0,.07);
-}
-.vs2-fac-pcc-name {
-  font-size: 11px; font-weight: 800;
-  padding: 5px 6px 2px; white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis;
-}
-.vs2-fac-pcc-time {
-  font-family: 'Fira Code', monospace; font-size: 11px;
-  font-weight: 600; color: var(--text); padding: 0 6px 5px;
-}
-/* Gap chip — stronger red */
-.vs2-fac-gap-chip {
-  border-radius: var(--r-sm); margin-bottom: 5px;
-  background: #fef2f2; border: 1px solid #fca5a5;
-  border-left: 4px solid var(--brand); padding: 4px 6px;
-}
-.vs2-fac-gap-label {
-  font-size: 10px; font-weight: 800; color: var(--brand);
-}
-.vs2-fac-gap-time {
-  font-family: 'Fira Code', monospace; font-size: 10px;
-  font-weight: 600; color: #dc2626;
-}
-
-/* Company view — pod-grouped cards */
-.vs2-pod-header {
-  display: flex; align-items: center; gap: 8px;
-  margin-bottom: 6px; padding: 6px 10px;
-  border-radius: var(--r-sm);
-}
-.vs2-pod-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-.vs2-pod-name { font-size: 12px; font-weight: 800; color: #fff; }
-.vs2-pod-coverage { font-size: 11px; color: rgba(255,255,255,.7); margin-left: auto; font-weight: 600; }
-/* Company fac card — tighter, denser */
-.vs2-company-fac-card {
-  border: 1px solid var(--border); border-radius: var(--r);
-  margin-bottom: 6px; overflow: hidden;
-  background: var(--surface);
-}
-.vs2-company-fac-head {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 12px; border-bottom: 1px solid var(--border);
-  background: var(--surface2);
-}
-.vs2-company-fac-name { font-size: 13px; font-weight: 700; flex: 1; }
-.vs2-company-fac-cov {
-  font-size: 10px; font-weight: 800; padding: 2px 8px;
-  border-radius: 999px; white-space: nowrap;
-}
-.vs2-company-fac-cov.ok { background: #16a34a; color: #fff; }
-.vs2-company-fac-cov.gap { background: var(--brand); color: #fff; }
-.vs2-company-fac-cov.partial { background: #d97706; color: #fff; }
-.vs2-company-fac-cov.closed { background: #e5e7eb; color: #6b7280; }
-/* Day cells — today column highlighted */
-.vs2-company-day-cell.today { background: #fff8f8; }
-.vs2-company-pcc-row {
-  font-size: 10px; font-weight: 700; color: var(--text);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  padding: 1px 0;
-}
-.vs2-company-pcc-time {
-  font-size: 9px; color: var(--text-3);
-  font-family: 'Fira Code', monospace; font-weight: 500;
-}
-.vs2-company-gap-row {
-  font-size: 9px; font-weight: 800; color: var(--brand);
-  padding: 1px 0;
-}
-
-
-/* ── Facility view ── */
-.vs2-fac-header {
-  padding: 14px 16px 10px;
-  border-bottom: 2px solid var(--border);
-  flex-shrink: 0;
-}
-.vs2-fac-title {
-  display: flex; align-items: center; gap: 10px; margin-bottom: 6px;
-}
-.vs2-fac-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
-.vs2-fac-name { font-size: 18px; font-weight: 800; }
-.vs2-fac-badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.vs2-fac-hours-row {
-  display: grid; grid-template-columns: repeat(5,1fr);
-  gap: 4px; margin-top: 8px;
-}
-.vs2-fac-day-pill {
-  text-align: center; padding: 4px 2px;
-  border-radius: var(--r-sm); font-size: 10px;
-  border: 1px solid var(--border);
-}
-.vs2-fac-day-pill.today { border-color: var(--brand); background: var(--brand-lt); }
-.vs2-fac-day-pill.closed { background: #f5f5f5; color: #bbb; }
-.vs2-fac-day-name { font-weight: 700; font-size: 9px; text-transform: uppercase; }
-.vs2-fac-day-hrs { font-family: 'Fira Code', monospace; font-size: 9px; color: var(--text-3); }
-
-/* Facility weekly grid */
-.vs2-fac-grid {
-  display: grid; grid-template-columns: repeat(5,1fr);
-  flex: 1; overflow: hidden;
-}
-.vs2-fac-col {
-  border-right: 1px solid var(--border);
-  display: flex; flex-direction: column; overflow: hidden;
-}
-.vs2-fac-col:last-child { border-right: none; }
-.vs2-fac-col-head {
-  padding: 8px 6px 6px; text-align: center;
-  background: var(--surface2);
-  border-bottom: 2px solid var(--border);
-  flex-shrink: 0;
-}
-.vs2-fac-col-head.today {
-  background: #fff5f5; border-bottom-color: var(--brand);
-}
-.vs2-fac-col-head .col-date {
-  font-size: 20px; font-weight: 900;
-  color: var(--text); line-height: 1;
-}
-.vs2-fac-col-head.today .col-date { color: var(--brand); }
-.vs2-fac-col-head .col-day { font-size: 10px; font-weight: 700; color: var(--text-2); }
-.vs2-fac-col-head .col-hours {
-  font-family: 'Fira Code', monospace; font-size: 9px;
-  color: var(--text-3); margin-top: 2px;
-}
-.vs2-fac-col-head .col-cov {
-  margin-top: 4px; padding: 2px 6px; border-radius: 999px;
-  font-size: 9px; font-weight: 700; display: inline-block;
-}
-.vs2-fac-col-head .col-cov.ok { background: var(--ok-bg); color: var(--ok-tx); }
-.vs2-fac-col-head .col-cov.gap { background: var(--gap-bg); color: var(--gap-tx); }
-.vs2-fac-col-head .col-cov.partial { background: var(--warn-bg); color: var(--warn-tx); }
-.vs2-fac-col-head .col-cov.closed { background: #f0f0f0; color: #999; }
-
-.vs2-fac-col-body {
-  flex: 1; overflow-y: auto; padding: 6px 4px;
-}
-.vs2-fac-pcc-chip {
-  border-radius: var(--r-sm); margin-bottom: 5px;
-  border-left: 3px solid; overflow: hidden;
-  background: var(--surface);
-  box-shadow: 0 1px 3px rgba(0,0,0,.06);
-}
-.vs2-fac-pcc-name {
-  font-size: 11px; font-weight: 700;
-  padding: 4px 6px 2px; white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis;
-}
-.vs2-fac-pcc-time {
-  font-family: 'Fira Code', monospace; font-size: 10px;
-  color: var(--text-2); padding: 0 6px 4px;
-}
-.vs2-fac-gap-chip {
-  border-radius: var(--r-sm); margin-bottom: 5px;
-  background: var(--gap-bg); border: 1px solid var(--gap-bd);
-  padding: 4px 6px;
-}
-.vs2-fac-gap-label {
-  font-size: 10px; font-weight: 700; color: var(--gap-tx);
-}
-.vs2-fac-gap-time {
-  font-family: 'Fira Code', monospace; font-size: 9px; color: var(--gap-tx);
-}
-.vs2-fac-pto-chip {
-  border-radius: var(--r-sm); margin-bottom: 5px;
-  background: var(--pto-bg); border-left: 3px solid var(--pto-bd);
-  padding: 4px 6px; opacity: .7;
-}
-.vs2-fac-closed-col {
-  display: flex; align-items: center; justify-content: center;
-  height: 100%; color: #ccc; font-size: 11px; font-style: italic;
-}
-.vs2-fac-pod-col {
-  display: flex; flex-direction: column; align-items: center;
-  justify-content: center; padding: 8px 4px; gap: 3px;
-  height: 100%;
-}
-
-/* ── Company view ── */
-.vs2-company-wrap { padding: 10px 12px 24px; }
-.vs2-pod-section { margin-bottom: 18px; }
-.vs2-pod-header {
-  display: flex; align-items: center; gap: 8px;
-  margin-bottom: 8px; padding: 0 2px;
-}
-.vs2-pod-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-.vs2-pod-name { font-size: 12px; font-weight: 800; }
-.vs2-pod-coverage { font-size: 11px; color: var(--text-3); margin-left: auto; }
-
-.vs2-company-fac-card {
-  border: 1px solid var(--border); border-radius: var(--r);
-  margin-bottom: 8px; overflow: hidden;
-  background: var(--surface);
-}
-.vs2-company-fac-head {
-  display: flex; align-items: center; gap: 8px;
-  padding: 9px 12px; border-bottom: 1px solid var(--border);
-  background: var(--surface2);
-}
-.vs2-company-fac-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.vs2-company-fac-name { font-size: 13px; font-weight: 700; flex: 1; }
-.vs2-company-fac-cov {
-  font-size: 10px; font-weight: 700; padding: 2px 8px;
-  border-radius: 999px; white-space: nowrap;
-}
-.vs2-company-fac-cov.ok { background: var(--ok-bg); color: var(--ok-tx); }
-.vs2-company-fac-cov.gap { background: var(--gap-bg); color: var(--gap-tx); }
-.vs2-company-fac-cov.partial { background: var(--warn-bg); color: var(--warn-tx); }
-.vs2-company-fac-cov.closed { background: #f0f0f0; color: #999; }
-
-/* Day strip inside company card */
-.vs2-company-day-strip {
-  display: grid; grid-template-columns: repeat(5,1fr);
-  border-top: none;
-}
-.vs2-company-day-cell {
-  padding: 5px 6px; border-right: 1px solid var(--border);
-  min-height: 48px;
-}
-.vs2-company-day-cell:last-child { border-right: none; }
-.vs2-company-day-cell.today { background: #fff5f5; }
-.vs2-company-day-cell.closed { background: #f9f9f9; }
-.vs2-company-day-label {
-  font-size: 8px; font-weight: 700; text-transform: uppercase;
-  color: var(--text-3); margin-bottom: 3px;
-}
-.vs2-company-day-label.today-lbl { color: var(--brand); }
-.vs2-company-pcc-row {
-  font-size: 10px; font-weight: 600; color: var(--text);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  padding: 1px 0;
-}
-.vs2-company-pcc-time {
-  font-size: 9px; color: var(--text-3);
-  font-family: 'Fira Code', monospace;
-}
-.vs2-company-gap-row {
-  font-size: 9px; font-weight: 700; color: var(--gap-tx);
-  padding: 1px 0;
-}
-.vs2-company-pod-row {
-  font-size: 9px; font-weight: 700; opacity: .7;
-}
-.vs2-company-closed-row {
-  font-size: 9px; color: #bbb; font-style: italic;
-}
-
+/* ── VIEWER TAB BAR ── */
 /* ── VIEWER TAB BAR ── */
 .viewer-tabs {
   display: none; /* shown only for viewers via JS */
@@ -7326,237 +6979,140 @@ function printEditorGrid(){
 }
 
 function printViewerContent(){
-  const style=`
-    <style>
-      * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      body { font-family: 'Plus Jakarta Sans', sans-serif; margin: 0; padding: 16px; font-size: 12px; color: #111; }
-      .print-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #cc0000; }
-      .print-title { font-size: 18px; font-weight: 800; }
-      .print-sub { font-size: 11px; color: #666; margin-top: 2px; }
-      /* Day cards */
-      .day-card { border: 1.5px solid #e0e0e0; border-radius: 8px; margin-bottom: 10px; overflow: hidden; page-break-inside: avoid; }
-      .day-card.today { border-color: #cc0000; }
-      .day-card.today::before { content:''; display:block; height:4px; background:#cc0000; }
-      .day-head { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #f5f5f5; border-bottom: 1px solid #e0e0e0; }
-      .day-card.today .day-head { background: #fff0f0; }
-      .day-num { font-size: 22px; font-weight: 900; min-width: 28px; }
-      .day-card.today .day-num { color: #cc0000; }
-      .day-name { font-size: 13px; font-weight: 700; flex: 1; }
-      .day-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
-      .day-badge.working { background: #dcfce7; color: #166534; }
-      .day-badge.pto { background: #fef3c7; color: #92400e; }
-      .day-badge.off { background: #f3f4f6; color: #6b7280; }
-      .shift-block { display: flex; padding: 10px 12px; border-bottom: 1px solid #f0f0f0; }
-      .shift-block:last-child { border-bottom: none; }
-      .shift-accent { width: 4px; border-radius: 2px; margin-right: 12px; flex-shrink: 0; }
-      .shift-fac { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
-      .shift-time { font-size: 22px; font-weight: 900; font-family: monospace; line-height: 1.1; }
-      .shift-hrs { font-size: 11px; color: #666; margin-top: 2px; }
-      .off-msg { padding: 10px 12px; color: #999; font-style: italic; }
-      /* Grid view (facility / company) */
-      table { width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 16px; }
-      th { padding: 6px 8px; font-weight: 700; text-align: center; border: 1px solid #e0e0e0; background: #f5f5f5; }
-      th.today-th { background: #fff0f0; color: #cc0000; }
-      td { border: 1px solid #e0e0e0; padding: 5px 6px; vertical-align: top; }
-      td.today-td { background: #fff8f8; }
-      .grid-chip { border-left: 3px solid; padding: 2px 4px; margin-bottom: 2px; background: #fafafa; border-radius: 2px; }
-      .grid-chip-name { font-weight: 700; font-size: 9px; }
-      .grid-chip-time { font-family: monospace; font-size: 9px; color: #444; }
-      .grid-gap { border-left: 3px solid #cc0000; background: #fff0f0; padding: 2px 4px; margin-bottom: 2px; border-radius: 2px; font-size: 9px; font-weight: 700; color: #cc0000; }
-      .pod-header { padding: 6px 10px; font-weight: 800; font-size: 12px; color: #fff; border-radius: 4px; margin: 12px 0 4px; }
-      .fac-row-header { font-weight: 700; font-size: 11px; background: #f8f8f8; }
-      .closed-cell { color: #aaa; font-style: italic; font-size: 9px; }
-    </style>`;
+  const activeTab=document.querySelector('.viewer-tab.active');
+  const effectiveView=(activeTab?activeTab.dataset.view:null)||viewerView||'company';
+  const effectiveSubId=viewerSubId;
 
   const weekStart=currentMonday.toLocaleDateString('en-US',{month:'short',day:'numeric'});
   const weekEnd=addDays(currentMonday,4).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
 
-  let html=`<!DOCTYPE html><html><head><title>FIT MJC — ${viewerView}</title>${style}</head><body>`;
+  // Shared print CSS
+  const style=`<style>
+    *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;margin:0;padding:16px;font-size:11px;color:#111;}
+    .ph{margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid #cc0000;}
+    .ph-title{font-size:16px;font-weight:800;}
+    .ph-sub{font-size:10px;color:#666;margin-top:2px;}
+    table{width:100%;border-collapse:collapse;table-layout:fixed;}
+    th{padding:6px 8px;font-size:10px;font-weight:700;border:1px solid #e0e0e0;background:#f5f5f5;text-align:left;vertical-align:bottom;}
+    th.today-th{background:#fff0f0;border-bottom:2px solid #cc0000;}
+    th .ph-date{font-size:16px;font-weight:900;display:block;line-height:1;}
+    td{border:1px solid #e0e0e0;padding:5px 7px;vertical-align:top;font-size:10px;}
+    td.today-td{background:#fffafa;border-left:2px solid #cc0000;border-right:2px solid #cc0000;}
+    td.closed{background:#f8f8f8;color:#bbb;font-style:italic;}
+    td.pto-td{background:#fef3c7;}
+    .row-label{font-weight:700;background:#f8f8f8;width:120px;}
+    .pcc-name{font-weight:700;font-size:10px;margin-bottom:1px;}
+    .time{font-family:monospace;font-size:10px;font-weight:700;display:block;}
+    .specialty{font-size:9px;font-weight:700;display:block;margin-top:1px;}
+    .meeting{font-size:9px;color:#1a1a2e;display:block;margin-top:1px;}
+    .gap{font-size:9px;font-weight:700;color:#cc0000;display:block;}
+    .pod-head{background:#333;color:#fff;font-weight:800;font-size:10px;padding:4px 8px;}
+    .off{color:#aaa;font-style:italic;}
+    .section-break{page-break-before:avoid;}
+  </style>`;
 
-  // Determine what we're printing based on current viewer view
-  const mobView = isMobile() ? mobViewerView : viewerView;
-  const mobSub = isMobile() ? mobViewerSubId : viewerSubId;
+  // Build day headers
+  const todayIdx=new Date().getDay()-1;
+  function dayHeaders(labelText=''){
+    let h=`<th class="row-label">${labelText}</th>`;
+    for(let i=0;i<5;i++){
+      const d=addDays(currentMonday,i);
+      const today=i===todayIdx;
+      h+=`<th${today?' class="today-th"':''}><span style="font-size:9px;font-weight:700;text-transform:uppercase;">${DAYS[i]}</span><span class="ph-date">${d.getDate()}</span></th>`;
+    }
+    return `<tr>${h}</tr>`;
+  }
 
-  // For preview mode, use the active viewer tab to determine view
-  const activeTab = document.querySelector('.viewer-tab.active');
-  const effectiveView = (isViewerMode && activeTab) ? activeTab.dataset.view : mobView;
-  const effectiveSubId = mobSub;
+  // Build PCC cells for a staff member across 5 days
+  function pccRows(staffId, facId=null){
+    let cells='';
+    for(let i=0;i<5;i++){
+      const today=i===todayIdx;
+      const onPTO=isOnPTO(staffId,i);
+      if(onPTO){ cells+=`<td class="${today?'today-td ':''}pto-td"><span class="time">🏖 PTO</span></td>`; continue; }
+      let entry=null;
+      if(facId){ entry=getLiveCell(facId,i).find(e=>e.staffId===staffId); }
+      else { for(const f of FACILITIES){ entry=getLiveCell(f.id,i).find(e=>e.staffId===staffId); if(entry)break; } }
+      if(!entry){ cells+=`<td class="${today?'today-td':''}">&nbsp;</td>`; continue; }
+      const hrs=shiftHours(entry.start,entry.end,entry.lunch);
+      const specs=getStaffQueueAssignments(staffId,i).map(q=>`<span class="specialty" style="color:${q.color}">🔬 ${q.name}</span>`).join('');
+      const mtgs=getMeetingsForDay(i).filter(m=>m.staffIds.includes(staffId)).map(m=>`<span class="meeting">📅 ${fmtTime(m.startTime)} ${m.name}</span>`).join('');
+      cells+=`<td class="${today?'today-td':''}">${entry?`<span class="time">${fmtRange(entry.start,entry.end)}</span>${specs}${mtgs}`:''}</td>`;
+    }
+    return cells;
+  }
 
-  // Title
-  const userEmail=(currentUser?.username||'').toLowerCase();
-  const me=staff.find(s=>(s.email||'').toLowerCase()===userEmail);
-  let titleText='Schedule';
-  if(effectiveView==='mine') titleText=`My Schedule — ${me?.name||''}`;
-  else if(effectiveView==='facility') titleText=`${facById(effectiveSubId)?.name||'Facility'} Schedule`;
-  else if(effectiveView==='pcc') titleText=`${staffById(effectiveSubId)?.name||'PCC'} Schedule`;
-  else titleText='Company Schedule';
-
-  html+=`<div class="print-header"><div><div class="print-title">F.I.T. Muscle &amp; Joint Clinic</div><div class="print-sub">${titleText} · ${weekStart} – ${weekEnd}</div></div></div>`;
+  let html=`<!DOCTYPE html><html><head><title>FIT MJC Schedule</title>${style}</head><body>`;
+  html+=`<div class="ph"><div class="ph-title">F.I.T. Muscle &amp; Joint Clinic — ${effectiveView==='mine'?'My Schedule':effectiveView==='facility'?facById(effectiveSubId)?.name+' Schedule':effectiveView==='pcc'?staffById(effectiveSubId)?.name+' Schedule':'All Clinics'}</div><div class="ph-sub">${weekStart} – ${weekEnd}</div></div>`;
+  html+=`<table>`;
 
   if(effectiveView==='mine'||effectiveView==='pcc'){
-    // Day card format
-    const pcc = effectiveView==='mine' ? me : staffById(effectiveSubId);
-    if(!pcc){ html+=`<p>No PCC found.</p></body></html>`; }
-    else {
-      const todayDayIdx=new Date().getDay()-1;
-      const dayOrder=todayDayIdx>=0&&todayDayIdx<=4
-        ?[todayDayIdx,...[0,1,2,3,4].filter(x=>x!==todayDayIdx)]:[0,1,2,3,4];
-      dayOrder.forEach(i=>{
-        const d=addDays(currentMonday,i);
-        const today=isToday(d);
-        const onPTO=isOnPTO(pcc.id,i);
-        const shifts=[];
-        FACILITIES.forEach(fac=>{
-          getLiveCell(fac.id,i).filter(e=>e.staffId===pcc.id)
-            .forEach(e=>shifts.push({fac,entry:e}));
-        });
-        shifts.sort((a,b)=>toMins(a.entry.start)-toMins(b.entry.start));
-        const hasShift=shifts.length>0;
-        const badgeCls=onPTO?'pto':hasShift?'working':'off';
-        const badgeLabel=onPTO?'🏖 PTO':hasShift?'✓ Scheduled':'Off';
-        html+=`<div class="day-card${today?' today':''}">
-          <div class="day-head">
-            <div class="day-num">${d.getDate()}</div>
-            <div class="day-name">${DAYS[i]}${today?' · TODAY':''}</div>
-            <span class="day-badge ${badgeCls}">${badgeLabel}</span>
-          </div>`;
-        if(onPTO){
-          const hrs=getPTOHours(pcc.id,i);
-          html+=`<div class="off-msg">🏖 Out / PTO${hrs>0?` · ${hrs}h`:''}</div>`;
-        } else if(hasShift){
-          shifts.forEach(({fac,entry})=>{
-            const hrs=shiftHours(entry.start,entry.end,entry.lunch);
-            html+=`<div class="shift-block">
-              <div class="shift-accent" style="background:${fac.color}"></div>
-              <div>
-                <div class="shift-fac" style="color:${fac.color}">${fac.name}</div>
-                <div class="shift-time">${fmtRange(entry.start,entry.end)}</div>
-                <div class="shift-hrs">${hrs.toFixed(1)} hrs${entry.lunch?` · 🥪 Lunch ${fmtTime(entry.lunch)}`:''}</div>
-                ${entry.note?`<div style="font-size:10px;color:#666;margin-top:2px;">💬 ${entry.note}</div>`:''}
-              </div></div>`;
-          });
-        } else {
-          html+=`<div class="off-msg">No shift scheduled</div>`;
-        }
-        // Specialty queue assignments
-        if(!onPTO){
-          activeQueues().forEach(q=>{
-            if(getQueueAssignment(q.id,i)!==pcc.id) return;
-            const conflict=getSpecialtyConflicts(i).some(c=>c.queue.id===q.id&&c.staffId===pcc.id);
-            html+=`<div class="shift-block">
-              <div class="shift-accent" style="background:${q.color}"></div>
-              <div>
-                <div class="shift-fac" style="color:${q.color}">🔬 ${q.name} coverage${conflict?' ⚠ Meeting conflict':''}</div>
-              </div></div>`;
-          });
-        }
-        // Meetings
-        getMeetingsForDay(i).forEach(mtg=>{
-          if(!mtg.staffIds.includes(pcc.id)) return;
-          const conflict=getSpecialtyConflicts(i).some(c=>c.meeting.id===mtg.id&&c.staffId===pcc.id);
-          html+=`<div class="shift-block" style="border-left:3px solid #1a1a2e;background:#f0f0f8;">
-            <div>
-              <div style="font-weight:700;color:${conflict?'#cc0000':'#1a1a2e'};">📅 ${mtg.name}${conflict?' ⚠ Specialty conflict':''}</div>
-              <div style="font-size:11px;color:#555;font-family:monospace;">${fmtTime(mtg.startTime)} · ${mtg.duration}min</div>
-            </div></div>`;
-        });
-        html+=`</div>`;
-      });
+    const userEmail=(currentUser?.username||'').toLowerCase();
+    const pcc=effectiveView==='mine'?staff.find(s=>(s.email||'').toLowerCase()===userEmail)||staff[0]:staffById(effectiveSubId);
+    if(pcc){
+      html+=dayHeaders('');
+      html+=`<tr><td class="row-label">${pcc.name}</td>${pccRows(pcc.id)}</tr>`;
     }
   } else if(effectiveView==='facility'){
-    // Facility grid
     const fac=facById(effectiveSubId);
-    if(!fac){ html+=`<p>Select a facility.</p>`; }
-    else {
-      html+=`<table><thead><tr><th>Coverage</th>`;
-      for(let i=0;i<5;i++){
-        const d=addDays(currentMonday,i);
-        html+=`<th${isToday(d)?' class="today-th"':''}>${DAYS[i]} ${d.getDate()}</th>`;
-      }
-      html+=`</tr></thead><tbody>`;
-      // Get all PCCs at this facility this week
+    if(fac){
+      html+=dayHeaders('PCC');
       const pccSet=new Set();
       for(let i=0;i<5;i++) getLiveCell(fac.id,i).forEach(e=>pccSet.add(e.staffId));
       [...pccSet].forEach(sid=>{
         const s=staffById(sid);if(!s)return;
-        html+=`<tr><td class="fac-row-header">${s.name}</td>`;
-        for(let i=0;i<5;i++){
-          const today=isToday(addDays(currentMonday,i));
-          const entry=getLiveCell(fac.id,i).find(e=>e.staffId===sid);
-          html+=`<td${today?' class="today-td"':''}>`;
-          if(entry){
-            const hrs=shiftHours(entry.start,entry.end,entry.lunch);
-            const color=s.type==='float'?'#0284c7':s.type==='hybrid'?'#059669':'#cc0000';
-            html+=`<div class="grid-chip" style="border-color:${color}"><div class="grid-chip-name">${fmtRange(entry.start,entry.end)}</div><div class="grid-chip-time">${hrs.toFixed(1)}h${entry.lunch?` · 🥪`:''}</div></div>`;
-          }
-          html+=`</td>`;
-        }
-        html+=`</tr>`;
+        html+=`<tr><td class="row-label">${s.name}</td>${pccRows(sid,fac.id)}</tr>`;
       });
       // Gap row
-      html+=`<tr><td class="fac-row-header" style="color:#cc0000;">⚠ Gaps</td>`;
+      html+=`<tr><td class="row-label" style="color:#cc0000;">⚠ Gaps</td>`;
       for(let i=0;i<5;i++){
+        const today=i===todayIdx;
         const oh=effectiveHours(fac.id,i,'live');
-        const today=isToday(addDays(currentMonday,i));
-        html+=`<td${today?' class="today-td"':''}>`;
-        if(!oh){ html+=`<div class="closed-cell">Closed</div>`; }
-        else {
-          const present=[...getLiveCell(fac.id,i).filter(e=>!isOnPTO(e.staffId,i))].sort((a,b)=>toMins(a.start)-toMins(b.start));
-          const openMin=toMins(oh.open),closeMin=toMins(oh.close);
-          const ivs=present.map(e=>[Math.max(toMins(e.start),openMin),Math.min(toMins(e.end),closeMin)]).filter(([a,b])=>b>a).sort((a,b)=>a[0]-b[0]);
-          let cur=openMin;
-          ivs.forEach(([s,e])=>{ if(s>cur) html+=`<div class="grid-gap">${fmtRange(fromMins(cur),fromMins(s))}</div>`; cur=Math.max(cur,e); });
-          if(cur<closeMin) html+=`<div class="grid-gap">${fmtRange(fromMins(cur),fromMins(closeMin))}</div>`;
-          if(present.length===0) html+=`<div class="grid-gap">All day</div>`;
-        }
-        html+=`</td>`;
+        if(!oh){ html+=`<td class="closed${today?' today-td':''}">Closed</td>`; continue; }
+        const present=getLiveCell(fac.id,i).filter(e=>!isOnPTO(e.staffId,i));
+        const openMin=toMins(oh.open),closeMin=toMins(oh.close);
+        const ivs=present.map(e=>[Math.max(toMins(e.start),openMin),Math.min(toMins(e.end),closeMin)]).filter(([a,b])=>b>a).sort((a,b)=>a[0]-b[0]);
+        let cur=openMin; let gaps=[];
+        ivs.forEach(([s,e])=>{ if(s>cur)gaps.push(fmtRange(fromMins(cur),fromMins(s))); cur=Math.max(cur,e); });
+        if(cur<closeMin) gaps.push(fmtRange(fromMins(cur),fromMins(closeMin)));
+        html+=`<td class="${today?'today-td':''}">${gaps.length?gaps.map(g=>`<span class="gap">${g}</span>`).join(''):'<span style="color:#16a34a;font-size:9px;">✓ Covered</span>'}</td>`;
       }
-      html+=`</tr></tbody></table>`;
+      html+=`</tr>`;
     }
   } else {
-    // Company view — pod-grouped
+    // Company — pod grouped
+    html+=dayHeaders('Facility');
     Object.entries(PODS).forEach(([podId,pod])=>{
-      if(podId==='null'||!pod.facIds?.length) return;
-      html+=`<div class="pod-header" style="background:${pod.color}">${pod.name}</div>`;
-      html+=`<table><thead><tr><th>Facility</th>`;
-      for(let i=0;i<5;i++){
-        const d=addDays(currentMonday,i);
-        html+=`<th${isToday(d)?' class="today-th"':''}>${DAYS[i]} ${d.getDate()}</th>`;
-      }
-      html+=`</tr></thead><tbody>`;
+      if(!pod.facIds?.length) return;
+      html+=`<tr><td colspan="6" class="pod-head" style="background:${pod.color};">${pod.name}</td></tr>`;
       pod.facIds.forEach(facId=>{
         const fac=facById(facId);if(!fac)return;
-        html+=`<tr><td class="fac-row-header">${fac.name}</td>`;
+        html+=`<tr><td class="row-label">${fac.name}</td>`;
         for(let i=0;i<5;i++){
+          const today=i===todayIdx;
           const oh=effectiveHours(facId,i,'live');
-          const today=isToday(addDays(currentMonday,i));
-          html+=`<td${today?' class="today-td"':''}>`;
-          if(!oh){ html+=`<div class="closed-cell">Closed</div>`; }
-          else {
-            const present=[...getLiveCell(facId,i).filter(e=>!isOnPTO(e.staffId,i))].sort((a,b)=>toMins(a.start)-toMins(b.start));
-            if(present.length===0){
-              html+=`<div class="grid-gap">⚠ No coverage</div>`;
-            } else {
-              present.forEach(entry=>{
-                const s=staffById(entry.staffId);if(!s)return;
-                const color=s.type==='float'?'#0284c7':s.type==='hybrid'?'#059669':'#cc0000';
-                html+=`<div class="grid-chip" style="border-color:${color}"><div class="grid-chip-name">${s.name.split(' ')[0]}</div><div class="grid-chip-time">${fmtRange(entry.start,entry.end)}</div></div>`;
-              });
-            }
-          }
-          html+=`</td>`;
+          if(!oh){ html+=`<td class="closed${today?' today-td':''}">Closed</td>`; continue; }
+          const present=getLiveCell(facId,i).filter(e=>!isOnPTO(e.staffId,i));
+          if(!present.length){ html+=`<td class="${today?'today-td':''}"><span class="gap">⚠</span></td>`; continue; }
+          let cell='';
+          present.sort((a,b)=>toMins(a.start)-toMins(b.start)).forEach(entry=>{
+            const s=staffById(entry.staffId);if(!s)return;
+            const specs=getStaffQueueAssignments(s.id,i).map(q=>`<span class="specialty" style="color:${q.color}">🔬 ${q.name}</span>`).join('');
+            cell+=`<div class="pcc-name">${s.name}</div><span class="time">${fmtRange(entry.start,entry.end)}</span>${specs}`;
+          });
+          html+=`<td class="${today?'today-td':''}">${cell}</td>`;
         }
         html+=`</tr>`;
       });
-      html+=`</tbody></table>`;
     });
   }
 
-  html+=`</body></html>`;
+  html+=`</table></body></html>`;
   const w=window.open('','_blank','width=1100,height=800');
   w.document.write(html);
   w.document.close();
-  w.onload=()=>{ w.print(); };
+  w.onload=()=>w.print();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -8313,358 +7869,186 @@ let viewerSubId = null;     // selected facId or staffId for facility/pcc views
 // ── Viewer context strip ──────────────────────────────────────────
 let vcsDay = null; // selected day index for context strip
 
-function renderViewerContextStrip(){
-  const strip=document.getElementById('viewer-context-strip');
-  if(!strip) return;
-  strip.style.display='flex';
+// ═══════════════════════════════════════════════════════════════
+// UNIFIED VIEWER GRID — shared across all 4 tabs
+// ═══════════════════════════════════════════════════════════════
 
-  // Default to today if weekday, else Monday
-  if(vcsDay===null){
-    const wd=new Date().getDay();
-    vcsDay=(wd>=1&&wd<=5)?wd-1:0;
-  }
+// Build the unified grid header row (day columns)
+function buildVGHeader(labelText=''){
+  const frag=document.createDocumentFragment();
 
-  // Day tabs
-  const dayTabs=document.getElementById('vcs-day-tabs');
-  dayTabs.innerHTML='';
+  // Label corner cell
+  const corner=document.createElement('div');
+  corner.className='vg-col-head';
+  corner.textContent=labelText;
+  frag.appendChild(corner);
+
+  // Day columns — today wider
   for(let i=0;i<5;i++){
     const d=addDays(currentMonday,i);
-    const btn=document.createElement('button');
-    btn.className='vcs-day-btn'+(i===vcsDay?' active':'');
-    btn.textContent=DAYS[i].slice(0,3)+' '+d.getDate();
-    btn.addEventListener('click',()=>{ vcsDay=i; renderViewerContextStrip(); });
-    dayTabs.appendChild(btn);
+    const today=isToday(d);
+    const h=document.createElement('div');
+    h.className='vg-col-head'+(today?' vg-today':'');
+    h.innerHTML=`<span class="vg-day">${DAYS[i]}</span><span class="vg-date">${d.getDate()}</span>`;
+    frag.appendChild(h);
+  }
+  return frag;
+}
+
+// Set grid-template-columns with today wider
+function setVGColumns(grid, labelW=130){
+  const todayIdx=new Date().getDay()-1; // 0=Mon..4=Fri
+  const cols=[labelW+'px'];
+  for(let i=0;i<5;i++){
+    // Today column is 1.6fr, others 1fr — "stepped forward"
+    const isWeekday=todayIdx>=0&&todayIdx<=4;
+    cols.push(isWeekday&&i===todayIdx?'1.6fr':'1fr');
+  }
+  grid.style.gridTemplateColumns=cols.join(' ');
+}
+
+// Build a single data cell
+function buildVGCell(dayIdx, content=null, opts={}){
+  const d=addDays(currentMonday,dayIdx);
+  const today=isToday(d);
+  const cell=document.createElement('div');
+  cell.className='vg-cell'+(today?' vg-today':'')+(opts.closed?' vg-closed':'')+(opts.pto?' vg-pto':'')+(opts.off?' vg-off':'');
+  if(content) cell.appendChild(content);
+  return cell;
+}
+
+// Build cell content for a PCC on a day (time + specialty + meetings)
+function buildVGPCCContent(staffId, dayIdx, facId=null){
+  const frag=document.createDocumentFragment();
+  const onPTO=isOnPTO(staffId,dayIdx);
+
+  if(onPTO){
+    const pto=document.createElement('span');
+    pto.className='vg-pto-label';
+    pto.textContent='🏖 PTO';
+    frag.appendChild(pto);
+    return {frag, isPTO:true};
   }
 
-  // Available floats for selected day
-  const floatsEl=document.getElementById('vcs-floats');
-  floatsEl.innerHTML='';
-  const availableFloats=staff.filter(s=>{
-    if(s.type!=='float'&&s.type!=='hybrid') return false;
-    if(isOnPTO(s.id,vcsDay)) return false;
-    if(s.type==='hybrid'&&!s.secondaryDays?.includes(vcsDay)) return false;
-    return !FACILITIES.some(fac=>getLiveCell(fac.id,vcsDay).some(e=>e.staffId===s.id));
-  });
-  if(availableFloats.length===0){
-    floatsEl.innerHTML='<span class="vcs-pill none">None available</span>';
+  // Find shift — at specific facility or any
+  let entry=null, fac=null;
+  if(facId){
+    entry=getLiveCell(facId,dayIdx).find(e=>e.staffId===staffId);
+    fac=facById(facId);
   } else {
-    availableFloats.forEach(s=>{
-      const pod=s.podId?podById(s.podId):null;
-      const pill=document.createElement('span');
-      pill.className='vcs-pill float-pill';
-      pill.textContent=s.name.split(' ')[0]; // First name only for compactness
-      if(pod) pill.title=`${s.name} · ${pod.name}`;
-      floatsEl.appendChild(pill);
-    });
+    for(const f of FACILITIES){
+      entry=getLiveCell(f.id,dayIdx).find(e=>e.staffId===staffId);
+      if(entry){ fac=f; break; }
+    }
   }
 
-  // PTO / Out for selected day
-  const ptoEl=document.getElementById('vcs-pto');
-  ptoEl.innerHTML='';
-  const ptoList=getPTO(vcsDay);
-  // Also check holidays
-  const holiday=isHoliday(vcsDay)||isHolidayOverride(vcsDay);
-  if(holiday){
-    const hEntry=getHolidayEntry(vcsDay);
-    ptoEl.innerHTML=`<span class="vcs-pill pto-pill">${hEntry?.override?'🕐':'🎉'} ${hEntry?.name||'Holiday'}</span>`;
-  } else if(ptoList.length===0){
-    ptoEl.innerHTML='<span class="vcs-pill none">No absences</span>';
-  } else {
-    ptoList.forEach(sid=>{
-      const s=staffById(sid);if(!s)return;
-      const pill=document.createElement('span');
-      pill.className='vcs-pill pto-pill';
-      pill.textContent=s.name.split(' ')[0];
-      pill.title=s.name;
-      ptoEl.appendChild(pill);
-    });
+  if(!entry) return {frag, isEmpty:true};
+
+  // Time
+  const timeEl=document.createElement('span');
+  timeEl.className='vg-time';
+  timeEl.textContent=fmtRange(entry.start,entry.end);
+  frag.appendChild(timeEl);
+
+  // Facility name (for views where row isn't the facility)
+  if(!facId&&fac){
+    const facEl=document.createElement('span');
+    facEl.style.cssText='display:block;font-size:10px;color:var(--text-3);margin-bottom:2px;';
+    facEl.textContent='📍 '+fac.name;
+    frag.appendChild(facEl);
   }
-}
 
-function hideViewerContextStrip(){
-  const strip=document.getElementById('viewer-context-strip');
-  if(strip) strip.style.display='none';
-}
-
-function initViewerTabs(){
-  const bar=document.getElementById('viewer-tabs');
-  bar.style.display='flex';
-  const sel=document.getElementById('viewer-tab-select');
-
-  // Default to My Schedule
-  bar.querySelectorAll('.viewer-tab').forEach(b=>b.classList.remove('active'));
-  const mineBtn=bar.querySelector('[data-view="mine"]');
-  if(mineBtn) mineBtn.classList.add('active');
-  viewerView='mine';
-
-  bar.querySelectorAll('.viewer-tab').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      bar.querySelectorAll('.viewer-tab').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      viewerView=btn.dataset.view;
-      viewerSubId=null;
-      sel.style.display='none';
-      sel.innerHTML='';
-
-      if(viewerView==='facility'){
-        sel.style.display='block';
-        sel.innerHTML='<option value="">— Select Facility —</option>';
-        FACILITIES.forEach(f=>{
-          const o=document.createElement('option');
-          o.value=f.id; o.textContent=f.name; sel.appendChild(o);
-        });
-        sel.onchange=()=>{ viewerSubId=sel.value||null; applyViewerView(); };
-      } else if(viewerView==='pcc'){
-        sel.style.display='block';
-        sel.innerHTML='<option value="">— Select PCC —</option>';
-        staff.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(s=>{
-          const o=document.createElement('option');
-          o.value=s.id; o.textContent=s.name; sel.appendChild(o);
-        });
-        sel.onchange=()=>{ viewerSubId=sel.value||null; applyViewerView(); };
-      }
-
-      applyViewerView();
-    });
+  // Specialty assignments
+  getStaffQueueAssignments(staffId,dayIdx).forEach(q=>{
+    const sp=document.createElement('span');
+    sp.className='vg-specialty';
+    sp.style.color=q.color;
+    sp.textContent='🔬 '+q.name;
+    frag.appendChild(sp);
   });
 
-  applyViewerView();
-}
-
-function applyViewerView(){
-  // Only run in viewer mode or preview mode
-  if(isEditor && !previewingAsViewer) return;
-
-  // When previewing as editor and no view chosen yet, default to My Schedule
-  // Don't override if user has explicitly selected a tab (including company)
-  if(!viewerView) viewerView='mine';
-
-  // Sync active tab highlight
-  document.querySelectorAll('.viewer-tab').forEach(b=>{
-    b.classList.toggle('active', b.dataset.view===viewerView);
+  // Meetings
+  getMeetingsForDay(dayIdx).forEach(mtg=>{
+    if(!mtg.staffIds.includes(staffId)) return;
+    const conflict=getSpecialtyConflicts(dayIdx).some(c=>c.meeting.id===mtg.id&&c.staffId===staffId);
+    const m=document.createElement('span');
+    m.className='vg-meeting';
+    m.style.color=conflict?'var(--brand)':'#1a1a2e';
+    m.textContent='📅 '+fmtTime(mtg.startTime)+' '+mtg.name+(conflict?' ⚠':'');
+    frag.appendChild(m);
   });
 
-  const panel=document.getElementById('viewer-panel');
-  const gridScroll=document.getElementById('grid-scroll');
-  const aside=document.querySelector('aside');
-  const statsBar=document.getElementById('stats-bar');
-  const summaryPanel=document.getElementById('summary-panel');
-  const podStrip=document.getElementById('pod-summary-strip');
-
-  // Reset
-  document.body.classList.remove('view-mine','viewer-company-clean');
-  document.querySelectorAll('.fac-row').forEach(r=>r.classList.remove('dim-row'));
-  document.querySelectorAll('.shift-chip').forEach(c=>c.classList.remove('dim-chip','my-shift'));
-  document.querySelectorAll('.drop-cell').forEach(c=>c.classList.remove('has-my-shift'));
-
-  if(viewerView==='company'){
-    panel.style.display='flex';
-    panel.style.flexDirection='column';
-    panel.style.flex='1';
-    panel.style.overflow='auto';
-    gridScroll.style.display='none';
-    document.body.classList.remove('viewer-company-clean');
-    if(aside) aside.style.display='none';
-    if(statsBar) statsBar.style.display='none';
-    if(summaryPanel) summaryPanel.style.display='none';
-    if(podStrip) podStrip.style.display='none';
-    const ptoWrap=document.getElementById('pto-wrap');
-    const benchWrap=document.getElementById('bench-wrap');
-    if(ptoWrap) ptoWrap.style.display='none';
-    if(benchWrap) benchWrap.style.display='none';
-    renderViewerContextStrip();
-    renderViewerCompany(panel);
-    return;
-  }
-
-  // For all other views — show panel, hide grid
-  panel.style.display='flex';
-  panel.style.flexDirection='column';
-  panel.style.flex='1';
-  panel.style.overflow='auto';
-  gridScroll.style.display='none';
-  if(aside) aside.style.display='none';
-  if(statsBar) statsBar.style.display='none';
-  if(summaryPanel) summaryPanel.style.display='none';
-  if(podStrip) podStrip.style.display='none';
-
-  renderViewerContextStrip();
-
-  if(viewerView==='mine'){
-    renderViewerMySchedule(panel);
-  } else if(viewerView==='facility'){
-    renderViewerFacility(panel, viewerSubId);
-  } else if(viewerView==='pcc'){
-    renderViewerPCC(panel, viewerSubId);
-  }
+  return {frag, isEmpty:false};
 }
 
-// ── My Schedule view ─────────────────────────────────────────────
+// ── My Schedule ───────────────────────────────────────────────────
 function renderViewerMySchedule(panel){
   panel.innerHTML='';
   const userEmail=(currentUser?.username||'').toLowerCase();
-  const me=staff.find(s=>(s.email||'').toLowerCase()===userEmail);
+  let me=staff.find(s=>(s.email||'').toLowerCase()===userEmail);
 
-  // Debug — log what data is available
-  const k=weekKey(currentMonday);
-  console.log('[Viewer] weekKey:', k);
-  console.log('[Viewer] queues:', JSON.stringify(queues));
-  console.log('[Viewer] queueAssignments:', JSON.stringify(queueAssignments[k]));
-  console.log('[Viewer] meetings:', JSON.stringify(meetings));
-  console.log('[Viewer] meetingInstances:', JSON.stringify(meetingInstances[k]));
-  console.log('[Viewer] me:', me?.name, me?.id);
-  console.log('[Viewer] activeQueues:', activeQueues().map(q=>q.name));
+  const wrap=document.createElement('div');
+  wrap.className='vg-wrap';
+
+  // Preview mode — use sample PCC
+  let isPreview=false;
+  if(!me&&previewingAsViewer){
+    me=staff.find(s=>s.type==='static')||staff[0];
+    isPreview=true;
+  }
 
   if(!me){
-    // Editor in preview — show a sample view using first available PCC
-    // so they can see how meetings and specialty look
-    const samplePCC = staff.find(s=>s.type==='static')||staff[0];
-    if(!samplePCC){
-      panel.innerHTML=`<div style="padding:40px;text-align:center;color:var(--text-3);">
-        <div style="font-size:36px;margin-bottom:10px;">👤</div>
-        <div style="font-weight:800;font-size:15px;margin-bottom:4px;">No PCC found</div>
-        <div style="font-size:12px;">Add PCCs to the staff list to see this view.</div>
-      </div>`;
-      return;
-    }
-    // Show preview banner
-    const banner=document.createElement('div');
-    banner.style.cssText='background:#1a1a2e;color:#fff;padding:8px 16px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:8px;flex-shrink:0;';
-    banner.innerHTML=`👁 Preview Mode — showing ${samplePCC.name}'s schedule. Real viewers see their own.`;
-    panel.appendChild(banner);
-    renderPCCDayCards(panel, samplePCC);
+    wrap.innerHTML=`<div style="padding:40px;text-align:center;color:var(--text-3);">
+      <div style="font-size:32px;margin-bottom:8px;">👤</div>
+      <div style="font-weight:800;margin-bottom:4px;">Your email isn't in the PCC list</div>
+      <div style="font-size:12px;">Contact your manager to be added.</div>
+    </div>`;
+    panel.appendChild(wrap);
     return;
   }
 
-  // Show header
+  // Header
   const pod=me.podId?podById(me.podId):null;
-  const initials=me.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
-  const typeIcon=me.type==='float'?'🔄':me.type==='hybrid'?'🔀':'📌';
   const hdr=document.createElement('div');
-  hdr.className='vs2-week-header';
+  hdr.className='vg-header';
   hdr.innerHTML=`
-    <div class="vs2-avatar" style="background:${pod?.color||'var(--brand)'};">${initials}</div>
-    <div class="vs2-identity">
-      <div class="vs2-name">${me.name}</div>
-      <div class="vs2-meta">${typeIcon} ${me.type==='static'?'Static':me.type==='float'?'Float':'Hybrid'}${pod?` · <span style="color:${pod.color};font-weight:700;">${pod.name}</span>`:''}${me.primaryFacId?' · '+facById(me.primaryFacId)?.name:''}</div>
-    </div>
-    <div class="vs2-week-range">${currentMonday.toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${addDays(currentMonday,4).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>`;
+    <div class="vg-title">${me.name}${isPreview?' <span style="font-size:12px;color:var(--text-3);font-weight:400;">(Preview)</span>':''}</div>
+    <div class="vg-subtitle">${me.type==='float'?'🔄 Float':me.type==='hybrid'?'🔀 Hybrid':'📌 Static'}${pod?` · <span style="color:${pod.color};font-weight:700;">${pod.name}</span>`:''}${me.primaryFacId?' · '+facById(me.primaryFacId)?.name:''}</div>
+    <div class="vg-meta"><span style="font-size:11px;color:var(--text-3);">Week of ${currentMonday.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</span></div>`;
   panel.appendChild(hdr);
-  renderPCCDayCards(panel, me);
-}
 
-// ── Shared PCC day card renderer ──────────────────────────────────
-function renderPCCDayCards(panel, me){
-  // Sort days: today first if it's a weekday, then rest in order
-  const todayDayIdx = new Date().getDay()-1;
-  const dayOrder = todayDayIdx>=0&&todayDayIdx<=4
-    ? [todayDayIdx,...[0,1,2,3,4].filter(x=>x!==todayDayIdx)]
-    : [0,1,2,3,4];
+  // Grid
+  const grid=document.createElement('div');
+  grid.className='vg-grid cols-5';
+  setVGColumns(grid, 90);
+  wrap.appendChild(grid);
 
-  dayOrder.forEach(i=>{
-    const d=addDays(currentMonday,i);
-    const today=isToday(d);
+  // Header row
+  grid.appendChild(buildVGHeader('My Week'));
+
+  // Single row — me
+  const lbl=document.createElement('div');
+  lbl.className='vg-row-label';
+  lbl.textContent=me.name.split(' ')[0]; // first name only for own row
+  grid.appendChild(lbl);
+
+  for(let i=0;i<5;i++){
     const onPTO=isOnPTO(me.id,i);
-
-    const shifts=[];
-    FACILITIES.forEach(fac=>{
-      getLiveCell(fac.id,i).filter(e=>e.staffId===me.id)
-        .forEach(e=>shifts.push({fac,entry:e}));
-    });
-    shifts.sort((a,b)=>toMins(a.entry.start)-toMins(b.entry.start));
-
-    const hasShift=shifts.length>0;
-    const isOff=!onPTO&&!hasShift;
-
-    let cardCls='vs2-day-card';
-    if(today) cardCls+=' vs2-today';
-    else if(onPTO) cardCls+=' vs2-pto';
-    else if(isOff) cardCls+=' vs2-off';
-
-    const card=document.createElement('div');
-    card.className=cardCls;
-
-    let badgeLabel,badgeCls;
-    if(onPTO){badgeLabel='🏖 PTO';badgeCls='pto';}
-    else if(hasShift){badgeLabel='✓ Scheduled';badgeCls='working';}
-    else{badgeLabel='Off';badgeCls='off';}
-
-    const head=document.createElement('div');
-    head.className='vs2-day-head';
-    head.innerHTML=`
-      <div class="vs2-day-num">${d.getDate()}</div>
-      <div class="vs2-day-name">${DAYS[i]}${today?' <span style="font-size:10px;color:var(--brand);font-weight:800;">· TODAY</span>':''}</div>
-      <span class="vs2-day-badge ${badgeCls}">${badgeLabel}</span>`;
-    card.appendChild(head);
-
-    if(onPTO){
-      const hrs=getPTOHours(me.id,i);
-      const blk=document.createElement('div');
-      blk.className='vs2-pto-block';
-      blk.innerHTML=`🏖 <span>Out / PTO${hrs>0?` · ${hrs}h`:''}</span>`;
-      card.appendChild(blk);
-    } else if(hasShift){
-      shifts.forEach(({fac,entry})=>{
-        const hrs=shiftHours(entry.start,entry.end,entry.lunch);
-        const blk=document.createElement('div');
-        blk.className='vs2-shift-block';
-        const tagHtml=entry.tag
-          ?`<span class="chip-tag ${({'Additional Coverage':'tag-additional','Project Work':'tag-project','Training':'tag-training','Admin':'tag-admin','On Call':'tag-oncall'}[entry.tag]||'tag-custom')}">📌 ${entry.tag}</span>`:'';
-        const noteHtml=entry.note
-          ?`<span style="font-size:10px;color:var(--text-3);">💬 ${entry.note}</span>`:'';
-        blk.innerHTML=`
-          <div class="vs2-shift-accent" style="background:${fac.color};"></div>
-          <div class="vs2-shift-content">
-            <div class="vs2-shift-fac" style="color:${fac.color};">${fac.name}</div>
-            <div class="vs2-shift-time">${fmtRange(entry.start,entry.end)}</div>
-            <div class="vs2-shift-hrs">${hrs.toFixed(1)} hrs${entry.lunch?` · 🥪 Lunch ${fmtTime(entry.lunch)}`:''}</div>
-            ${tagHtml||noteHtml?`<div class="vs2-shift-extras">${tagHtml}${noteHtml}</div>`:''}
-          </div>`;
-        card.appendChild(blk);
-      });
-    } else {
-      const blk=document.createElement('div');
-      blk.className='vs2-off-block';
-      blk.textContent='No shift scheduled';
-      card.appendChild(blk);
+    const {frag,isEmpty,isPTO}=buildVGPCCContent(me.id,i);
+    const cell=buildVGCell(i,frag,{pto:isPTO,off:isEmpty&&!isPTO});
+    if(isEmpty&&!isPTO){
+      const empty=document.createElement('span');
+      empty.className='vg-empty';
+      empty.textContent='Off';
+      cell.appendChild(empty);
     }
+    grid.appendChild(cell);
+  }
 
-      if(!onPTO){
-        activeQueues().forEach(q=>{
-          if(!getQueueAssignment(q.id,i).includes(me.id)) return;
-          const conflicts=getSpecialtyConflicts(i).some(c=>c.queue.id===q.id&&c.staffId===me.id);
-          const badge=document.createElement('div');
-          badge.className='vs2-shift-block';
-          badge.innerHTML=`
-            <div class="vs2-shift-accent" style="background:${q.color};"></div>
-            <div class="vs2-shift-content">
-              <span class="vs2-specialty-badge" style="background:${q.color}15;color:${q.color};border-color:${q.color}44;">
-                🔬 ${q.name}${conflicts?' ⚠ Meeting conflict':''}
-              </span>
-            </div>`;
-          card.appendChild(badge);
-        });
-      }
-
-    // Meeting blocks — show on any day the PCC has a meeting
-    getMeetingsForDay(i).forEach(mtg=>{
-      if(!mtg.staffIds.includes(me.id)) return;
-      const conflict=getSpecialtyConflicts(i).some(c=>c.meeting.id===mtg.id&&c.staffId===me.id);
-      const blk=document.createElement('div');
-      blk.className='vs2-meeting-block';
-      blk.innerHTML=`
-        <div class="vs2-meeting-accent" style="${conflict?'background:var(--brand)':''}"></div>
-        <div>
-          <div class="vs2-meeting-name${conflict?' vs2-meeting-conflict':''}">📅 ${mtg.name}${conflict?' ⚠ Specialty conflict':''}</div>
-          <div class="vs2-meeting-time">${fmtTime(mtg.startTime)} · ${mtg.duration}min</div>
-        </div>`;
-      card.appendChild(blk);
-    });
-    panel.appendChild(card);
-  });
+  panel.appendChild(wrap);
 }
 
-// ── Facility week view — 5-column grid with coverage headers ──────
+// ── Facility view ─────────────────────────────────────────────────
 function renderViewerFacility(panel, facId){
   panel.innerHTML='';
   if(!facId){
@@ -8675,385 +8059,276 @@ function renderViewerFacility(panel, facId){
   const pod=fac?.podId?podById(fac.podId):null;
   const volTier=VOLUME_TIERS[fac?.volume||'low'];
 
-  // Facility header
+  // Header
   const hdr=document.createElement('div');
-  hdr.className='vs2-fac-header';
+  hdr.className='vg-header';
   hdr.innerHTML=`
-    <div class="vs2-fac-title">
-      <div class="vs2-fac-dot" style="background:${fac.color}"></div>
-      <div class="vs2-fac-name">${fac.name}</div>
-    </div>
-    <div class="vs2-fac-badges">
-      ${pod?`<span class="pod-badge" style="background:${pod.color}22;color:${pod.color};border:1px solid ${pod.color}44;">${pod.name}</span>`:''}
-      <span class="pod-badge" style="background:${volTier?.color}18;color:${volTier?.color};border:1px solid ${volTier?.color}33;">● ${volTier?.label||''} volume</span>
+    <div class="vg-title">${fac.name}</div>
+    <div class="vg-meta">
+      ${pod?`<span style="background:${pod.color};color:#fff;border-radius:999px;padding:2px 10px;font-size:10px;font-weight:700;">${pod.name}</span>`:''}
+      <span style="font-size:10px;color:${volTier?.color};font-weight:700;">● ${volTier?.label||''} volume</span>
+      <span style="font-size:10px;color:var(--text-3);">Week of ${currentMonday.toLocaleDateString('en-US',{month:'long',day:'numeric'})}</span>
     </div>`;
   panel.appendChild(hdr);
 
-  // 5-column grid
+  const wrap=document.createElement('div');
+  wrap.className='vg-wrap';
   const grid=document.createElement('div');
-  grid.className='vs2-fac-grid';
-  panel.style.display='flex';
-  panel.style.flexDirection='column';
+  grid.className='vg-grid cols-5';
+  setVGColumns(grid,120);
+  wrap.appendChild(grid);
 
-  for(let i=0;i<5;i++){
-    const d=addDays(currentMonday,i);
-    const today=isToday(d);
-    const oh=effectiveHours(facId,i,'live');
-    const isClosed=!oh;
-    const isHol=isHoliday(i)||isHolidayOverride(i);
-    const hEntry=getHolidayEntry(i);
+  // Header row
+  grid.appendChild(buildVGHeader('PCC'));
 
-    const present=isClosed?[]:getLiveCell(facId,i).filter(e=>!isOnPTO(e.staffId,i));
-    const absent=isClosed?[]:getLiveCell(facId,i).filter(e=>isOnPTO(e.staffId,i));
+  // Collect all PCCs scheduled this week at this facility
+  const pccSet=new Set();
+  for(let i=0;i<5;i++) getLiveCell(facId,i).forEach(e=>pccSet.add(e.staffId));
 
-    // Coverage %
-    let covPct=0,covCls='closed',covLabel='Closed';
-    if(oh){
-      const{covered,total}=coveredMins(oh.open,oh.close,present);
-      covPct=total>0?Math.round(covered/total*100):0;
-      if(covPct>=100){covCls='ok';covLabel='✓ Covered';}
-      else if(covPct>0){covCls='partial';covLabel=`${covPct}%`;}
-      else{covCls='gap';covLabel='⚠ Gap';}
+  if(pccSet.size===0){
+    // No one scheduled — show empty row
+    const lbl=document.createElement('div');
+    lbl.className='vg-row-label vg-empty';
+    lbl.textContent='No shifts scheduled';
+    grid.appendChild(lbl);
+    for(let i=0;i<5;i++){
+      const oh=effectiveHours(facId,i,'live');
+      const cell=buildVGCell(i,null,{closed:!oh});
+      if(!oh){ const cl=document.createElement('span'); cl.className='vg-empty'; cl.textContent='Closed'; cell.appendChild(cl); }
+      grid.appendChild(cell);
     }
+  } else {
+    [...pccSet].forEach(sid=>{
+      const s=staffById(sid);if(!s)return;
+      const lbl=document.createElement('div');
+      lbl.className='vg-row-label';
+      lbl.textContent=s.name;
+      grid.appendChild(lbl);
 
-    const col=document.createElement('div');
-    col.className='vs2-fac-col';
-
-    // Column header
-    const head=document.createElement('div');
-    head.className=`vs2-fac-col-head${today?' today':''}`;
-    head.innerHTML=`
-      <div class="col-day">${DAYS[i]}</div>
-      <div class="col-date">${d.getDate()}</div>
-      ${oh?`<div class="col-hours">${fmtRange(oh.open,oh.close)}</div>`:''}
-      <div class="col-cov ${covCls}">${isHol?(hEntry?.override?'🕐 '+hEntry.name:'🎉 Hol'):covLabel}</div>`;
-    col.appendChild(head);
-
-    // Column body
-    const body=document.createElement('div');
-    body.className='vs2-fac-col-body';
-
-    if(isClosed){
-      body.innerHTML=`<div class="vs2-fac-closed-col">${isHol?hEntry?.name||'Holiday':'Closed'}</div>`;
-    } else {
-      // Sort present by start time
-      const sorted=[...present].sort((a,b)=>toMins(a.start)-toMins(b.start));
-      sorted.forEach(entry=>{
-        const s=staffById(entry.staffId);if(!s)return;
-        const chip=document.createElement('div');
-        chip.className='vs2-fac-pcc-chip';
-        const color=s.type==='float'?'var(--float-bd)':s.type==='hybrid'?'#059669':'var(--static-bd)';
-        chip.style.borderLeftColor=color;
-        const staffQueues=getStaffQueueAssignments(s.id,i);
-        const specialtyBadges=staffQueues.map(q=>
-          `<span class="specialty-chip-badge" style="background:${q.color}15;color:${q.color};border-color:${q.color}44;">🔬 ${q.name}</span>`
-        ).join('');
-        chip.innerHTML=`
-          <div class="vs2-fac-pcc-name">${s.name} <span style="font-size:9px;opacity:.5;">${s.type==='float'?'🔄':s.type==='hybrid'?'🔀':'📌'}</span></div>
-          <div class="vs2-fac-pcc-time">${fmtRange(entry.start,entry.end)}</div>
-          ${specialtyBadges}`;
-        body.appendChild(chip);
-      });
-
-      // Gap blocks — find uncovered windows
-      if(oh){
-        const openMin=toMins(oh.open),closeMin=toMins(oh.close);
-        const ivs=sorted.map(e=>[Math.max(toMins(e.start),openMin),Math.min(toMins(e.end),closeMin)])
-          .filter(([a,b])=>b>a).sort((a,b)=>a[0]-b[0]);
-        let cur=openMin;
-        ivs.forEach(([s,e])=>{
-          if(s>cur){
-            const g=document.createElement('div');
-            g.className='vs2-fac-gap-chip';
-            g.innerHTML=`<div class="vs2-fac-gap-label">⚠ Gap</div><div class="vs2-fac-gap-time">${fmtRange(fromMins(cur),fromMins(s))}</div>`;
-            body.insertBefore(g, body.firstChild); // gaps at top
-          }
-          cur=Math.max(cur,e);
-        });
-        if(cur<closeMin){
-          const g=document.createElement('div');
-          g.className='vs2-fac-gap-chip';
-          g.innerHTML=`<div class="vs2-fac-gap-label">⚠ Gap</div><div class="vs2-fac-gap-time">${fmtRange(fromMins(cur),fromMins(closeMin))}</div>`;
-          body.appendChild(g);
-        }
+      for(let i=0;i<5;i++){
+        const oh=effectiveHours(facId,i,'live');
+        const onPTO=isOnPTO(sid,i);
+        const entry=getLiveCell(facId,i).find(e=>e.staffId===sid);
+        const {frag,isEmpty,isPTO}=buildVGPCCContent(sid,i,facId);
+        const cell=buildVGCell(i,frag,{closed:!oh,pto:isPTO,off:isEmpty&&!isPTO&&!!oh});
+        if(!oh){ cell.innerHTML=''; const cl=document.createElement('span'); cl.className='vg-empty'; cl.textContent='Closed'; cell.appendChild(cl); }
+        else if(isEmpty&&!isPTO){ const emp=document.createElement('span'); emp.className='vg-empty'; emp.textContent='—'; cell.appendChild(emp); }
+        grid.appendChild(cell);
       }
-
-      // PTO chips
-      absent.forEach(entry=>{
-        const s=staffById(entry.staffId);if(!s)return;
-        const chip=document.createElement('div');
-        chip.className='vs2-fac-pto-chip';
-        chip.innerHTML=`<div style="font-size:10px;font-weight:600;text-decoration:line-through;color:var(--pto-tx);">${s.name}</div><div style="font-size:9px;color:var(--pto-tx);">🏖 PTO</div>`;
-        body.appendChild(chip);
-      });
-
-      // No one at all
-      if(present.length===0&&absent.length===0){
-        const podDiv=document.createElement('div');
-        podDiv.className='vs2-fac-pod-col';
-        podDiv.innerHTML=pod
-          ?`<div style="font-size:10px;font-weight:700;color:${pod.color};">🏷</div><div style="font-size:10px;font-weight:700;color:${pod.color};">${pod.name}</div><div style="font-size:9px;color:var(--text-3);">needs coverage</div>`
-          :`<div style="font-size:10px;color:var(--text-3);">—</div>`;
-        body.appendChild(podDiv);
-      }
-    }
-    col.appendChild(body);
-    grid.appendChild(col);
+    });
   }
-  panel.appendChild(grid);
+
+  // Gap row
+  const gapLbl=document.createElement('div');
+  gapLbl.className='vg-row-label';
+  gapLbl.style.cssText='color:var(--brand);font-size:11px;font-weight:700;background:var(--gap-bg);';
+  gapLbl.textContent='⚠ Gaps';
+  grid.appendChild(gapLbl);
+  for(let i=0;i<5;i++){
+    const oh=effectiveHours(facId,i,'live');
+    const cell=buildVGCell(i,null,{closed:!oh});
+    cell.style.background=oh?'var(--gap-bg)':'';
+    if(oh){
+      const present=getLiveCell(facId,i).filter(e=>!isOnPTO(e.staffId,i));
+      const openMin=toMins(oh.open),closeMin=toMins(oh.close);
+      const ivs=present.map(e=>[Math.max(toMins(e.start),openMin),Math.min(toMins(e.end),closeMin)]).filter(([a,b])=>b>a).sort((a,b)=>a[0]-b[0]);
+      let cur=openMin;
+      let hasGap=false;
+      ivs.forEach(([s,e])=>{
+        if(s>cur){ const g=document.createElement('span'); g.className='vg-gap'; g.textContent=fmtRange(fromMins(cur),fromMins(s)); cell.appendChild(g); hasGap=true; }
+        cur=Math.max(cur,e);
+      });
+      if(cur<closeMin){ const g=document.createElement('span'); g.className='vg-gap'; g.textContent=fmtRange(fromMins(cur),fromMins(closeMin)); cell.appendChild(g); hasGap=true; }
+      if(!hasGap){ const ok=document.createElement('span'); ok.className='vg-empty'; ok.textContent='✓'; ok.style.color='var(--ok-tx)'; cell.appendChild(ok); cell.style.background=''; }
+    } else {
+      const cl=document.createElement('span'); cl.className='vg-empty'; cl.textContent='Closed'; cell.appendChild(cl);
+    }
+    grid.appendChild(cell);
+  }
+
+  panel.appendChild(wrap);
 }
 
-// ── PCC week view — delegates to facility grid logic ──────────────
+// ── PCC view ──────────────────────────────────────────────────────
 function renderViewerPCC(panel, staffId){
   panel.innerHTML='';
   if(!staffId){
     panel.innerHTML=`<div style="padding:32px;text-align:center;color:var(--text-3);font-style:italic;">Select a PCC from the dropdown above</div>`;
     return;
   }
-  const s=staffById(staffId);
-  if(!s) return;
+  const s=staffById(staffId);if(!s)return;
   const pod=s.podId?podById(s.podId):null;
-  const initials=s.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
-  const typeIcon=s.type==='float'?'🔄':s.type==='hybrid'?'🔀':'📌';
 
   const hdr=document.createElement('div');
-  hdr.className='vs2-week-header';
+  hdr.className='vg-header';
   hdr.innerHTML=`
-    <div class="vs2-avatar" style="background:${pod?.color||'var(--brand)'};">${initials}</div>
-    <div class="vs2-identity">
-      <div class="vs2-name">${s.name}</div>
-      <div class="vs2-meta">${typeIcon} ${s.type==='static'?'Static':s.type==='float'?'Float':'Hybrid'}${pod?` · <span style="color:${pod.color};font-weight:700;">${pod.name}</span>`:''}${s.primaryFacId?' · '+facById(s.primaryFacId)?.name:''}</div>
-    </div>
-    <div class="vs2-week-range">${currentMonday.toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${addDays(currentMonday,4).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>`;
+    <div class="vg-title">${s.name}</div>
+    <div class="vg-subtitle">${s.type==='float'?'🔄 Float':s.type==='hybrid'?'🔀 Hybrid':'📌 Static'}${pod?` · <span style="color:${pod.color};font-weight:700;">${pod.name}</span>`:''}${s.primaryFacId?' · '+facById(s.primaryFacId)?.name:''}</div>
+    <div class="vg-meta"><span style="font-size:11px;color:var(--text-3);">Week of ${currentMonday.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</span></div>`;
   panel.appendChild(hdr);
 
-  // Week grid — one column per day
+  const wrap=document.createElement('div');
+  wrap.className='vg-wrap';
   const grid=document.createElement('div');
-  grid.className='vs2-fac-grid';
-  panel.style.display='flex';panel.style.flexDirection='column';
+  grid.className='vg-grid cols-5';
+  setVGColumns(grid,90);
+  wrap.appendChild(grid);
+
+  grid.appendChild(buildVGHeader(''));
+
+  // Single row — this PCC
+  const lbl=document.createElement('div');
+  lbl.className='vg-row-label';
+  lbl.textContent=s.name.split(' ')[0];
+  grid.appendChild(lbl);
 
   for(let i=0;i<5;i++){
-    const d=addDays(currentMonday,i);
-    const today=isToday(d);
     const onPTO=isOnPTO(s.id,i);
-    const shifts=[];
-    FACILITIES.forEach(fac=>{
-      getLiveCell(fac.id,i).filter(e=>e.staffId===s.id)
-        .forEach(e=>shifts.push({fac,entry:e}));
-    });
-    shifts.sort((a,b)=>toMins(a.entry.start)-toMins(b.entry.start));
-
-    let covCls='off',covLabel='Off';
-    if(onPTO){covCls='pto';covLabel='🏖 PTO';}
-    else if(shifts.length>0){covCls='ok';covLabel='✓ Sched';}
-
-    const col=document.createElement('div');
-    col.className='vs2-fac-col';
-
-    const head=document.createElement('div');
-    head.className=`vs2-fac-col-head${today?' today':''}`;
-    head.innerHTML=`
-      <div class="col-day">${DAYS[i]}</div>
-      <div class="col-date">${d.getDate()}</div>
-      <div class="col-cov ${covCls==='pto'?'partial':covCls==='ok'?'ok':'closed'}">${covLabel}</div>`;
-    col.appendChild(head);
-
-    const body=document.createElement('div');
-    body.className='vs2-fac-col-body';
-
-    if(onPTO){
-      const hrs=getPTOHours(s.id,i);
-      body.innerHTML=`<div style="padding:6px 4px;font-size:10px;font-weight:600;color:var(--pto-tx);">🏖 PTO${hrs>0?'<br>'+hrs+'h':''}</div>`;
-    } else if(shifts.length>0){
-      shifts.forEach(({fac,entry})=>{
-        const hrs=shiftHours(entry.start,entry.end,entry.lunch);
-        const chip=document.createElement('div');
-        chip.className='vs2-fac-pcc-chip';
-        chip.style.borderLeftColor=fac.color;
-        chip.innerHTML=`
-          <div class="vs2-fac-pcc-name" style="color:${fac.color};">${fac.name}</div>
-          <div class="vs2-fac-pcc-time">${fmtRange(entry.start,entry.end)}</div>
-          ${entry.tag?`<div style="font-size:9px;padding:0 6px 3px;color:var(--text-3);">📌 ${entry.tag}</div>`:''}`;
-        body.appendChild(chip);
-      });
-    } else {
-      body.innerHTML=`<div style="padding:8px 4px;font-size:10px;color:var(--text-3);text-align:center;">—</div>`;
-    }
-    col.appendChild(body);
-    grid.appendChild(col);
+    const {frag,isEmpty,isPTO}=buildVGPCCContent(s.id,i);
+    const cell=buildVGCell(i,frag,{pto:isPTO,off:isEmpty&&!isPTO});
+    if(isEmpty&&!isPTO){ const emp=document.createElement('span'); emp.className='vg-empty'; emp.textContent='Off'; cell.appendChild(emp); }
+    grid.appendChild(cell);
   }
-  panel.appendChild(grid);
-}
-
-// ── Company view — pods grouped with day strip per facility ────────
-function renderViewerCompany(panel){
-  panel.innerHTML='';
-
-  // Specialty coverage strip for today
-  if(activeQueues().length>0){
-    const wd=new Date().getDay()-1;
-    const todayIdx=wd>=0&&wd<=4?wd:0;
-    const strip=document.createElement('div');
-    strip.style.cssText='background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:8px 14px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;';
-    strip.innerHTML=`<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);flex-shrink:0;">🔬 Specialty Today:</span>`;
-    activeQueues().forEach(q=>{
-      const sid=getQueueAssignment(q.id,todayIdx);
-      const s=sid?staffById(sid):null;
-      const conflict=getSpecialtyConflicts(todayIdx).some(c=>c.queue.id===q.id);
-      const pill=document.createElement('span');
-      pill.style.cssText=`display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700;border:1.5px solid;background:${conflict?'var(--brand-lt)':s?q.color+'18':'var(--gap-bg)'};color:${conflict?'var(--brand)':s?q.color:'var(--gap-tx)'};border-color:${conflict?'var(--brand)':s?q.color+'44':'var(--gap-bd)'};`;
-      pill.innerHTML=`<span style="width:7px;height:7px;border-radius:50%;background:${conflict?'var(--brand)':s?q.color:'var(--gap-bd)'}"></span>${q.name}: <strong>${conflict?'⚠ Conflict':s?s.name.split(' ')[0]:'Unassigned'}</strong>`;
-      strip.appendChild(pill);
-    });
-    panel.appendChild(strip);
-  }
-  const wrap=document.createElement('div');
-  wrap.className='vs2-company-wrap';
-
-  Object.entries(PODS).forEach(([podId,pod])=>{
-    if(podId==='null'||!pod.facIds?.length) return;
-
-    const section=document.createElement('div');
-    section.className='vs2-pod-section';
-
-    // Pod header with overall coverage
-    let podCovered=0,podTotal=0;
-    pod.facIds.forEach(fid=>{
-      for(let i=0;i<5;i++){
-        const oh=effectiveHours(fid,i,'live');if(!oh)continue;
-        const winMins=toMins(oh.close)-toMins(oh.open);
-        podTotal+=winMins;
-        const present=getLiveCell(fid,i).filter(e=>!isOnPTO(e.staffId,i));
-        const{covered}=coveredMins(oh.open,oh.close,present);
-        podCovered+=covered;
-      }
-    });
-    const podPct=podTotal>0?Math.round(podCovered/podTotal*100):0;
-    const podFloats=staff.filter(s=>s.type==='float'&&s.podId===podId);
-
-    section.innerHTML=`<div class="vs2-pod-header" style="background:${pod.color};">
-      <div class="vs2-pod-dot" style="background:rgba(255,255,255,.3)"></div>
-      <div class="vs2-pod-name">${pod.name}</div>
-      ${podFloats.length?`<span style="font-size:10px;color:rgba(255,255,255,.85);background:rgba(255,255,255,.15);border-radius:999px;padding:1px 8px;">🔄 ${podFloats.map(s=>s.name.split(' ')[0]).join(', ')}</span>`:''}
-      <span class="vs2-pod-coverage">${podPct}% covered</span>
-    </div>`;
-
-    // Each facility in this pod
-    pod.facIds.forEach(facId=>{
-      const fac=facById(facId);if(!fac)return;
-      const card=document.createElement('div');
-      card.className='vs2-company-fac-card';
-
-      // Facility coverage this week
-      let weekCovered=0,weekTotal=0;
-      for(let i=0;i<5;i++){
-        const oh=effectiveHours(facId,i,'live');if(!oh)continue;
-        const w=toMins(oh.close)-toMins(oh.open);weekTotal+=w;
-        const present=getLiveCell(facId,i).filter(e=>!isOnPTO(e.staffId,i));
-        const{covered}=coveredMins(oh.open,oh.close,present);
-        weekCovered+=covered;
-      }
-      const weekPct=weekTotal>0?Math.round(weekCovered/weekTotal*100):0;
-      const volTier=VOLUME_TIERS[fac.volume||'low'];
-      let covCls=weekPct>=100?'ok':weekPct>0?'partial':'gap';
-
-      card.innerHTML=`
-        <div class="vs2-company-fac-head">
-          <div class="vs2-company-fac-dot" style="background:${fac.color}"></div>
-          <div class="vs2-company-fac-name">${fac.name}</div>
-          <span style="font-size:9px;color:${volTier?.color};font-weight:700;margin-right:4px;">● ${volTier?.label||''}</span>
-          <span class="vs2-company-fac-cov ${covCls}">${weekPct>=100?'✓ Covered':weekPct>0?weekPct+'%':'⚠ Gap'}</span>
-        </div>
-        <div style="height:3px;background:var(--border);">
-          <div style="height:100%;width:${weekPct}%;background:${weekPct>=100?'#16a34a':weekPct>0?'#d97706':'var(--brand)'};transition:width .3s;"></div>
-        </div>`;
-
-      // Day strip
-      const strip=document.createElement('div');
-      strip.className='vs2-company-day-strip';
-
-      for(let i=0;i<5;i++){
-        const d=addDays(currentMonday,i);
-        const today=isToday(d);
-        const oh=effectiveHours(facId,i,'live');
-        const isClosed=!oh;
-        const isHol=isHoliday(i)||isHolidayOverride(i);
-
-        const cell=document.createElement('div');
-        cell.className=`vs2-company-day-cell${today?' today':''}${isClosed?' closed':''}`;
-
-        const lbl=document.createElement('div');
-        lbl.className=`vs2-company-day-label${today?' today-lbl':''}`;
-        lbl.textContent=DAYS[i].slice(0,2)+' '+d.getDate();
-        cell.appendChild(lbl);
-
-        if(isClosed){
-          const cr=document.createElement('div');
-          cr.className='vs2-company-closed-row';
-          cr.textContent=isHol?getHolidayEntry(i)?.name?.slice(0,8)||'Hol':'Closed';
-          cell.appendChild(cr);
-        } else {
-          const present=[...getLiveCell(facId,i).filter(e=>!isOnPTO(e.staffId,i))]
-            .sort((a,b)=>toMins(a.start)-toMins(b.start));
-          const absent=getLiveCell(facId,i).filter(e=>isOnPTO(e.staffId,i));
-
-          if(present.length===0&&absent.length===0){
-            const gr=document.createElement('div');
-            gr.className='vs2-company-pod-row';
-            gr.style.color=pod.color;
-            gr.textContent='🏷 '+pod.name.split(' ')[0];
-            cell.appendChild(gr);
-          } else {
-            present.forEach(entry=>{
-              const s=staffById(entry.staffId);if(!s)return;
-              const pr=document.createElement('div');
-              pr.className='vs2-company-pcc-row';
-              pr.textContent=s.name.split(' ')[0];
-              const tr=document.createElement('div');
-              tr.className='vs2-company-pcc-time';
-              tr.textContent=fmtRange(entry.start,entry.end);
-              cell.appendChild(pr);cell.appendChild(tr);
-            });
-            // Show gap if any
-            const openMin=toMins(oh.open),closeMin=toMins(oh.close);
-            const ivs=present.map(e=>[Math.max(toMins(e.start),openMin),Math.min(toMins(e.end),closeMin)])
-              .filter(([a,b])=>b>a).sort((a,b)=>a[0]-b[0]);
-            let cur=openMin;let hasGap=false;
-            ivs.forEach(([s,e])=>{if(s>cur)hasGap=true;cur=Math.max(cur,e);});
-            if(cur<closeMin)hasGap=true;
-            if(hasGap){
-              const gr=document.createElement('div');
-              gr.className='vs2-company-gap-row';
-              gr.textContent='⚠ Gap';
-              cell.appendChild(gr);
-            }
-          }
-        }
-        strip.appendChild(cell);
-      }
-      card.appendChild(strip);
-      section.appendChild(card);
-    });
-    wrap.appendChild(section);
-  });
-
-  // Standalone facilities (Waukee)
-  FACILITIES.filter(f=>!f.podId).forEach(fac=>{
-    const card=document.createElement('div');
-    card.className='vs2-company-fac-card';
-    card.innerHTML=`<div class="vs2-company-fac-head">
-      <div class="vs2-company-fac-dot" style="background:${fac.color}"></div>
-      <div class="vs2-company-fac-name">${fac.name}</div>
-      <span class="vs2-company-fac-cov closed">Standalone</span>
-    </div>`;
-    wrap.appendChild(card);
-  });
 
   panel.appendChild(wrap);
 }
 
-function buildViewerDayCard(s,dayIdx){ /* legacy — not used */ }
-function buildViewerWeekGrid(opts){ /* legacy — not used */ }
+// ── Company view ──────────────────────────────────────────────────
+function renderViewerCompany(panel){
+  panel.innerHTML='';
+
+  const hdr=document.createElement('div');
+  hdr.className='vg-header';
+  hdr.innerHTML=`
+    <div class="vg-title">All Clinics</div>
+    <div class="vg-meta"><span style="font-size:11px;color:var(--text-3);">Week of ${currentMonday.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</span></div>`;
+  panel.appendChild(hdr);
+
+  // Specialty strip for today
+  if(activeQueues().length>0){
+    const wd=new Date().getDay()-1;
+    const todayIdx=wd>=0&&wd<=4?wd:0;
+    const strip=document.createElement('div');
+    strip.style.cssText='padding:6px 14px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--surface2);flex-shrink:0;';
+    strip.innerHTML=`<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);flex-shrink:0;">🔬 Specialty Today:</span>`;
+    activeQueues().forEach(q=>{
+      const ids=getQueueAssignment(q.id,todayIdx);
+      const names=ids.map(sid=>staffById(sid)?.name.split(' ')[0]).filter(Boolean);
+      const conflict=getSpecialtyConflicts(todayIdx).some(c=>c.queue.id===q.id);
+      const pill=document.createElement('span');
+      pill.style.cssText=`display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:999px;font-size:10px;font-weight:700;border:1.5px solid;background:${conflict?'var(--brand-lt)':names.length?q.color+'18':'var(--gap-bg)'};color:${conflict?'var(--brand)':names.length?q.color:'var(--gap-tx)'};border-color:${conflict?'var(--brand)':names.length?q.color+'55':'var(--gap-bd)'};`;
+      pill.innerHTML=`<span style="width:6px;height:6px;border-radius:50%;background:${conflict?'var(--brand)':names.length?q.color:'var(--gap-bd)'}"></span>${q.name}: <strong>${conflict?'⚠ Conflict':names.length?names.join(', '):'Unassigned'}</strong>`;
+      strip.appendChild(pill);
+    });
+    panel.appendChild(strip);
+  }
+
+  const wrap=document.createElement('div');
+  wrap.className='vg-wrap';
+  panel.appendChild(wrap);
+
+  // One grid for all facilities — grouped by pod
+  const grid=document.createElement('div');
+  grid.className='vg-grid cols-5';
+  setVGColumns(grid,130);
+  wrap.appendChild(grid);
+
+  // Header row
+  grid.appendChild(buildVGHeader('Facility'));
+
+  // Pod groups
+  Object.entries(PODS).forEach(([podId,pod])=>{
+    if(!pod.facIds?.length) return;
+
+    // Pod section header
+    const secHead=document.createElement('div');
+    secHead.className='vg-section-head';
+    secHead.style.background=pod.color;
+    secHead.textContent=pod.name;
+    grid.appendChild(secHead);
+
+    pod.facIds.forEach(facId=>{
+      const fac=facById(facId);if(!fac)return;
+
+      const lbl=document.createElement('div');
+      lbl.className='vg-row-label';
+      lbl.textContent=fac.name;
+      grid.appendChild(lbl);
+
+      for(let i=0;i<5;i++){
+        const oh=effectiveHours(facId,i,'live');
+        const cell=buildVGCell(i,null,{closed:!oh});
+
+        if(!oh){
+          const cl=document.createElement('span'); cl.className='vg-empty'; cl.textContent='Closed'; cell.appendChild(cl);
+        } else {
+          const present=getLiveCell(facId,i).filter(e=>!isOnPTO(e.staffId,i));
+          if(present.length===0){
+            const gap=document.createElement('span'); gap.className='vg-gap'; gap.textContent='⚠ No coverage'; cell.appendChild(gap);
+          } else {
+            present.sort((a,b)=>toMins(a.start)-toMins(b.start)).forEach(entry=>{
+              const s=staffById(entry.staffId);if(!s)return;
+              const entry_el=document.createElement('div');
+              entry_el.className='vg-pcc-entry';
+              const nameEl=document.createElement('div'); nameEl.className='vg-pcc-name'; nameEl.textContent=s.name;
+              const timeEl=document.createElement('span'); timeEl.className='vg-time'; timeEl.style.fontSize='10px'; timeEl.textContent=fmtRange(entry.start,entry.end);
+              entry_el.appendChild(nameEl);
+              entry_el.appendChild(timeEl);
+              // Specialty badges
+              getStaffQueueAssignments(s.id,i).forEach(q=>{
+                const sp=document.createElement('span'); sp.className='vg-specialty'; sp.style.color=q.color; sp.textContent='🔬 '+q.name; entry_el.appendChild(sp);
+              });
+              // Meetings
+              getMeetingsForDay(i).forEach(mtg=>{
+                if(!mtg.staffIds.includes(s.id)) return;
+                const m=document.createElement('span'); m.className='vg-meeting'; m.textContent='📅 '+fmtTime(mtg.startTime)+' '+mtg.name; entry_el.appendChild(m);
+              });
+              cell.appendChild(entry_el);
+            });
+          }
+        }
+        grid.appendChild(cell);
+      }
+    });
+  });
+
+  // Standalone facilities (no pod)
+  const standaloneFacs=FACILITIES.filter(f=>!f.podId);
+  if(standaloneFacs.length){
+    const secHead=document.createElement('div');
+    secHead.className='vg-section-head';
+    secHead.style.background='#555';
+    secHead.textContent='Other Locations';
+    grid.appendChild(secHead);
+    standaloneFacs.forEach(fac=>{
+      const lbl=document.createElement('div'); lbl.className='vg-row-label'; lbl.textContent=fac.name; grid.appendChild(lbl);
+      for(let i=0;i<5;i++){
+        const oh=effectiveHours(fac.id,i,'live');
+        const cell=buildVGCell(i,null,{closed:!oh});
+        if(!oh){ const cl=document.createElement('span'); cl.className='vg-empty'; cl.textContent='Closed'; cell.appendChild(cl); }
+        else {
+          const present=getLiveCell(fac.id,i).filter(e=>!isOnPTO(e.staffId,i));
+          if(!present.length){ const g=document.createElement('span'); g.className='vg-gap'; g.textContent='⚠ No coverage'; cell.appendChild(g); }
+          else present.sort((a,b)=>toMins(a.start)-toMins(b.start)).forEach(entry=>{
+            const s=staffById(entry.staffId);if(!s)return;
+            const n=document.createElement('div'); n.className='vg-pcc-name'; n.textContent=s.name; cell.appendChild(n);
+            const t=document.createElement('span'); t.className='vg-time'; t.style.fontSize='10px'; t.textContent=fmtRange(entry.start,entry.end); cell.appendChild(t);
+          });
+        }
+        grid.appendChild(cell);
+      }
+    });
+  }
+}
+
+// Legacy stubs — no longer used
+function renderViewerContextStrip(){ 
+  const strip=document.getElementById('viewer-context-strip');
+  if(strip) strip.style.display='none';
+}
+function renderPCCDayCards(panel,me){}
+function buildViewerDayCard(s,dayIdx){}
+function buildViewerWeekGrid(opts){}
 
 // ── Apply read-only or editor mode to the UI ──────────────────────
 function applyAccessMode(){
