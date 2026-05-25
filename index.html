@@ -3684,13 +3684,16 @@ function makeChip(s,entry,facId,dayIdx,isAbsent){
     ?`<span class="pod-badge" style="background:${podById(s.podId).color}22;color:${podById(s.podId).color};border:1px solid ${podById(s.podId).color}44;margin-top:2px;">🔀 Hybrid</span>`
     :'';
 
-  // Specialty queue badges — show what queues this PCC covers today
-  const staffQueues=getStaffQueueAssignments(s.id, parseInt(dayIdx));
-  const specialtyHtml=staffQueues.map(q=>
-    `<span class="specialty-chip-badge" style="background:${q.color}15;color:${q.color};border-color:${q.color}44;">🔬 ${q.name}</span>`
-  ).join('');
+  // Specialty queue badges — safe generation with fallback
+  let specialtyHtml='';
+  try {
+    const staffQueues=getStaffQueueAssignments(s.id, parseInt(dayIdx));
+    specialtyHtml=staffQueues.map(q=>
+      `<span class="specialty-chip-badge" style="background:${q.color}15;color:${q.color};border-color:${q.color}44;">🔬 ${q.name}</span>`
+    ).join('');
+  } catch(e){ specialtyHtml=''; }
 
-  chip.innerHTML=`<div class="chip-inner"><div class="chip-name">${s.name}</div><div class="chip-time">${fmtRange(entry.start,entry.end)} · ${hrs.toFixed(1)}h${entry.lunch?' (–30m)':''}</div>${lunchHtml}${tagHtml}${podBadge}${specialtyHtml}${noteHtml}</div>${isAbsent?'':`<button class="edit-chip-btn" title="Edit shift">✏</button><button class="xbtn">✕</button>`}`;
+  chip.innerHTML=`<div class="chip-inner"><div class="chip-name">${s.name}</div><div class="chip-time">${fmtRange(entry.start,entry.end)} · ${hrs.toFixed(1)}h${entry.lunch?' (–30m)':''}</div>${lunchHtml}${tagHtml}${podBadge}${noteHtml}${specialtyHtml}</div>${isAbsent?'':`<button class="edit-chip-btn" title="Edit shift">✏</button><button class="xbtn">✕</button>`}`;
 
   if(!isAbsent){
     chip.addEventListener('dragstart',e=>{
@@ -3700,8 +3703,9 @@ function makeChip(s,entry,facId,dayIdx,isAbsent){
       setTimeout(()=>chip.classList.add('dragging'),0);
       chip.addEventListener('dragend',()=>{chip.classList.remove('dragging');document.querySelectorAll('.drag-over').forEach(el=>el.classList.remove('drag-over'));},{once:true});
     });
-    // Edit button
-    chip.querySelector('.edit-chip-btn').addEventListener('click',e=>{
+    // Edit button — null-safe
+    const editBtn=chip.querySelector('.edit-chip-btn');
+    if(editBtn) editBtn.addEventListener('click',e=>{
       e.stopPropagation();
       if(!checkLock()) return;
       openShiftModal(s,facId,dayIdx,entry,(start,end,lunch,tag,note)=>{
@@ -3712,7 +3716,8 @@ function makeChip(s,entry,facId,dayIdx,isAbsent){
         scheduleSaveSchedule();
       });
     });
-    chip.querySelector('.xbtn').addEventListener('click',()=>{
+    const xBtn=chip.querySelector('.xbtn');
+    if(xBtn) xBtn.addEventListener('click',()=>{
       if(!checkLock()) return;
       const arr=getLiveCell(facId,dayIdx).filter(e=>!(e.staffId===s.id&&e.start===entry.start&&e.end===entry.end));
       setLiveCell(facId,dayIdx,arr);render();
@@ -4690,6 +4695,7 @@ function getSelectedSpecialties(){
 }
 
 function populatePrimaryFacDropdown(selectedFacId=''){
+  const sel=document.getElementById('new-primary-fac');
   sel.innerHTML='<option value="">— Not assigned —</option>';
   FACILITIES.forEach(f=>{
     const opt=document.createElement('option');
