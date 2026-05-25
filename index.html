@@ -1675,8 +1675,9 @@ body.focus-mode .fac-label:has(.fstat.ok) {
         <div class="day-header-row" id="day-hdr"><div></div></div>
         <!-- PTO row -->
         <div class="pto-wrap" id="pto-wrap">
-          <div class="pto-hdr">🏖 Out / PTO <span>— drag PCC here or click + to mark absent</span>
+          <div class="pto-hdr">🏖 Out / PTO
             <button class="pto-add-btn" id="pto-add-btn">+ Add</button>
+            <span>— drag PCC here or click + to mark absent</span>
           </div>
           <div class="pto-grid" id="pto-grid"><div class="pto-label">Absent</div></div>
         </div>
@@ -2809,6 +2810,11 @@ function renderStaffPool(){
       e.stopPropagation(); e.preventDefault();
       openEditStaffModal(s.id);
     });
+    // Hover tooltip — editor only
+    if(isEditor){
+      el.addEventListener('mouseenter',()=>showPCCTooltip(s,el));
+      el.addEventListener('mouseleave',hidePCCTooltip);
+    }
     pool.appendChild(el);
   });
 }
@@ -6593,10 +6599,15 @@ document.getElementById('pto-add-btn').addEventListener('click', e=>{
   popup.className='pto-popup';
   ptoPopupEl=popup;
 
-  // Position below the button
+  // Position popup — ensure it stays on screen
   const rect=document.getElementById('pto-add-btn').getBoundingClientRect();
+  const popupW=270;
+  // Prefer right of button, fall back to left if off screen
+  let left=rect.left;
+  if(left+popupW>window.innerWidth-10) left=window.innerWidth-popupW-10;
+  if(left<10) left=10;
   popup.style.top=(rect.bottom+6)+'px';
-  popup.style.left=rect.left+'px';
+  popup.style.left=left+'px';
 
   popup.innerHTML=`<div class="pto-popup-title">🏖 Mark PCC as Out / PTO</div>`;
 
@@ -6753,13 +6764,17 @@ function showPCCTooltip(s, anchorEl){
   tip.innerHTML=html;
   document.body.appendChild(tip);
 
-  // Position — to the right of the sidebar
+  // Position — open to the right of the sidebar card
   const rect=anchorEl.getBoundingClientRect();
   const tipW=280;
-  let left=rect.right+8;
-  if(left+tipW>window.innerWidth) left=rect.left-tipW-8;
+  let left=rect.right+10;
+  // If it would go off screen right, flip to left of card
+  if(left+tipW>window.innerWidth-10) left=rect.left-tipW-10;
+  // Clamp to screen
+  left=Math.max(10,Math.min(left,window.innerWidth-tipW-10));
   let top=rect.top;
-  if(top+200>window.innerHeight) top=window.innerHeight-210;
+  if(top+240>window.innerHeight) top=window.innerHeight-250;
+  top=Math.max(10,top);
   tip.style.left=left+'px';
   tip.style.top=top+'px';
 }
