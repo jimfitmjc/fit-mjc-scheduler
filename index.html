@@ -7979,33 +7979,42 @@ async function loadAll(){
 async function loadStaff(){
   const items=await listGetAll(LISTS.staff);
   if(!items.length) return; // First run — keep hardcoded staff
-  staff=items.map(i=>{
+
+  // Build a lookup of hardcoded staff by ID as the source of truth for
+  // structural fields (facility, pod, type) — SP only overrides what was
+  // explicitly saved (target, specialties, email)
+  const hardcodedById={};
+  staff.forEach(s=>{ hardcodedById[s.id]=s; });
+
+  const loaded=items.map(i=>{
     let secDays=[];
     try{ secDays=JSON.parse(i.fields.PCC_SecondaryDays||'[]'); }catch(e){}
+    let specialties=[];
+    try{ specialties=JSON.parse(i.fields.PCC_Specialties||'[]'); }catch(e){}
+
+    const spId=i.fields.PCC_Id||'s'+i.id;
+    const hc=hardcodedById[spId]; // hardcoded reference for this PCC
+
     return {
-      id:             i.fields.PCC_Id||'s'+i.id,
-      name:           i.fields.PCC_Name||i.fields.Title,
-      email:          i.fields.PCC_Email||'',
-      type:           i.fields.PCC_Type||'static',
-      primaryFacId:   i.fields.PCC_PrimaryFacId||null,
-      secondaryFacId: i.fields.PCC_SecondaryFacId||null,
-      secondaryDays:  secDays,
-      podId:          i.fields.PCC_PodId||null,
-      target:         i.fields.PCC_Target||40,
-      specialties:    (()=>{ try{ return JSON.parse(i.fields.PCC_Specialties||'[]'); }catch(e){ return []; } })(),
+      id:             spId,
+      name:           i.fields.PCC_Name||i.fields.Title||hc?.name||'',
+      email:          i.fields.PCC_Email||hc?.email||'',
+      type:           i.fields.PCC_Type||hc?.type||'static',
+      // Structural fields — use SP if set, otherwise fall back to hardcoded
+      primaryFacId:   i.fields.PCC_PrimaryFacId||hc?.primaryFacId||null,
+      secondaryFacId: i.fields.PCC_SecondaryFacId||hc?.secondaryFacId||null,
+      secondaryDays:  secDays.length?secDays:(hc?.secondaryDays||[]),
+      podId:          i.fields.PCC_PodId||hc?.podId||null,
+      // Override fields — SP is source of truth
+      target:         i.fields.PCC_Target||hc?.target||40,
+      specialties:    specialties,
+      // Preserve hardcoded podPriority for floats
+      podPriority:    hc?.podPriority||null,
     };
   });
-  // Restore podPriority from hardcoded data for floats (not stored in SP)
-  staff.forEach(s=>{
-    const hardcoded=({
-      's4': ['pod2','pod1','pod4','pod3'],
-      's5': ['pod4','pod3','pod2','pod1'],
-      's6': ['pod3','pod1','pod2','pod4'],
-      's9': ['pod1','pod2','pod3','pod4'],
-      's11':['pod4','pod3','pod1','pod2'],
-    })[s.id];
-    if(hardcoded) s.podPriority=hardcoded;
-  });
+
+  // Only replace if we got a meaningful result — sanity check
+  if(loaded.length>0) staff=loaded;
 }
 
 async function loadTemplate(){
