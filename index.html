@@ -7742,43 +7742,38 @@ async function saveStaff(){
   if(!staff.length){ console.warn('saveStaff: staff array empty — skipping'); return; }
   updateSyncStatus('syncing','Saving staff…');
   try {
+    // Upsert by PCC_Id — no delete, just update existing or create new
     const existing=await listGetAll(LISTS.staff);
-    for(const item of existing) await listDelete(LISTS.staff,item.id);
-    for(const s of staff){
-      // Build payload — start with core columns that always exist
-      const payload={
-        Title:            s.name,
-        PCC_Id:           s.id,
-        PCC_Name:         s.name,
-        PCC_Email:        s.email||'',
-        PCC_Type:         s.type,
-        PCC_PrimaryFacId: s.primaryFacId||'',
-        PCC_Target:       s.target||40,
-      };
-      // Add optional columns only if they have values
-      if(s.secondaryFacId!==undefined) payload.PCC_SecondaryFacID=s.secondaryFacId||'';
-      if(s.secondaryDays!==undefined)  payload.PCC_SecondaryDays=JSON.stringify(s.secondaryDays||[]);
-      if(s.podId!==undefined)          payload.PCC_PodId=s.podId||'';
-      if(s.specialties!==undefined)    payload.PCC_Specialties=JSON.stringify(s.specialties||[]);
+    const existingById={};
+    existing.forEach(item=>{ if(item.fields.PCC_Id) existingById[item.fields.PCC_Id]=item; });
 
-      try {
-        await listCreate(LISTS.staff, payload);
-      } catch(e){
-        // If optional columns cause 400, retry with core columns only
-        if(e.message?.includes('400')||e.message?.includes('not recognized')){
-          console.warn('saveStaff: optional columns not found, saving core only');
-          const corePayload={
-            Title:            s.name,
-            PCC_Id:           s.id,
-            PCC_Name:         s.name,
-            PCC_Email:        s.email||'',
-            PCC_Type:         s.type,
-            PCC_PrimaryFacId: s.primaryFacId||'',
-            PCC_Target:       s.target||40,
-          };
-          await listCreate(LISTS.staff, corePayload);
-        } else {
-          throw e;
+    for(const s of staff){
+      const payload={
+        Title:              s.name,
+        PCC_Id:             s.id,
+        PCC_Name:           s.name,
+        PCC_Email:          s.email||'',
+        PCC_Type:           s.type,
+        PCC_PrimaryFacId:   s.primaryFacId||'',
+        PCC_Target:         s.target||40,
+        PCC_SecondaryFacID: s.secondaryFacId||'',
+        PCC_SecondaryDays:  JSON.stringify(s.secondaryDays||[]),
+        PCC_PodId:          s.podId||'',
+        PCC_Specialties:    JSON.stringify(s.specialties||[]),
+      };
+      if(existingById[s.id]){
+        // PATCH existing item
+        try {
+          await spFetch(`/sites/${spSiteId}/lists/${LISTS.staff}/items/${existingById[s.id].id}/fields`,{
+            method:'PATCH', body:JSON.stringify(payload)
+          });
+        } catch(e){ console.warn('saveStaff patch failed for',s.name,e.message); }
+      } else {
+        // POST new item
+        try {
+          await listCreate(LISTS.staff, payload);
+        } catch(e){
+          console.warn('saveStaff create failed for',s.name,e.message);
         }
       }
     }
@@ -7868,18 +7863,41 @@ async function saveSchedule(){
   try {
     const k=weekKey(currentMonday);
     const existing=await listGetAll(LISTS.schedule,i=>i.fields.WeekKey===k);
-    for(const item of existing) await listDelete(LISTS.schedule,item.id);
+    const existingByKey={};
+    existing.forEach(item=>{
+      const key=item.fields.Title||`${k}_${item.fields.FacId}_${item.fields.DayIdx}`;
+      existingByKey[key]=item;
+    });
+
+    const handled=new Set();
     if(live[k]){
       for(const facId of Object.keys(live[k])){
         for(const dayIdx of Object.keys(live[k][facId])){
           const entries=live[k][facId][dayIdx];
           if(!entries.length) continue;
-          await listCreate(LISTS.schedule,{
-            Title:`${k}_${facId}_${dayIdx}`, WeekKey:k,
-            FacId:facId, DayIdx:parseInt(dayIdx),
+          const key=`${k}_${facId}_${dayIdx}`;
+          const payload={
+            Title:key, WeekKey:k, FacId:facId,
+            DayIdx:parseInt(dayIdx),
             Entries:JSON.stringify(entries),
-          });
+          };
+          if(existingByKey[key]){
+            try {
+              await spFetch(`/sites/${spSiteId}/lists/${LISTS.schedule}/items/${existingByKey[key].id}/fields`,{
+                method:'PATCH', body:JSON.stringify(payload)
+              });
+            } catch(e){ console.warn('saveSchedule patch failed',key,e.message); }
+          } else {
+            await listCreate(LISTS.schedule, payload);
+          }
+          handled.add(key);
         }
+      }
+    }
+    // Delete any orphaned items (facility/day no longer has entries)
+    for(const [key,item] of Object.entries(existingByKey)){
+      if(!handled.has(key)){
+        try { await listDelete(LISTS.schedule,item.id); } catch(e){ /* ignore */ }
       }
     }
     updateSyncStatus('connected','Schedule saved ✓');
