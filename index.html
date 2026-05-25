@@ -2673,13 +2673,16 @@ function setQueueTemplateAssignment(queueId, dayIdx, staffId){
 }
 function loadQueueTemplateForWeek(){
   const k=weekKey(currentMonday);
-  if(queueAssignments[k]) return; // already set for this week
   if(!queueAssignments[k]) queueAssignments[k]={};
   activeQueues().forEach(q=>{
     if(!queueAssignments[k][q.id]) queueAssignments[k][q.id]={};
     for(let i=0;i<5;i++){
-      const tmplStaff=getQueueTemplateAssignment(q.id,i);
-      if(tmplStaff) queueAssignments[k][q.id][i]=tmplStaff;
+      // Only fill from template if no real assignment set for this day
+      const current=queueAssignments[k][q.id][i];
+      if(!current){
+        const tmplStaff=getQueueTemplateAssignment(q.id,i);
+        if(tmplStaff) queueAssignments[k][q.id][i]=tmplStaff;
+      }
     }
   });
 }
@@ -5723,6 +5726,8 @@ document.getElementById('meetings-modal').addEventListener('click',e=>{
 // ═══════════════════════════════════════════════════════════════
 
 function openSpecialtyModal(){
+  // Ensure template fills any unset week assignments before opening
+  loadQueueTemplateForWeek();
   renderSqQueueList();
   renderSqTemplateGrid();
   renderSqWeekGrid();
@@ -5872,24 +5877,27 @@ document.getElementById('sq-add-queue-btn').addEventListener('click',()=>{
 });
 
 document.getElementById('sq-save-btn').addEventListener('click',()=>{
-  // Save template assignments from template grid selects
+  // Save template assignments
   document.querySelectorAll('#sq-template-grid select').forEach(sel=>{
     const qid=sel.dataset.queue;
     const day=parseInt(sel.dataset.day);
+    if(!qid||isNaN(day)) return;
     const val=sel.value||null;
-    if(qid!==undefined && !isNaN(day)){
-      setQueueTemplateAssignment(qid, day, val);
-    }
+    setQueueTemplateAssignment(qid,day,val);
   });
-  // Save this week's assignments from week grid selects
+
+  // Save week assignments — if week grid shows None, use template value as fallback
   document.querySelectorAll('#sq-week-grid select').forEach(sel=>{
     const qid=sel.dataset.queue;
     const day=parseInt(sel.dataset.day);
-    const val=sel.value||null;
-    if(qid!==undefined && !isNaN(day)){
-      setQueueAssignment(qid, day, val);
-    }
+    if(!qid||isNaN(day)) return;
+    // Use week grid value if set, otherwise fall back to template
+    const weekVal=sel.value||null;
+    const tmplVal=getQueueTemplateAssignment(qid,day);
+    const finalVal=weekVal||tmplVal||null;
+    setQueueAssignment(qid,day,finalVal);
   });
+
   saveQueues();
   saveQueueTemplate();
   saveQueueAssignments();
@@ -5990,8 +5998,22 @@ async function saveQueueAssignments(){
     const k=weekKey(currentMonday);
     const existing=await listGetAll(LISTS.queueAssignments,i=>i.fields.WeekKey===k);
     for(const item of existing) await listDelete(LISTS.queueAssignments,item.id);
-    if(queueAssignments[k]&&Object.keys(queueAssignments[k]).length){
-      await listCreate(LISTS.queueAssignments,{Title:k,WeekKey:k,AssignmentData:JSON.stringify(queueAssignments[k])});
+
+    // Strip nulls — only save real staff ID assignments
+    const clean={};
+    const data=queueAssignments[k]||{};
+    Object.entries(data).forEach(([qid,days])=>{
+      const cleanDays={};
+      Object.entries(days).forEach(([day,sid])=>{
+        if(sid) cleanDays[day]=sid;
+      });
+      if(Object.keys(cleanDays).length) clean[qid]=cleanDays;
+    });
+
+    if(Object.keys(clean).length){
+      await listCreate(LISTS.queueAssignments,{
+        Title:k, WeekKey:k, AssignmentData:JSON.stringify(clean)
+      });
     }
   } catch(e){ console.error('saveQueueAssignments',e); }
 }
@@ -6032,11 +6054,18 @@ async function loadQueueAssignmentsForWeek(){
     const k=weekKey(currentMonday);
     const items=await listGetAll(LISTS.queueAssignments,i=>i.fields.WeekKey===k);
     if(items.length){
-      queueAssignments[k]=JSON.parse(items[0].fields.AssignmentData||'{}');
-    } else {
-      // Load from template for this week
-      loadQueueTemplateForWeek();
+      const loaded=JSON.parse(items[0].fields.AssignmentData||'{}');
+      // Check if there are any real (non-null) assignments saved
+      const hasRealData=Object.values(loaded).some(days=>
+        Object.values(days).some(v=>v&&v!==null)
+      );
+      if(hasRealData){
+        queueAssignments[k]=loaded;
+      }
+      // If no real data, fall through to template below
     }
+    // Always fill nulls/missing days from template
+    loadQueueTemplateForWeek();
   } catch(e){ console.warn('loadQueueAssignments',e); }
 }
 
@@ -7991,12 +8020,8 @@ function applyViewerView(){
   // Only run in viewer mode or preview mode
   if(isEditor && !previewingAsViewer) return;
 
-  // When previewing as editor, default to My Schedule (not company grid)
-  // Real viewers keep whatever tab they selected
-  if(previewingAsViewer && (!viewerView || viewerView==='company')){
-    viewerView='mine';
-  }
-  // If no view set at all, default to mine
+  // When previewing as editor and no view chosen yet, default to My Schedule
+  // Don't override if user has explicitly selected a tab (including company)
   if(!viewerView) viewerView='mine';
 
   // Sync active tab highlight
