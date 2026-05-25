@@ -7981,6 +7981,121 @@ function buildVGPCCContent(staffId, dayIdx, facId=null){
   return {frag, isEmpty:false};
 }
 
+// ── Viewer tab initialization ─────────────────────────────────────
+function initViewerTabs(){
+  const bar=document.getElementById('viewer-tabs');
+  bar.style.display='flex';
+  const sel=document.getElementById('viewer-tab-select');
+  // Default to My Schedule
+  viewerView='mine';
+  bar.querySelectorAll('.viewer-tab').forEach(b=>{
+    b.classList.toggle('active', b.dataset.view==='mine');
+    b.addEventListener('click',()=>{
+      bar.querySelectorAll('.viewer-tab').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      viewerView=b.dataset.view;
+      viewerSubId=null;
+      sel.style.display='none'; sel.innerHTML='';
+      if(viewerView==='facility'){
+        sel.style.display='block';
+        sel.innerHTML='<option value="">— Select Facility —</option>';
+        FACILITIES.forEach(f=>{ const o=document.createElement('option'); o.value=f.id; o.textContent=f.name; sel.appendChild(o); });
+        sel.onchange=()=>{ viewerSubId=sel.value||null; applyViewerView(); };
+      } else if(viewerView==='pcc'){
+        sel.style.display='block';
+        sel.innerHTML='<option value="">— Select PCC —</option>';
+        staff.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(s=>{ const o=document.createElement('option'); o.value=s.id; o.textContent=s.name; sel.appendChild(o); });
+        sel.onchange=()=>{ viewerSubId=sel.value||null; applyViewerView(); };
+      }
+      applyViewerView();
+    });
+  });
+  applyViewerView();
+}
+
+// ── Viewer view router ────────────────────────────────────────────
+function applyViewerView(){
+  if(isEditor && !previewingAsViewer) return;
+  if(!viewerView) viewerView='mine';
+
+  // Sync tab highlight
+  document.querySelectorAll('.viewer-tab').forEach(b=>{
+    b.classList.toggle('active', b.dataset.view===viewerView);
+  });
+
+  const panel=document.getElementById('viewer-panel');
+  const gridScroll=document.getElementById('grid-scroll');
+  const aside=document.querySelector('aside');
+  const statsBar=document.getElementById('stats-bar');
+  const summaryPanel=document.getElementById('summary-panel');
+  const podStrip=document.getElementById('pod-summary-strip');
+
+  // Company view uses the editor grid (simplified) — all others use the panel
+  if(viewerView==='company'){
+    panel.style.display='none';
+    gridScroll.style.display='';
+    document.body.classList.add('viewer-company-clean');
+    if(aside) aside.style.display='none';
+    if(statsBar) statsBar.style.display='none';
+    if(summaryPanel) summaryPanel.style.display='none';
+    if(podStrip) podStrip.style.display='none';
+    document.getElementById('pto-wrap').style.display='none';
+    document.getElementById('bench-wrap').style.display='none';
+    document.getElementById('specialty-bench').style.display='none';
+    renderViewerContextStrip();
+    return;
+  }
+
+  // Card/grid views — show panel, hide grid
+  panel.style.display='flex';
+  panel.style.flexDirection='column';
+  panel.style.flex='1';
+  panel.style.overflow='auto';
+  gridScroll.style.display='none';
+  if(aside) aside.style.display='none';
+  if(statsBar) statsBar.style.display='none';
+  if(summaryPanel) summaryPanel.style.display='none';
+  if(podStrip) podStrip.style.display='none';
+
+  renderViewerContextStrip();
+
+  if(viewerView==='mine') renderViewerMySchedule(panel);
+  else if(viewerView==='facility') renderViewerFacility(panel, viewerSubId);
+  else if(viewerView==='pcc') renderViewerPCC(panel, viewerSubId);
+}
+
+// ── Viewer context strip ──────────────────────────────────────────
+function renderViewerContextStrip(){
+  const strip=document.getElementById('viewer-context-strip');
+  if(!strip) return;
+  strip.style.display='flex';
+  if(vcsDay===null){ const wd=new Date().getDay()-1; vcsDay=(wd>=0&&wd<=4)?wd:0; }
+  const dayTabs=document.getElementById('vcs-day-tabs');
+  dayTabs.innerHTML='';
+  for(let i=0;i<5;i++){
+    const d=addDays(currentMonday,i);
+    const btn=document.createElement('button');
+    btn.className='vcs-day-btn'+(i===vcsDay?' active':'');
+    btn.textContent=DAYS[i].slice(0,3)+' '+d.getDate();
+    btn.addEventListener('click',()=>{ vcsDay=i; renderViewerContextStrip(); });
+    dayTabs.appendChild(btn);
+  }
+  const floatsEl=document.getElementById('vcs-floats');
+  floatsEl.innerHTML='';
+  const availableFloats=staff.filter(s=>{
+    if(s.type!=='float'&&s.type!=='hybrid') return false;
+    if(isOnPTO(s.id,vcsDay)) return false;
+    return !FACILITIES.some(fac=>getLiveCell(fac.id,vcsDay).some(e=>e.staffId===s.id));
+  });
+  if(!availableFloats.length) floatsEl.innerHTML='<span class="vcs-pill none">None available</span>';
+  else availableFloats.forEach(s=>{ const p=document.createElement('span'); p.className='vcs-pill float-pill'; p.textContent=s.name.split(' ')[0]; p.title=s.name; floatsEl.appendChild(p); });
+  const ptoEl=document.getElementById('vcs-pto');
+  ptoEl.innerHTML='';
+  const ptoList=getPTO(vcsDay);
+  if(!ptoList.length) ptoEl.innerHTML='<span class="vcs-pill none">No absences</span>';
+  else ptoList.forEach(sid=>{ const s=staffById(sid);if(!s)return; const p=document.createElement('span'); p.className='vcs-pill pto-pill'; p.textContent=s.name.split(' ')[0]; p.title=s.name; ptoEl.appendChild(p); });
+}
+
 // ── My Schedule ───────────────────────────────────────────────────
 function renderViewerMySchedule(panel){
   panel.innerHTML='';
