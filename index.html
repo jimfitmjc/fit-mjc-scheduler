@@ -1003,6 +1003,75 @@ body.schedule-locked .ack-btn { display:none !important; }
   background: var(--brand); color: #fff; border-color: var(--brand);
 }
 
+/* ── SPECIALTY BENCH ── */
+.specialty-bench {
+  border-top: 1px solid var(--border); background: var(--surface);
+  flex-shrink: 0;
+}
+.specialty-bench-hdr {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 14px; font-size: 11px; font-weight: 700;
+  color: var(--text-2); cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+.specialty-bench-hdr:hover { background: var(--surface); }
+.specialty-bench-grid {
+  display: grid;
+  grid-template-columns: 130px repeat(5, 1fr);
+  border-bottom: 1px solid var(--border);
+}
+.sbg-head {
+  padding: 4px 8px; font-size: 10px; font-weight: 700;
+  color: var(--text-3); text-align: center;
+  background: var(--surface2); border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.sbg-head:last-child { border-right: none; }
+.sbg-head.today-head { background: var(--brand-lt); color: var(--brand); }
+.sbg-queue-label {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 10px; font-size: 11px; font-weight: 700;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.sbg-queue-label .sq-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.sbg-cell {
+  padding: 4px 6px; border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background .1s; min-height: 44px;
+  display: flex; flex-direction: column; gap: 2px; justify-content: center;
+}
+.sbg-cell:last-child { border-right: none; }
+.sbg-cell:hover { background: var(--surface2); }
+.sbg-cell.today-cell { background: #fff8f8; }
+.sbg-cell.today-cell:hover { background: #fff0f0; }
+.sbg-cell.has-gap { background: var(--gap-bg); }
+.sbg-cell.uncovered { background: var(--gap-bg); }
+.sbg-pcc-name {
+  font-size: 10px; font-weight: 700; padding: 1px 5px;
+  border-radius: 999px; display: inline-flex; align-items: center;
+  gap: 3px; white-space: nowrap; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.sbg-gap-flag {
+  font-size: 9px; font-weight: 700; color: var(--brand);
+  padding: 1px 4px;
+}
+.sbg-empty {
+  font-size: 9px; color: var(--text-3); font-style: italic;
+  padding: 1px 4px;
+}
+
+/* Specialty badge on shift chips */
+.specialty-chip-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 9px; font-weight: 700; padding: 1px 5px;
+  border-radius: 999px; border: 1px solid;
+  margin-top: 2px; white-space: nowrap;
+}
+
 /* ── MEETINGS & SPECIALTY QUEUES ── */
 /* Meeting chip on schedule grid */
 .meeting-chip {
@@ -1902,10 +1971,16 @@ body.focus-mode .fac-label:has(.fstat.ok) {
           <div class="bench-hdr">🔄 Float Availability <span>— PCCs without a shift today, available for coverage</span><span class="bench-count" id="bench-count">0</span></div>
           <div class="bench-grid" id="bench-grid"><div class="bench-label">Available</div></div>
         </div>
-        <!-- Specialty queue coverage strip -->
-        <div class="specialty-wrap" id="specialty-wrap" style="display:none;">
-          <span class="specialty-label">🔬 Specialty:</span>
-          <div id="specialty-pills" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+        <!-- Specialty bench — collapsible, one row per queue, 5 day columns -->
+        <div class="specialty-bench" id="specialty-bench" style="display:none;">
+          <div class="specialty-bench-hdr" id="specialty-bench-hdr">
+            🔬 Specialty Coverage
+            <span id="specialty-bench-gaps" style="margin-left:6px;"></span>
+            <span class="bench-count" id="specialty-bench-toggle" style="cursor:pointer;margin-left:auto;">▲ Collapse</span>
+          </div>
+          <div id="specialty-bench-body">
+            <div class="specialty-bench-grid" id="specialty-bench-grid"></div>
+          </div>
         </div>
         <div id="fac-rows"></div>
       </div>
@@ -2462,10 +2537,10 @@ let queues = [
   {id:'auths',   name:'Authorizations',   color:'#d97706', active:true},
 ];
 
-// queueAssignments[weekKey][queueId][dayIdx] = staffId
+// queueAssignments[weekKey][queueId][dayIdx] = [staffId, ...] (max 3)
 let queueAssignments = {};
 
-// queueTemplate[queueId][dayIdx] = staffId  — default weekly rotation
+// queueTemplate[queueId][dayIdx] = [staffId, ...] — default weekly rotation (max 3)
 let queueTemplate = {};
 
 // ── Meetings ──────────────────────────────────────────────────────
@@ -2654,22 +2729,27 @@ function getTmplClosure(facId,dayIdx){
 function queueById(id){ return queues.find(q=>q.id===id)||null; }
 function activeQueues(){ return queues.filter(q=>q.active); }
 
+// ── Queue assignment accessors (array, max 3) ─────────────────────
 function getQueueAssignment(queueId, dayIdx){
   const k=weekKey(currentMonday);
-  return queueAssignments[k]?.[queueId]?.[dayIdx]||null;
+  const val=queueAssignments[k]?.[queueId]?.[dayIdx];
+  if(!val) return [];
+  return Array.isArray(val)?val:[val].filter(Boolean);
 }
-function setQueueAssignment(queueId, dayIdx, staffId){
+function setQueueAssignment(queueId, dayIdx, staffIds){
   const k=weekKey(currentMonday);
   if(!queueAssignments[k]) queueAssignments[k]={};
   if(!queueAssignments[k][queueId]) queueAssignments[k][queueId]={};
-  queueAssignments[k][queueId][dayIdx]=staffId;
+  queueAssignments[k][queueId][dayIdx]=(staffIds||[]).filter(Boolean).slice(0,3);
 }
 function getQueueTemplateAssignment(queueId, dayIdx){
-  return queueTemplate[queueId]?.[dayIdx]||null;
+  const val=queueTemplate[queueId]?.[dayIdx];
+  if(!val) return [];
+  return Array.isArray(val)?val:[val].filter(Boolean);
 }
-function setQueueTemplateAssignment(queueId, dayIdx, staffId){
+function setQueueTemplateAssignment(queueId, dayIdx, staffIds){
   if(!queueTemplate[queueId]) queueTemplate[queueId]={};
-  queueTemplate[queueId][dayIdx]=staffId;
+  queueTemplate[queueId][dayIdx]=(staffIds||[]).filter(Boolean).slice(0,3);
 }
 function loadQueueTemplateForWeek(){
   const k=weekKey(currentMonday);
@@ -2677,46 +2757,76 @@ function loadQueueTemplateForWeek(){
   activeQueues().forEach(q=>{
     if(!queueAssignments[k][q.id]) queueAssignments[k][q.id]={};
     for(let i=0;i<5;i++){
-      // Only fill from template if no real assignment set for this day
-      const current=queueAssignments[k][q.id][i];
-      if(!current){
-        const tmplStaff=getQueueTemplateAssignment(q.id,i);
-        if(tmplStaff) queueAssignments[k][q.id][i]=tmplStaff;
+      const current=getQueueAssignment(q.id,i);
+      if(!current.length){
+        const tmpl=getQueueTemplateAssignment(q.id,i);
+        if(tmpl.length) queueAssignments[k][q.id][i]=[...tmpl];
       }
     }
   });
 }
 
-// Check if a PCC has a specialty conflict with a meeting on a given day/time
+// ── Specialty coverage gap detection (zero grace buffer) ──────────
+function getSpecialtyGaps(queueId, dayIdx){
+  const assignedIds=getQueueAssignment(queueId,dayIdx);
+  if(!assignedIds.length) return [];
+  let openMin=null,closeMin=null;
+  FACILITIES.forEach(fac=>{
+    const oh=effectiveHours(fac.id,dayIdx,'live');
+    if(!oh) return;
+    const o=toMins(oh.open),c=toMins(oh.close);
+    if(openMin===null||o<openMin) openMin=o;
+    if(closeMin===null||c>closeMin) closeMin=c;
+  });
+  if(openMin===null) return [];
+  const intervals=[];
+  assignedIds.forEach(sid=>{
+    if(isOnPTO(sid,dayIdx)) return;
+    FACILITIES.forEach(fac=>{
+      const entry=getLiveCell(fac.id,dayIdx).find(e=>e.staffId===sid);
+      if(!entry) return;
+      intervals.push([Math.max(toMins(entry.start),openMin),Math.min(toMins(entry.end),closeMin)]);
+    });
+  });
+  if(!intervals.length) return [{start:fromMins(openMin),end:fromMins(closeMin),mins:closeMin-openMin}];
+  intervals.sort((a,b)=>a[0]-b[0]);
+  const gaps=[];
+  let cur=openMin;
+  intervals.forEach(([s,e])=>{if(s>cur)gaps.push({start:fromMins(cur),end:fromMins(s),mins:s-cur});cur=Math.max(cur,e);});
+  if(cur<closeMin) gaps.push({start:fromMins(cur),end:fromMins(closeMin),mins:closeMin-cur});
+  return gaps;
+}
+
+// Returns queues a given staff member is assigned to on a day
+function getStaffQueueAssignments(staffId, dayIdx){
+  return activeQueues().filter(q=>getQueueAssignment(q.id,dayIdx).includes(staffId));
+}
+
+// Meeting conflicts — check if any assigned PCC in a queue has a meeting
 function getSpecialtyConflicts(dayIdx){
   const k=weekKey(currentMonday);
   const conflicts=[];
   const instances=meetingInstances[k]?.[dayIdx]||[];
   activeQueues().forEach(q=>{
-    const assignedId=getQueueAssignment(q.id,dayIdx);
-    if(!assignedId) return;
+    const assignedIds=getQueueAssignment(q.id,dayIdx);
+    if(!assignedIds.length) return;
     instances.forEach(inst=>{
       if(inst.skipped) return;
       const mtg=meetings.find(m=>m.id===inst.meetingId);
       if(!mtg) return;
-      // Check if assigned PCC is affected by this meeting
       const affected=getMeetingStaffIds(mtg,dayIdx);
-      if(affected.includes(assignedId)){
-        conflicts.push({queue:q, staffId:assignedId, meeting:mtg, instance:inst});
-      }
+      assignedIds.forEach(sid=>{
+        if(affected.includes(sid)){
+          conflicts.push({queue:q,staffId:sid,meeting:mtg,instance:inst});
+        }
+      });
     });
   });
   return conflicts;
 }
 
-// Get cross-trained backups for a queue (excluding current assignee)
-function getQueueBackups(queueId, dayIdx, excludeStaffId=null){
-  return staff.filter(s=>{
-    if(s.id===excludeStaffId) return false;
-    if(isOnPTO(s.id,dayIdx)) return false;
-    const specialties=s.specialties||[];
-    return specialties.includes(queueId);
-  });
+function getQueueBackups(queueId, dayIdx){
+  return staff.filter(s=>!isOnPTO(s.id,dayIdx)&&(s.specialties||[]).includes(queueId));
 }
 
 // ── Meeting helpers ───────────────────────────────────────────────
@@ -2909,7 +3019,7 @@ function render(){
   renderSummary();
   renderStatsBar();
   renderPodSummary();
-  renderSpecialtyStrip();
+  renderSpecialtyBench();
   renderMobile();
   fixMobileTop();
   updateToolbar();
@@ -3496,7 +3606,13 @@ function makeChip(s,entry,facId,dayIdx,isAbsent){
     ?`<span class="pod-badge" style="background:${podById(s.podId).color}22;color:${podById(s.podId).color};border:1px solid ${podById(s.podId).color}44;margin-top:2px;">🔀 Hybrid</span>`
     :'';
 
-  chip.innerHTML=`<div class="chip-inner"><div class="chip-name">${s.name}</div><div class="chip-time">${fmtRange(entry.start,entry.end)} · ${hrs.toFixed(1)}h${entry.lunch?' (–30m)':''}</div>${lunchHtml}${tagHtml}${podBadge}${noteHtml}</div>${isAbsent?'':`<button class="edit-chip-btn" title="Edit shift">✏</button><button class="xbtn">✕</button>`}`;
+  // Specialty queue badges — show what queues this PCC covers today
+  const staffQueues=getStaffQueueAssignments(s.id, parseInt(dayIdx));
+  const specialtyHtml=staffQueues.map(q=>
+    `<span class="specialty-chip-badge" style="background:${q.color}15;color:${q.color};border-color:${q.color}44;">🔬 ${q.name}</span>`
+  ).join('');
+
+  chip.innerHTML=`<div class="chip-inner"><div class="chip-name">${s.name}</div><div class="chip-time">${fmtRange(entry.start,entry.end)} · ${hrs.toFixed(1)}h${entry.lunch?' (–30m)':''}</div>${lunchHtml}${tagHtml}${podBadge}${specialtyHtml}${noteHtml}</div>${isAbsent?'':`<button class="edit-chip-btn" title="Edit shift">✏</button><button class="xbtn">✕</button>`}`;
 
   if(!isAbsent){
     chip.addEventListener('dragstart',e=>{
@@ -5752,54 +5868,37 @@ function renderSqQueueList(){
 
 function renderSqTemplateGrid(){
   const grid=document.getElementById('sq-template-grid');
-  grid.innerHTML='';
-  grid.className='sq-template-grid';
-
-  // Headers
+  grid.innerHTML=''; grid.className='sq-template-grid';
   const corner=document.createElement('div');
-  corner.className='sq-grid-head queue-head';
-  corner.textContent='Queue \\ Day';
-  grid.appendChild(corner);
-  DAYS.forEach(d=>{
-    const h=document.createElement('div');
-    h.className='sq-grid-head';
-    h.textContent=d;
-    grid.appendChild(h);
-  });
-
-  // One row per active queue
+  corner.className='sq-grid-head queue-head'; corner.textContent='Queue \\ Day'; grid.appendChild(corner);
+  DAYS.forEach(d=>{ const h=document.createElement('div'); h.className='sq-grid-head'; h.textContent=d; grid.appendChild(h); });
   activeQueues().forEach(q=>{
     const lbl=document.createElement('div');
     lbl.className='sq-queue-label';
     lbl.innerHTML=`<span class="sq-dot" style="background:${q.color}"></span>${q.name}`;
     grid.appendChild(lbl);
-
     for(let i=0;i<5;i++){
-      const cell=document.createElement('div');
-      cell.className='sq-grid-cell';
-      const sel=document.createElement('select');
-      sel.dataset.queue=q.id;
-      sel.dataset.day=i;
-      sel.innerHTML='<option value="">— None —</option>';
-      staff.filter(s=>s.specialties?.includes(q.id)).forEach(s=>{
-        const o=document.createElement('option');
-        o.value=s.id;
-        o.textContent=s.name.split(' ')[0]+' '+s.name.split(' ')[1]?.[0]||'';
-        if(getQueueTemplateAssignment(q.id,i)===s.id) o.selected=true;
-        sel.appendChild(o);
+      const cell=document.createElement('div'); cell.className='sq-grid-cell'; cell.style.padding='3px';
+      const current=getQueueTemplateAssignment(q.id,i);
+      const sortedStaff=staff.slice().sort((a,b)=>{
+        const aT=(a.specialties||[]).includes(q.id)?0:1;
+        const bT=(b.specialties||[]).includes(q.id)?0:1;
+        return aT-bT||a.name.localeCompare(b.name);
       });
-      // Also add non-trained staff with asterisk
-      staff.filter(s=>!s.specialties?.includes(q.id)).forEach(s=>{
-        const o=document.createElement('option');
-        o.value=s.id;
-        o.textContent=(s.name.split(' ')[0]+' '+(s.name.split(' ')[1]?.[0]||''))+'*';
-        if(getQueueTemplateAssignment(q.id,i)===s.id) o.selected=true;
-        sel.appendChild(o);
-      });
-      sel.addEventListener('change',()=>{
-        setQueueTemplateAssignment(q.id,i,sel.value||null);
-      });
-      cell.appendChild(sel);
+      for(let slot=0;slot<3;slot++){
+        const sel=document.createElement('select');
+        sel.dataset.queue=q.id; sel.dataset.day=i; sel.dataset.slot=slot; sel.dataset.mode='template';
+        sel.style.cssText='width:100%;font-size:9px;margin-bottom:2px;padding:1px 2px;border:1px solid var(--border2);border-radius:2px;background:var(--surface);font-family:inherit;';
+        sel.innerHTML='<option value="">—</option>';
+        sortedStaff.forEach(s=>{
+          const trained=(s.specialties||[]).includes(q.id);
+          const o=document.createElement('option');
+          o.value=s.id; o.textContent=s.name.split(' ')[0]+(trained?'':'*');
+          if(current[slot]===s.id) o.selected=true;
+          sel.appendChild(o);
+        });
+        cell.appendChild(sel);
+      }
       grid.appendChild(cell);
     }
   });
@@ -5807,61 +5906,49 @@ function renderSqTemplateGrid(){
 
 function renderSqWeekGrid(){
   const grid=document.getElementById('sq-week-grid');
-  grid.innerHTML='';
-  grid.className='sq-template-grid';
-
+  grid.innerHTML=''; grid.className='sq-template-grid';
   const corner=document.createElement('div');
-  corner.className='sq-grid-head queue-head';
-  corner.textContent='Queue \\ Day';
-  grid.appendChild(corner);
-  DAYS.forEach(d=>{
+  corner.className='sq-grid-head queue-head'; corner.textContent='Queue \\ Day'; grid.appendChild(corner);
+  DAYS.forEach((d,i)=>{
+    const date=addDays(currentMonday,i);
     const h=document.createElement('div');
-    h.className='sq-grid-head';
-    h.textContent=d;
-    grid.appendChild(h);
+    h.className='sq-grid-head'+(isToday(date)?' today-head':'');
+    h.textContent=d+' '+date.getDate(); grid.appendChild(h);
   });
-
   activeQueues().forEach(q=>{
     const lbl=document.createElement('div');
     lbl.className='sq-queue-label';
     lbl.innerHTML=`<span class="sq-dot" style="background:${q.color}"></span>${q.name}`;
     grid.appendChild(lbl);
-
     for(let i=0;i<5;i++){
-      const cell=document.createElement('div');
-      cell.className='sq-grid-cell';
+      const cell=document.createElement('div'); cell.className='sq-grid-cell'; cell.style.padding='3px';
       const conflicts=getSpecialtyConflicts(i).filter(c=>c.queue.id===q.id);
-      const sel=document.createElement('select');
-      sel.dataset.queue=q.id; sel.dataset.day=i;
-      if(conflicts.length) sel.style.border='1.5px solid var(--brand)';
-      sel.innerHTML='<option value="">— None —</option>';
-      // Cross-trained staff first
-      staff.filter(s=>s.specialties?.includes(q.id)).forEach(s=>{
-        const o=document.createElement('option');
-        o.value=s.id;
-        o.textContent=s.name.split(' ')[0]+' '+(s.name.split(' ')[1]?.[0]||'');
-        if(getQueueAssignment(q.id,i)===s.id) o.selected=true;
-        sel.appendChild(o);
+      if(conflicts.length){ const b=document.createElement('div'); b.className='sq-conflict-badge'; b.textContent='⚠ Meeting conflict'; cell.appendChild(b); }
+      const current=getQueueAssignment(q.id,i);
+      const sortedStaff=staff.slice().sort((a,b)=>{
+        const aT=(a.specialties||[]).includes(q.id)?0:1;
+        const bT=(b.specialties||[]).includes(q.id)?0:1;
+        return aT-bT||a.name.localeCompare(b.name);
       });
-      // Non-trained staff with asterisk
-      staff.filter(s=>!s.specialties?.includes(q.id)).forEach(s=>{
-        const o=document.createElement('option');
-        o.value=s.id;
-        o.textContent=(s.name.split(' ')[0]+' '+(s.name.split(' ')[1]?.[0]||''))+'*';
-        if(getQueueAssignment(q.id,i)===s.id) o.selected=true;
-        sel.appendChild(o);
-      });
-      if(conflicts.length){
-        const badge=document.createElement('div');
-        badge.className='sq-conflict-badge';
-        badge.textContent='⚠ Meeting conflict';
-        cell.appendChild(badge);
+      for(let slot=0;slot<3;slot++){
+        const sel=document.createElement('select');
+        sel.dataset.queue=q.id; sel.dataset.day=i; sel.dataset.slot=slot;
+        sel.style.cssText=`width:100%;font-size:9px;margin-bottom:2px;padding:1px 2px;border:1px solid ${conflicts.length?'var(--brand)':'var(--border2)'};border-radius:2px;background:var(--surface);font-family:inherit;`;
+        sel.innerHTML='<option value="">—</option>';
+        sortedStaff.forEach(s=>{
+          const trained=(s.specialties||[]).includes(q.id);
+          const o=document.createElement('option');
+          o.value=s.id; o.textContent=s.name.split(' ')[0]+(trained?'':'*');
+          if(current[slot]===s.id) o.selected=true;
+          sel.appendChild(o);
+        });
+        cell.appendChild(sel);
       }
-      cell.appendChild(sel);
       grid.appendChild(cell);
     }
   });
 }
+
 
 document.getElementById('sq-add-queue-btn').addEventListener('click',()=>{
   const name=document.getElementById('sq-new-queue-name').value.trim();
@@ -5877,25 +5964,31 @@ document.getElementById('sq-add-queue-btn').addEventListener('click',()=>{
 });
 
 document.getElementById('sq-save-btn').addEventListener('click',()=>{
-  // Save template assignments
-  document.querySelectorAll('#sq-template-grid select').forEach(sel=>{
-    const qid=sel.dataset.queue;
-    const day=parseInt(sel.dataset.day);
-    if(!qid||isNaN(day)) return;
-    const val=sel.value||null;
-    setQueueTemplateAssignment(qid,day,val);
+  // Read template grid — group by queue+day, collect 3 slots into array
+  const tmplMap={};
+  document.querySelectorAll('#sq-template-grid select[data-mode="template"]').forEach(sel=>{
+    const key=sel.dataset.queue+'_'+sel.dataset.day;
+    if(!tmplMap[key]) tmplMap[key]=[];
+    tmplMap[key].push(sel.value||null);
+  });
+  Object.entries(tmplMap).forEach(([key,vals])=>{
+    const [qid,day]=key.split('_');
+    setQueueTemplateAssignment(qid,parseInt(day),vals.filter(Boolean));
   });
 
-  // Save week assignments — if week grid shows None, use template value as fallback
+  // Read week grid — group by queue+day, collect 3 slots into array
+  const weekMap={};
   document.querySelectorAll('#sq-week-grid select').forEach(sel=>{
-    const qid=sel.dataset.queue;
-    const day=parseInt(sel.dataset.day);
-    if(!qid||isNaN(day)) return;
-    // Use week grid value if set, otherwise fall back to template
-    const weekVal=sel.value||null;
-    const tmplVal=getQueueTemplateAssignment(qid,day);
-    const finalVal=weekVal||tmplVal||null;
-    setQueueAssignment(qid,day,finalVal);
+    const key=sel.dataset.queue+'_'+sel.dataset.day;
+    if(!weekMap[key]) weekMap[key]=[];
+    weekMap[key].push(sel.value||null);
+  });
+  Object.entries(weekMap).forEach(([key,vals])=>{
+    const [qid,day]=key.split('_');
+    const arr=vals.filter(Boolean);
+    // Fall back to template if week grid is empty
+    const tmpl=getQueueTemplateAssignment(qid,parseInt(day));
+    setQueueAssignment(qid,parseInt(day),arr.length?arr:tmpl);
   });
 
   saveQueues();
@@ -5912,37 +6005,189 @@ document.getElementById('specialty-modal').addEventListener('click',e=>{
 });
 
 // ═══════════════════════════════════════════════════════════════
-// SPECIALTY STRIP RENDER
+// SPECIALTY BENCH — 5-column collapsible grid
 // ═══════════════════════════════════════════════════════════════
 
-function renderSpecialtyStrip(){
-  const wrap=document.getElementById('specialty-wrap');
-  const pills=document.getElementById('specialty-pills');
-  if(!wrap||!pills) return;
-  if(mode!=='live'||!activeQueues().length){ wrap.style.display='none'; return; }
-  wrap.style.display='flex';
-  pills.innerHTML='';
+let specialtyBenchCollapsed = false;
 
-  // Use the day that has the most context — today if weekday, else Mon
-  const wd=new Date().getDay()-1;
-  const dayIdx=wd>=0&&wd<=4?wd:0;
+function renderSpecialtyBench(){
+  const bench=document.getElementById('specialty-bench');
+  const grid=document.getElementById('specialty-bench-grid');
+  const gapsBadge=document.getElementById('specialty-bench-gaps');
+  if(!bench||!grid) return;
+  if(mode!=='live'||!activeQueues().length){ bench.style.display='none'; return; }
+  bench.style.display='block';
 
+  // Count total specialty gaps this week
+  let totalGaps=0;
   activeQueues().forEach(q=>{
-    const assignedId=getQueueAssignment(q.id,dayIdx);
-    const s=assignedId?staffById(assignedId):null;
-    const conflicts=getSpecialtyConflicts(dayIdx).filter(c=>c.queue.id===q.id);
-    const hasConflict=conflicts.length>0;
-    const unassigned=!s;
+    for(let i=0;i<5;i++) totalGaps+=getSpecialtyGaps(q.id,i).length;
+  });
+  if(gapsBadge) gapsBadge.innerHTML=totalGaps>0
+    ?`<span style="background:var(--brand);color:#fff;border-radius:3px;padding:1px 6px;font-size:9px;">⚠ ${totalGaps} gap${totalGaps>1?'s':''}</span>`
+    :'<span style="color:var(--ok-tx);font-size:10px;">✓ All covered</span>';
 
-    const pill=document.createElement('span');
-    pill.className='specialty-queue-pill'+(hasConflict?' conflict':unassigned?' unassigned':'');
-    pill.style.cssText=!hasConflict&&!unassigned?`background:${q.color}18;color:${q.color};border-color:${q.color}44;`:'';
-    pill.title=hasConflict?`⚠ ${conflicts[0].meeting.name} conflicts with ${s?.name}'s specialty assignment`:s?.name||'Unassigned';
-    pill.innerHTML=`<span class="sq-dot" style="background:${hasConflict?'var(--brand)':unassigned?'var(--gap-bd)':q.color}"></span>${q.name}: <strong>${hasConflict?'⚠ Conflict':unassigned?'Unassigned':s.name.split(' ')[0]}</strong>`;
-    pill.addEventListener('click',()=>openSpecialtyModal());
-    pills.appendChild(pill);
+  if(specialtyBenchCollapsed){
+    document.getElementById('specialty-bench-body').style.display='none';
+    document.getElementById('specialty-bench-toggle').textContent='▼ Expand';
+    return;
+  }
+  document.getElementById('specialty-bench-body').style.display='';
+  document.getElementById('specialty-bench-toggle').textContent='▲ Collapse';
+
+  grid.innerHTML='';
+
+  // Header row
+  const corner=document.createElement('div');
+  corner.className='sbg-head';
+  corner.style.textAlign='left';
+  corner.textContent='Queue';
+  grid.appendChild(corner);
+  for(let i=0;i<5;i++){
+    const d=addDays(currentMonday,i);
+    const today=isToday(d);
+    const h=document.createElement('div');
+    h.className='sbg-head'+(today?' today-head':'');
+    h.textContent=DAYS[i]+' '+d.getDate();
+    grid.appendChild(h);
+  }
+
+  // One row per queue
+  activeQueues().forEach(q=>{
+    const lbl=document.createElement('div');
+    lbl.className='sbg-queue-label';
+    lbl.innerHTML=`<span class="sq-dot" style="background:${q.color}"></span>${q.name}`;
+    grid.appendChild(lbl);
+
+    for(let i=0;i<5;i++){
+      const d=addDays(currentMonday,i);
+      const today=isToday(d);
+      const assigned=getQueueAssignment(q.id,i);
+      const gaps=getSpecialtyGaps(q.id,i);
+      const closed=!FACILITIES.some(f=>effectiveHours(f.id,i,'live'));
+
+      const cell=document.createElement('div');
+      cell.className='sbg-cell'+(today?' today-cell':'')+(gaps.length?' has-gap':'')+(assigned.length===0&&!closed?' uncovered':'');
+
+      if(closed){
+        cell.innerHTML=`<span class="sbg-empty">Closed</span>`;
+        cell.style.cursor='default';
+      } else {
+        if(assigned.length){
+          assigned.forEach(sid=>{
+            const s=staffById(sid);if(!s)return;
+            const onPTO=isOnPTO(sid,i);
+            const nameEl=document.createElement('div');
+            nameEl.className='sbg-pcc-name';
+            nameEl.style.cssText=`background:${q.color}18;color:${q.color};border:1px solid ${q.color}33;${onPTO?'opacity:.5;text-decoration:line-through;':''}`;
+            nameEl.textContent=s.name.split(' ')[0];
+            cell.appendChild(nameEl);
+          });
+          if(gaps.length){
+            const gf=document.createElement('div');
+            gf.className='sbg-gap-flag';
+            gf.textContent=`⚠ ${gaps.length} gap${gaps.length>1?'s':''}`;
+            cell.appendChild(gf);
+          }
+        } else {
+          const emp=document.createElement('div');
+          emp.className='sbg-empty';
+          emp.textContent='Unassigned';
+          cell.appendChild(emp);
+        }
+        if(isEditor){
+          cell.title='Click to assign PCCs';
+          cell.addEventListener('click',()=>openSpecialtyCell(q,i,cell));
+        }
+      }
+      grid.appendChild(cell);
+    }
   });
 }
+
+// ── Specialty cell assignment popup ──────────────────────────────
+let specialtyCellOverlay=null;
+function openSpecialtyCell(queue, dayIdx, anchorEl){
+  // Close any existing popup
+  if(specialtyCellOverlay){ specialtyCellOverlay.remove(); specialtyCellOverlay=null; }
+
+  const assigned=getQueueAssignment(queue.id,dayIdx);
+  const d=addDays(currentMonday,dayIdx);
+  const gaps=getSpecialtyGaps(queue.id,dayIdx);
+
+  const popup=document.createElement('div');
+  popup.style.cssText=`position:fixed;z-index:9999;background:var(--surface);border:1.5px solid ${queue.color};border-radius:var(--r);box-shadow:0 8px 24px rgba(0,0,0,.15);padding:14px;min-width:240px;max-width:280px;`;
+  specialtyCellOverlay=popup;
+
+  // Position near anchor
+  const rect=anchorEl.getBoundingClientRect();
+  popup.style.left=Math.min(rect.left, window.innerWidth-290)+'px';
+  popup.style.top=(rect.bottom+4)+'px';
+
+  popup.innerHTML=`
+    <div style="font-size:12px;font-weight:800;color:${queue.color};margin-bottom:8px;">
+      🔬 ${queue.name} — ${DAYS[dayIdx]} ${d.getDate()}
+    </div>
+    ${gaps.length?`<div style="font-size:10px;color:var(--brand);font-weight:700;margin-bottom:6px;">⚠ ${gaps.map(g=>fmtRange(g.start,g.end)).join(', ')} uncovered</div>`:''}
+    <div style="font-size:10px;color:var(--text-3);margin-bottom:6px;">Select up to 3 PCCs (✓ = cross-trained)</div>
+    <div id="scp-list" style="display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;margin-bottom:10px;"></div>
+    <div style="display:flex;gap:6px;justify-content:flex-end;">
+      <button class="mbtn cancel" id="scp-cancel">Cancel</button>
+      <button class="mbtn save" id="scp-save">Apply</button>
+    </div>`;
+
+  // Build PCC list — trained first, then others
+  const list=popup.querySelector('#scp-list');
+  const trained=staff.filter(s=>(s.specialties||[]).includes(queue.id));
+  const others=staff.filter(s=>!(s.specialties||[]).includes(queue.id));
+
+  [...trained,...others].forEach(s=>{
+    const isTrained=(s.specialties||[]).includes(queue.id);
+    const onPTO=isOnPTO(s.id,dayIdx);
+    const checked=assigned.includes(s.id);
+    const row=document.createElement('label');
+    row.style.cssText=`display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600;${onPTO?'opacity:.4;':''}${checked?`background:${queue.color}15;`:''};`;
+    const cb=document.createElement('input');
+    cb.type='checkbox'; cb.value=s.id; cb.checked=checked;
+    if(onPTO) cb.disabled=true;
+    cb.addEventListener('change',()=>{
+      // Max 3 enforcement
+      const checkedCount=list.querySelectorAll('input:checked').length;
+      if(checkedCount>3){ cb.checked=false; showToast('Max 3 PCCs per queue per day','err'); return; }
+      row.style.background=cb.checked?`${queue.color}15`:'';
+    });
+    row.appendChild(cb);
+    const shifts=FACILITIES.flatMap(f=>getLiveCell(f.id,dayIdx).filter(e=>e.staffId===s.id));
+    const shiftTime=shifts.length?` · ${fmtRange(shifts[0].start,shifts[0].end)}`:'';
+    row.innerHTML+=`${isTrained?'✓ ':''}${s.name}${shiftTime}${onPTO?' 🏖':''}`;
+    list.appendChild(row);
+  });
+
+  popup.querySelector('#scp-cancel').addEventListener('click',()=>{ popup.remove(); specialtyCellOverlay=null; });
+  popup.querySelector('#scp-save').addEventListener('click',()=>{
+    const selected=[...list.querySelectorAll('input:checked')].map(cb=>cb.value);
+    setQueueAssignment(queue.id,dayIdx,selected);
+    saveQueueAssignments();
+    popup.remove(); specialtyCellOverlay=null;
+    renderSpecialtyBench();
+    render();
+    showToast(`${queue.name} updated ✓`,'ok');
+  });
+
+  document.body.appendChild(popup);
+
+  // Close on outside click
+  setTimeout(()=>{
+    const close=(e)=>{ if(!popup.contains(e.target)){ popup.remove(); specialtyCellOverlay=null; document.removeEventListener('click',close); } };
+    document.addEventListener('click',close);
+  },100);
+}
+
+// Wire collapse toggle
+document.getElementById('specialty-bench-hdr').addEventListener('click',()=>{
+  specialtyBenchCollapsed=!specialtyBenchCollapsed;
+  renderSpecialtyBench();
+});
 
 // ═══════════════════════════════════════════════════════════════
 // MEETINGS ON GRID — add meeting chips to live cells
@@ -5988,6 +6233,7 @@ async function saveQueueTemplate(){
   try {
     const existing=await listGetAll(LISTS.queues,i=>i.fields.Title==='queueTemplate');
     for(const item of existing) await listDelete(LISTS.queues,item.id);
+    // queueTemplate values are now arrays — save as-is
     await listCreate(LISTS.queues,{Title:'queueTemplate',QueueData:JSON.stringify(queueTemplate)});
   } catch(e){ console.error('saveQueueTemplate',e); }
 }
@@ -5998,22 +6244,19 @@ async function saveQueueAssignments(){
     const k=weekKey(currentMonday);
     const existing=await listGetAll(LISTS.queueAssignments,i=>i.fields.WeekKey===k);
     for(const item of existing) await listDelete(LISTS.queueAssignments,item.id);
-
-    // Strip nulls — only save real staff ID assignments
+    // Only save days with real assignments
     const clean={};
     const data=queueAssignments[k]||{};
     Object.entries(data).forEach(([qid,days])=>{
       const cleanDays={};
-      Object.entries(days).forEach(([day,sid])=>{
-        if(sid) cleanDays[day]=sid;
+      Object.entries(days).forEach(([day,ids])=>{
+        const arr=Array.isArray(ids)?ids.filter(Boolean):(ids?[ids]:[]);
+        if(arr.length) cleanDays[day]=arr;
       });
       if(Object.keys(cleanDays).length) clean[qid]=cleanDays;
     });
-
     if(Object.keys(clean).length){
-      await listCreate(LISTS.queueAssignments,{
-        Title:k, WeekKey:k, AssignmentData:JSON.stringify(clean)
-      });
+      await listCreate(LISTS.queueAssignments,{Title:k,WeekKey:k,AssignmentData:JSON.stringify(clean)});
     }
   } catch(e){ console.error('saveQueueAssignments',e); }
 }
@@ -6045,7 +6288,17 @@ async function loadQueues(){
     const qData=items.find(i=>i.fields.Title==='queues');
     if(qData?.fields?.QueueData) queues=JSON.parse(qData.fields.QueueData);
     const tmplData=items.find(i=>i.fields.Title==='queueTemplate');
-    if(tmplData?.fields?.QueueData) queueTemplate=JSON.parse(tmplData.fields.QueueData);
+    if(tmplData?.fields?.QueueData){
+      const raw=JSON.parse(tmplData.fields.QueueData);
+      // Normalize legacy string values to arrays
+      Object.keys(raw).forEach(qid=>{
+        Object.keys(raw[qid]).forEach(day=>{
+          const v=raw[qid][day];
+          if(!Array.isArray(v)) raw[qid][day]=v?[v]:[];
+        });
+      });
+      queueTemplate=raw;
+    }
   } catch(e){ console.warn('loadQueues',e); }
 }
 
@@ -6055,16 +6308,22 @@ async function loadQueueAssignmentsForWeek(){
     const items=await listGetAll(LISTS.queueAssignments,i=>i.fields.WeekKey===k);
     if(items.length){
       const loaded=JSON.parse(items[0].fields.AssignmentData||'{}');
-      // Check if there are any real (non-null) assignments saved
+      // Normalize — convert any legacy string values to arrays
+      Object.keys(loaded).forEach(qid=>{
+        Object.keys(loaded[qid]).forEach(day=>{
+          const val=loaded[qid][day];
+          if(!Array.isArray(val)){
+            loaded[qid][day]=val?[val]:[];
+          }
+        });
+      });
+      // Check if any real assignments exist
       const hasRealData=Object.values(loaded).some(days=>
-        Object.values(days).some(v=>v&&v!==null)
+        Object.values(days).some(arr=>Array.isArray(arr)&&arr.length>0)
       );
-      if(hasRealData){
-        queueAssignments[k]=loaded;
-      }
-      // If no real data, fall through to template below
+      if(hasRealData) queueAssignments[k]=loaded;
     }
-    // Always fill nulls/missing days from template
+    // Always fill empty days from template
     loadQueueTemplateForWeek();
   } catch(e){ console.warn('loadQueueAssignments',e); }
 }
@@ -8214,24 +8473,22 @@ function renderPCCDayCards(panel, me){
       card.appendChild(blk);
     }
 
-    // Specialty badges — show on any day the PCC has a queue assignment
-    // (appears after shift block or after PTO/off message)
-    if(!onPTO){
-      activeQueues().forEach(q=>{
-        if(getQueueAssignment(q.id,i)!==me.id) return;
-        const conflicts=getSpecialtyConflicts(i).some(c=>c.queue.id===q.id&&c.staffId===me.id);
-        const badge=document.createElement('div');
-        badge.className='vs2-shift-block';
-        badge.innerHTML=`
-          <div class="vs2-shift-accent" style="background:${q.color};"></div>
-          <div class="vs2-shift-content">
-            <span class="vs2-specialty-badge" style="background:${q.color}15;color:${q.color};border-color:${q.color}44;">
-              🔬 ${q.name} coverage${conflicts?' ⚠ Meeting conflict':''}
-            </span>
-          </div>`;
-        card.appendChild(badge);
-      });
-    }
+      if(!onPTO){
+        activeQueues().forEach(q=>{
+          if(!getQueueAssignment(q.id,i).includes(me.id)) return;
+          const conflicts=getSpecialtyConflicts(i).some(c=>c.queue.id===q.id&&c.staffId===me.id);
+          const badge=document.createElement('div');
+          badge.className='vs2-shift-block';
+          badge.innerHTML=`
+            <div class="vs2-shift-accent" style="background:${q.color};"></div>
+            <div class="vs2-shift-content">
+              <span class="vs2-specialty-badge" style="background:${q.color}15;color:${q.color};border-color:${q.color}44;">
+                🔬 ${q.name}${conflicts?' ⚠ Meeting conflict':''}
+              </span>
+            </div>`;
+          card.appendChild(badge);
+        });
+      }
 
     // Meeting blocks — show on any day the PCC has a meeting
     getMeetingsForDay(i).forEach(mtg=>{
@@ -8331,9 +8588,14 @@ function renderViewerFacility(panel, facId){
         chip.className='vs2-fac-pcc-chip';
         const color=s.type==='float'?'var(--float-bd)':s.type==='hybrid'?'#059669':'var(--static-bd)';
         chip.style.borderLeftColor=color;
+        const staffQueues=getStaffQueueAssignments(s.id,i);
+        const specialtyBadges=staffQueues.map(q=>
+          `<span class="specialty-chip-badge" style="background:${q.color}15;color:${q.color};border-color:${q.color}44;">🔬 ${q.name}</span>`
+        ).join('');
         chip.innerHTML=`
           <div class="vs2-fac-pcc-name">${s.name} <span style="font-size:9px;opacity:.5;">${s.type==='float'?'🔄':s.type==='hybrid'?'🔀':'📌'}</span></div>
-          <div class="vs2-fac-pcc-time">${fmtRange(entry.start,entry.end)}</div>`;
+          <div class="vs2-fac-pcc-time">${fmtRange(entry.start,entry.end)}</div>
+          ${specialtyBadges}`;
         body.appendChild(chip);
       });
 
