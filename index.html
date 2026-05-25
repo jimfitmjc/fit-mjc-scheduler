@@ -148,6 +148,38 @@ aside{width:188px;min-width:168px;background:var(--surface);border-right:1px sol
 .pto-wrap{background:var(--pto-bg);border:1px solid var(--pto-bd);border-radius:var(--r);margin-bottom:10px;overflow:hidden;}
 .pto-hdr{padding:5px 12px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--pto-tx);background:rgba(139,61,200,.07);border-bottom:1px solid var(--pto-bd);display:flex;align-items:center;gap:6px;}
 .pto-hdr span{font-weight:400;opacity:.7;}
+.pto-add-btn{margin-left:auto;background:none;border:1px solid var(--pto-bd);border-radius:var(--r-sm);color:var(--pto-tx);font-size:10px;font-weight:700;padding:1px 8px;cursor:pointer;font-family:inherit;transition:all .15s;}
+.pto-add-btn:hover{background:var(--pto-bd);color:#fff;}
+
+/* PTO multi-day popup */
+.pto-popup{
+  position:fixed;z-index:9999;
+  background:var(--surface);border:1.5px solid var(--pto-bd);
+  border-radius:var(--r);box-shadow:0 8px 24px rgba(0,0,0,.15);
+  padding:14px;min-width:260px;
+}
+.pto-popup-title{font-size:12px;font-weight:800;color:var(--pto-tx);margin-bottom:10px;}
+.pto-popup-days{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+.pto-day-cb{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;cursor:pointer;padding:3px 8px;border-radius:999px;border:1.5px solid var(--border2);background:var(--surface2);transition:all .15s;}
+.pto-day-cb.checked{background:var(--pto-bg);border-color:var(--pto-bd);color:var(--pto-tx);}
+.pto-day-cb input{display:none;}
+
+/* PCC hover tooltip */
+.pcc-tooltip{
+  position:fixed;z-index:9998;
+  background:var(--black);color:#fff;
+  border-radius:var(--r);padding:10px 14px;
+  box-shadow:0 8px 24px rgba(0,0,0,.25);
+  min-width:220px;max-width:280px;
+  font-size:11px;pointer-events:none;
+}
+.pcc-tooltip-name{font-size:12px;font-weight:800;margin-bottom:6px;color:#fff;}
+.pcc-tooltip-row{display:flex;align-items:center;gap:8px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.1);}
+.pcc-tooltip-row:last-child{border-bottom:none;}
+.pcc-tooltip-day{font-size:10px;font-weight:700;color:rgba(255,255,255,.5);min-width:28px;}
+.pcc-tooltip-info{font-size:11px;color:#fff;flex:1;}
+.pcc-tooltip-hrs{font-size:10px;color:rgba(255,255,255,.5);margin-left:auto;}
+.pcc-tooltip-footer{margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.15);font-size:10px;color:rgba(255,255,255,.6);}
 .pto-grid{display:grid;grid-template-columns:150px repeat(5,1fr);gap:5px;padding:6px;}
 .pto-label{display:flex;align-items:center;font-size:11px;font-weight:600;color:var(--pto-tx);padding-left:4px;}
 .pto-cell{min-height:38px;border:1px dashed var(--pto-bd);border-radius:var(--r-sm);padding:3px;display:flex;flex-direction:column;gap:3px;transition:background .15s;}
@@ -1643,7 +1675,9 @@ body.focus-mode .fac-label:has(.fstat.ok) {
         <div class="day-header-row" id="day-hdr"><div></div></div>
         <!-- PTO row -->
         <div class="pto-wrap" id="pto-wrap">
-          <div class="pto-hdr">🏖 Out / PTO <span>— drag PCC here to mark absent</span></div>
+          <div class="pto-hdr">🏖 Out / PTO <span>— drag PCC here or click + to mark absent</span>
+            <button class="pto-add-btn" id="pto-add-btn">+ Add</button>
+          </div>
           <div class="pto-grid" id="pto-grid"><div class="pto-label">Absent</div></div>
         </div>
         <!-- Float availability bench -->
@@ -3513,6 +3547,12 @@ function renderSummary(){
         openOverrideModal(sid);
       });
     });
+
+    // Hover tooltip — show week at a glance for editors
+    if(isEditor){
+      col.addEventListener('mouseenter',()=>showPCCTooltip(s,col));
+      col.addEventListener('mouseleave',hidePCCTooltip);
+    }
 
     table.appendChild(col);
   });
@@ -6541,6 +6581,194 @@ document.getElementById('pto-hrs-save').addEventListener('click',()=>{
 document.getElementById('pto-hrs-modal').addEventListener('click',e=>{
   if(e.target===document.getElementById('pto-hrs-modal')) closeModal('pto-hrs-modal');
 });
+
+// ── PTO + Add button ─────────────────────────────────────────────
+let ptoPopupEl=null;
+
+document.getElementById('pto-add-btn').addEventListener('click', e=>{
+  e.stopPropagation();
+  if(ptoPopupEl){ ptoPopupEl.remove(); ptoPopupEl=null; return; }
+
+  const popup=document.createElement('div');
+  popup.className='pto-popup';
+  ptoPopupEl=popup;
+
+  // Position below the button
+  const rect=document.getElementById('pto-add-btn').getBoundingClientRect();
+  popup.style.top=(rect.bottom+6)+'px';
+  popup.style.left=rect.left+'px';
+
+  popup.innerHTML=`<div class="pto-popup-title">🏖 Mark PCC as Out / PTO</div>`;
+
+  // PCC select
+  const selWrap=document.createElement('div');
+  selWrap.style.marginBottom='10px';
+  const sel=document.createElement('select');
+  sel.style.cssText='width:100%;font-size:12px;padding:5px 8px;border:1px solid var(--border2);border-radius:var(--r-sm);background:var(--surface);font-family:inherit;';
+  sel.innerHTML='<option value="">— Select PCC —</option>';
+  staff.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(s=>{
+    const o=document.createElement('option');
+    o.value=s.id; o.textContent=s.name;
+    sel.appendChild(o);
+  });
+  selWrap.appendChild(sel);
+  popup.appendChild(selWrap);
+
+  // Day checkboxes — default check all days not already on PTO for this PCC
+  const daysLabel=document.createElement('div');
+  daysLabel.style.cssText='font-size:10px;font-weight:700;color:var(--text-3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em;';
+  daysLabel.textContent='Mark out on:';
+  popup.appendChild(daysLabel);
+
+  const daysWrap=document.createElement('div');
+  daysWrap.className='pto-popup-days';
+
+  const checkboxes=[];
+  DAYS.forEach((day,i)=>{
+    const d=addDays(currentMonday,i);
+    const lbl=document.createElement('label');
+    lbl.className='pto-day-cb';
+    const cb=document.createElement('input');
+    cb.type='checkbox'; cb.value=i; cb.checked=true;
+    cb.addEventListener('change',()=>lbl.classList.toggle('checked',cb.checked));
+    lbl.classList.add('checked');
+    lbl.appendChild(cb);
+    lbl.appendChild(document.createTextNode(day+' '+d.getDate()));
+    checkboxes.push(cb);
+    daysWrap.appendChild(lbl);
+  });
+  popup.appendChild(daysWrap);
+
+  // Update checkboxes when PCC changes — uncheck days already on PTO
+  sel.addEventListener('change',()=>{
+    const sid=sel.value;
+    if(!sid) return;
+    checkboxes.forEach((cb,i)=>{
+      const alreadyPTO=isOnPTO(sid,i);
+      cb.checked=!alreadyPTO;
+      cb.disabled=alreadyPTO;
+      cb.closest('label').classList.toggle('checked',!alreadyPTO);
+      cb.closest('label').style.opacity=alreadyPTO?'.4':'1';
+    });
+  });
+
+  // Buttons
+  const btns=document.createElement('div');
+  btns.style.cssText='display:flex;gap:6px;justify-content:flex-end;margin-top:10px;';
+  const cancelBtn=document.createElement('button');
+  cancelBtn.className='mbtn cancel'; cancelBtn.textContent='Cancel';
+  cancelBtn.addEventListener('click',()=>{ popup.remove(); ptoPopupEl=null; });
+  const saveBtn=document.createElement('button');
+  saveBtn.className='mbtn save'; saveBtn.textContent='Mark Out';
+  saveBtn.addEventListener('click',()=>{
+    const sid=sel.value;
+    if(!sid){ showToast('Select a PCC first','err'); return; }
+    const days=checkboxes.filter(cb=>cb.checked&&!cb.disabled).map(cb=>parseInt(cb.value));
+    if(!days.length){ showToast('Select at least one day','err'); return; }
+    days.forEach(i=>{
+      const list=getPTO(i);
+      if(!list.includes(sid)){ list.push(sid); setPTO(i,list); }
+    });
+    scheduleSavePTO();
+    popup.remove(); ptoPopupEl=null;
+    render();
+    showToast(`${staffById(sid)?.name} marked out for ${days.length} day${days.length>1?'s':''}`, 'ok');
+  });
+  btns.appendChild(cancelBtn);
+  btns.appendChild(saveBtn);
+  popup.appendChild(btns);
+
+  document.body.appendChild(popup);
+
+  // Close on outside click
+  setTimeout(()=>{
+    const close=(ev)=>{
+      if(!popup.contains(ev.target)&&ev.target!==document.getElementById('pto-add-btn')){
+        popup.remove(); ptoPopupEl=null;
+        document.removeEventListener('click',close);
+      }
+    };
+    document.addEventListener('click',close);
+  },100);
+});
+
+// ── PCC sidebar hover tooltip ─────────────────────────────────────
+let pccTooltipEl=null;
+let pccTooltipTimer=null;
+
+function showPCCTooltip(s, anchorEl){
+  clearTimeout(pccTooltipTimer);
+  if(pccTooltipEl){ pccTooltipEl.remove(); pccTooltipEl=null; }
+
+  const tip=document.createElement('div');
+  tip.className='pcc-tooltip';
+  pccTooltipEl=tip;
+
+  const target=getEffectiveTarget(s.id);
+  const wkHrs=coordWeekHours(s.id);
+  const ptoTotal=[0,1,2,3,4].reduce((sum,d)=>sum+(isOnPTO(s.id,d)?getPTOHours(s.id,d):0),0);
+  const total=wkHrs+ptoTotal;
+  const variance=total-target;
+  const varianceStr=variance>=0?`+${variance.toFixed(1)}h`:`${variance.toFixed(1)}h`;
+  const varianceColor=variance>=0?'#4ade80':'#fbbf24';
+
+  let html=`<div class="pcc-tooltip-name">${s.name}</div>`;
+
+  for(let i=0;i<5;i++){
+    const d=addDays(currentMonday,i);
+    const onPTO=isOnPTO(s.id,i);
+    let info='', hrs='';
+
+    if(onPTO){
+      const h=getPTOHours(s.id,i);
+      info='🏖 PTO';
+      hrs=h>0?h.toFixed(1)+'h':'';
+    } else {
+      // Find shift
+      let found=false;
+      for(const fac of FACILITIES){
+        const entry=getLiveCell(fac.id,i).find(e=>e.staffId===s.id);
+        if(entry){
+          const h=shiftHours(entry.start,entry.end,entry.lunch);
+          info=`📍 ${fac.name}  ${fmtRange(entry.start,entry.end)}`;
+          hrs=h.toFixed(1)+'h';
+          found=true;
+          break;
+        }
+      }
+      if(!found){ info='<span style="opacity:.4;">—</span>'; hrs=''; }
+    }
+
+    html+=`<div class="pcc-tooltip-row">
+      <span class="pcc-tooltip-day">${DAYS[i].slice(0,3)}</span>
+      <span class="pcc-tooltip-info">${info}</span>
+      <span class="pcc-tooltip-hrs">${hrs}</span>
+    </div>`;
+  }
+
+  html+=`<div class="pcc-tooltip-footer">
+    ${wkHrs.toFixed(1)}h scheduled${ptoTotal>0?` + ${ptoTotal.toFixed(1)}h PTO`:''} · target ${target}h · <span style="color:${varianceColor};">${varianceStr}</span>
+  </div>`;
+
+  tip.innerHTML=html;
+  document.body.appendChild(tip);
+
+  // Position — to the right of the sidebar
+  const rect=anchorEl.getBoundingClientRect();
+  const tipW=280;
+  let left=rect.right+8;
+  if(left+tipW>window.innerWidth) left=rect.left-tipW-8;
+  let top=rect.top;
+  if(top+200>window.innerHeight) top=window.innerHeight-210;
+  tip.style.left=left+'px';
+  tip.style.top=top+'px';
+}
+
+function hidePCCTooltip(){
+  pccTooltipTimer=setTimeout(()=>{
+    if(pccTooltipEl){ pccTooltipEl.remove(); pccTooltipEl=null; }
+  },150);
+}
 
 // ── Acknowledged gaps ─────────────────────────────────────────────
 document.getElementById('clear-acks-btn').addEventListener('click',()=>{
