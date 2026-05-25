@@ -4632,7 +4632,7 @@ document.getElementById('apply-tmpl-btn').addEventListener('click',()=>{
   FACILITIES.forEach(fac=>{
     for(let i=0;i<5;i++){
       const t=getTemplate(fac.id,i);
-      if(!t.staffIds.length) return;
+      if(!t.staffIds.length) continue; // skip empty days, keep processing other days
       const oh=fac.officeHours[i];
       if(!live[k][fac.id]) live[k][fac.id]={};
       const available=[];
