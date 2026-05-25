@@ -6107,7 +6107,8 @@ async function saveQueues(){
     const existing=await listGetAll(LISTS.queues);
     for(const item of existing) await listDelete(LISTS.queues,item.id);
     await listCreate(LISTS.queues,{Title:'queues',QueueData:JSON.stringify(queues)});
-  } catch(e){ console.error('saveQueues',e); }
+    console.log('saveQueues: ok');
+  } catch(e){ console.error('saveQueues failed:',e.message); showToast('Queue save failed — check console','err'); }
 }
 
 async function saveQueueTemplate(){
@@ -6115,9 +6116,9 @@ async function saveQueueTemplate(){
   try {
     const existing=await listGetAll(LISTS.queues,i=>i.fields.Title==='queueTemplate');
     for(const item of existing) await listDelete(LISTS.queues,item.id);
-    // queueTemplate values are now arrays — save as-is
     await listCreate(LISTS.queues,{Title:'queueTemplate',QueueData:JSON.stringify(queueTemplate)});
-  } catch(e){ console.error('saveQueueTemplate',e); }
+    console.log('saveQueueTemplate: ok');
+  } catch(e){ console.error('saveQueueTemplate failed:',e.message); showToast('Queue template save failed — check console','err'); }
 }
 
 async function saveQueueAssignments(){
@@ -6126,7 +6127,6 @@ async function saveQueueAssignments(){
     const k=weekKey(currentMonday);
     const existing=await listGetAll(LISTS.queueAssignments,i=>i.fields.WeekKey===k);
     for(const item of existing) await listDelete(LISTS.queueAssignments,item.id);
-    // Only save days with real assignments
     const clean={};
     const data=queueAssignments[k]||{};
     Object.entries(data).forEach(([qid,days])=>{
@@ -6139,8 +6139,9 @@ async function saveQueueAssignments(){
     });
     if(Object.keys(clean).length){
       await listCreate(LISTS.queueAssignments,{Title:k,WeekKey:k,AssignmentData:JSON.stringify(clean)});
+      console.log('saveQueueAssignments: ok, saved',Object.keys(clean).length,'queues');
     }
-  } catch(e){ console.error('saveQueueAssignments',e); }
+  } catch(e){ console.error('saveQueueAssignments failed:',e.message); showToast('Specialty assignment save failed — check console','err'); }
 }
 
 async function saveMeetings(){
@@ -8084,20 +8085,25 @@ async function loadStaff(){
 
 async function loadTemplate(){
   const items=await listGetAll(LISTS.template);
+  if(!items.length) return; // keep empty tmpl — don't overwrite if SP empty
   tmpl={};
   for(const item of items){
     const f=item.fields;
-    const facId=f.FacId, dayIdx=f.DayIdx;
-    if(!facId) continue;
+    const facId=f.FacId;
+    const dayIdx=parseInt(f.DayIdx); // normalize to integer
+    if(!facId||isNaN(dayIdx)) continue;
     if(!tmpl[facId]) tmpl[facId]={};
     let entries=[];
-    try{ entries=JSON.parse(f.StaffEntries||'[]'); }catch(e){}
+    try{ entries=JSON.parse(f.StaffEntries||'[]'); }catch(e){
+      console.warn('loadTemplate: bad StaffEntries JSON for',facId,dayIdx);
+    }
     tmpl[facId][dayIdx]={
       staffIds:    entries.map(e=>e.staffId),
       staffEntries:entries,
       minCount:    f.MinCount||0,
     };
   }
+  console.log('loadTemplate: loaded',items.length,'rows, facilities:',Object.keys(tmpl));
 }
 
 async function loadScheduleForWeek(){
