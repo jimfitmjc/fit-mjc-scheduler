@@ -9123,43 +9123,7 @@ function renderViewerCompany(panel){
   }
 }
 
-  const hdr=document.createElement('div');
-  hdr.className='vg-header';
-  hdr.innerHTML=`
-    <div class="vg-title">All Clinics</div>
-    <div class="vg-meta"><span style="font-size:11px;color:var(--text-3);">Week of ${currentMonday.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</span></div>`;
-  panel.appendChild(hdr);
-
-  // Specialty strip for today
-  if(activeQueues().length>0){
-    const wd=new Date().getDay()-1;
-    const todayIdx=wd>=0&&wd<=4?wd:0;
-    const strip=document.createElement('div');
-    strip.style.cssText='padding:6px 14px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--surface2);flex-shrink:0;';
-    strip.innerHTML=`<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);flex-shrink:0;">🔬 Specialty Today:</span>`;
-    activeQueues().forEach(q=>{
-      const ids=getQueueAssignment(q.id,todayIdx);
-      const names=ids.map(sid=>staffById(sid)?.name.split(' ')[0]).filter(Boolean);
-      const conflict=getSpecialtyConflicts(todayIdx).some(c=>c.queue.id===q.id);
-      const pill=document.createElement('span');
-      pill.style.cssText=`display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:999px;font-size:10px;font-weight:700;border:1.5px solid;background:${conflict?'var(--brand-lt)':names.length?q.color+'18':'var(--gap-bg)'};color:${conflict?'var(--brand)':names.length?q.color:'var(--gap-tx)'};border-color:${conflict?'var(--brand)':names.length?q.color+'55':'var(--gap-bd)'};`;
-      pill.innerHTML=`<span style="width:6px;height:6px;border-radius:50%;background:${conflict?'var(--brand)':names.length?q.color:'var(--gap-bd)'}"></span>${q.name}: <strong>${conflict?'⚠ Conflict':names.length?names.join(', '):'Unassigned'}</strong>`;
-      strip.appendChild(pill);
-    });
-    panel.appendChild(strip);
-  }
-
-
 // Legacy stubs — no longer used
-function renderViewerContextStrip(){ 
-  const strip=document.getElementById('viewer-context-strip');
-  if(strip) strip.style.display='none';
-}
-function renderPCCDayCards(panel,me){}
-function buildViewerDayCard(s,dayIdx){}
-function buildViewerWeekGrid(opts){}
-
-// ── Apply read-only or editor mode to the UI ──────────────────────
 function applyAccessMode(){
   if(isEditor){
     document.body.classList.remove('view-only','viewer-company-clean');
