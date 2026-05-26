@@ -6826,6 +6826,8 @@ document.getElementById('preview-viewer-btn').addEventListener('click',()=>{
     if(aside) aside.style.display='';
     document.getElementById('pto-wrap').style.display='';
     document.getElementById('bench-wrap').style.display='';
+    const specBench=document.getElementById('specialty-bench');
+    if(specBench) specBench.style.display='';
     // Reset mobile viewer tabs too
     const mvt=document.getElementById('mob-viewer-tabs');
     if(mvt){ mvt.style.display='none'; delete mvt.dataset.initialized; }
@@ -8166,11 +8168,6 @@ async function loadTemplate(){
     };
   }
   console.log('loadTemplate: loaded',items.length,'rows');
-  // Debug — show Summer's facilities
-  const f3=Object.keys(tmpl['f3']||{}).map(d=>`day${d}:${tmpl['f3'][d]?.staffIds?.join(',')}`);
-  const f11=Object.keys(tmpl['f11']||{}).map(d=>`day${d}:${tmpl['f11'][d]?.staffIds?.join(',')}`);
-  console.log('f3 (KCK):', f3.join(' | '));
-  console.log('f11 (Shawnee):', f11.join(' | '));
 }
 
 async function loadScheduleForWeek(){
@@ -8447,36 +8444,26 @@ function applyViewerView(){
   const summaryPanel=document.getElementById('summary-panel');
   const podStrip=document.getElementById('pod-summary-strip');
 
-  // Company view uses the editor grid (simplified) — all others use the panel
-  if(viewerView==='company'){
-    panel.style.display='none';
-    gridScroll.style.display='';
-    document.body.classList.add('viewer-company-clean');
-    if(aside) aside.style.display='none';
-    if(statsBar) statsBar.style.display='none';
-    if(summaryPanel) summaryPanel.style.display='none';
-    if(podStrip) podStrip.style.display='none';
-    document.getElementById('pto-wrap').style.display='none';
-    document.getElementById('bench-wrap').style.display='none';
-    document.getElementById('specialty-bench').style.display='none';
-    renderViewerContextStrip();
-    return;
-  }
-
-  // Card/grid views — show panel, hide grid
+  // All viewer tabs use the panel — hide the editor grid
   panel.style.display='flex';
   panel.style.flexDirection='column';
   panel.style.flex='1';
   panel.style.overflow='auto';
   gridScroll.style.display='none';
+  document.body.classList.remove('viewer-company-clean');
   if(aside) aside.style.display='none';
   if(statsBar) statsBar.style.display='none';
   if(summaryPanel) summaryPanel.style.display='none';
   if(podStrip) podStrip.style.display='none';
+  document.getElementById('pto-wrap').style.display='none';
+  document.getElementById('bench-wrap').style.display='none';
+  const sb=document.getElementById('specialty-bench');
+  if(sb) sb.style.display='none';
 
   renderViewerContextStrip();
 
   if(viewerView==='mine') renderViewerMySchedule(panel);
+  else if(viewerView==='company') renderViewerCompany(panel);
   else if(viewerView==='facility') renderViewerFacility(panel, viewerSubId);
   else if(viewerView==='pcc') renderViewerPCC(panel, viewerSubId);
 }
