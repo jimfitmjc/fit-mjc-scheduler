@@ -8946,6 +8946,183 @@ function renderViewerPCC(panel, staffId){
 function renderViewerCompany(panel){
   panel.innerHTML='';
 
+  // Header
+  const hdr=document.createElement('div');
+  hdr.className='vg-header';
+  hdr.innerHTML=`
+    <div class="vg-title">F.I.T. Muscle &amp; Joint Clinic — All Clinics</div>
+    <div class="vg-meta"><span style="font-size:11px;color:var(--text-3);">${currentMonday.toLocaleDateString('en-US',{month:'long',day:'numeric'})} – ${addDays(currentMonday,4).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</span></div>`;
+  panel.appendChild(hdr);
+
+  // Specialty strip
+  if(activeQueues().length>0){
+    const wd=new Date().getDay()-1;
+    const todayIdx=wd>=0&&wd<=4?wd:0;
+    const strip=document.createElement('div');
+    strip.style.cssText='padding:6px 14px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--surface2);flex-shrink:0;';
+    strip.innerHTML=`<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);flex-shrink:0;">🔬 Specialty Today:</span>`;
+    activeQueues().forEach(q=>{
+      const ids=getQueueAssignment(q.id,todayIdx);
+      const names=ids.map(sid=>staffById(sid)?.name.split(' ')[0]).filter(Boolean);
+      const conflict=getSpecialtyConflicts(todayIdx).some(c=>c.queue.id===q.id);
+      const pill=document.createElement('span');
+      pill.style.cssText=`display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:999px;font-size:10px;font-weight:700;border:1.5px solid;background:${conflict?'var(--brand-lt)':names.length?q.color+'18':'var(--gap-bg)'};color:${conflict?'var(--brand)':names.length?q.color:'var(--gap-tx)'};border-color:${conflict?'var(--brand)':names.length?q.color+'55':'var(--gap-bd)'};`;
+      pill.innerHTML=`<span style="width:6px;height:6px;border-radius:50%;background:${conflict?'var(--brand)':names.length?q.color:'var(--gap-bd)'}"></span>${q.name}: <strong>${conflict?'⚠ Conflict':names.length?names.join(', '):'Unassigned'}</strong>`;
+      strip.appendChild(pill);
+    });
+    panel.appendChild(strip);
+  }
+
+  // Scrollable table wrapper
+  const wrap=document.createElement('div');
+  wrap.style.cssText='flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:0;';
+  panel.appendChild(wrap);
+
+  const todayIdx=new Date().getDay()-1; // 0=Mon..4=Fri, -1 if weekend
+
+  const table=document.createElement('table');
+  table.style.cssText='width:100%;border-collapse:collapse;table-layout:fixed;min-width:560px;font-family:inherit;font-size:11px;';
+  wrap.appendChild(table);
+
+  // Column widths — today wider
+  const colgroup=document.createElement('colgroup');
+  const labelCol=document.createElement('col');
+  labelCol.style.width='130px';
+  colgroup.appendChild(labelCol);
+  for(let i=0;i<5;i++){
+    const col=document.createElement('col');
+    col.style.width=i===todayIdx?'1.6fr':'1fr';
+    colgroup.appendChild(col);
+  }
+  table.appendChild(colgroup);
+
+  // Header row
+  const thead=document.createElement('thead');
+  const headRow=document.createElement('tr');
+  const cornerTh=document.createElement('th');
+  cornerTh.textContent='Facility';
+  cornerTh.style.cssText='padding:8px 10px;font-size:11px;font-weight:700;background:var(--surface2);border:1px solid var(--border);text-align:left;border-bottom:2px solid var(--border);position:sticky;top:0;z-index:10;';
+  headRow.appendChild(cornerTh);
+  for(let i=0;i<5;i++){
+    const d=addDays(currentMonday,i);
+    const isToday=i===todayIdx;
+    const th=document.createElement('th');
+    th.style.cssText=`padding:6px 10px;text-align:center;background:${isToday?'var(--surface)':'var(--surface2)'};border:1px solid var(--border);border-bottom:${isToday?'3px solid var(--brand)':'2px solid var(--border)'};position:sticky;top:0;z-index:10;`;
+    th.innerHTML=`<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:${isToday?'var(--brand)':'var(--text-2)'};">${DAYS[i]}</div><div style="font-size:20px;font-weight:900;line-height:1.1;color:${isToday?'var(--brand)':'var(--text)'};">${d.getDate()}</div>`;
+    headRow.appendChild(th);
+  }
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody=document.createElement('tbody');
+  table.appendChild(tbody);
+
+  // Build cell content helper
+  function buildCompanyCell(facId, dayIdx){
+    const isToday=dayIdx===todayIdx;
+    const td=document.createElement('td');
+    td.style.cssText=`padding:6px 8px;vertical-align:top;border:1px solid var(--border);background:${isToday?'#fffafa':'var(--surface)'};min-height:48px;`;
+
+    const oh=effectiveHours(facId,dayIdx,'live');
+    if(!oh){
+      td.innerHTML='<span style="font-size:10px;color:var(--text-3);font-style:italic;">Closed</span>';
+      td.style.background='#f8f8f8';
+      return td;
+    }
+    const present=getLiveCell(facId,dayIdx).filter(e=>!isOnPTO(e.staffId,dayIdx));
+    if(!present.length){
+      td.innerHTML='<span style="font-size:10px;font-weight:700;color:var(--brand);">⚠ No coverage</span>';
+      td.style.background=isToday?'#fff8f8':'var(--gap-bg)';
+      return td;
+    }
+    present.sort((a,b)=>toMins(a.start)-toMins(b.start)).forEach(entry=>{
+      const s=staffById(entry.staffId);if(!s)return;
+      const entryDiv=document.createElement('div');
+      entryDiv.style.cssText='margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border);';
+      const nameDiv=document.createElement('div');
+      nameDiv.style.cssText='font-size:11px;font-weight:700;margin-bottom:1px;';
+      nameDiv.textContent=s.name;
+      const timeDiv=document.createElement('div');
+      timeDiv.style.cssText='font-family:"Fira Code",monospace;font-size:10px;color:var(--text-2);';
+      timeDiv.textContent=fmtRange(entry.start,entry.end);
+      entryDiv.appendChild(nameDiv);
+      entryDiv.appendChild(timeDiv);
+      // Specialty badges
+      getStaffQueueAssignments(s.id,dayIdx).forEach(q=>{
+        const sp=document.createElement('div');
+        sp.style.cssText=`font-size:10px;font-weight:700;color:${q.color};margin-top:1px;`;
+        sp.textContent='🔬 '+q.name;
+        entryDiv.appendChild(sp);
+      });
+      // Meetings
+      getMeetingsForDay(dayIdx).forEach(mtg=>{
+        if(!mtg.staffIds.includes(s.id)) return;
+        const m=document.createElement('div');
+        m.style.cssText='font-size:10px;color:#1a1a2e;margin-top:1px;';
+        m.textContent='📅 '+fmtTime(mtg.startTime)+' '+mtg.name;
+        entryDiv.appendChild(m);
+      });
+      // Remove border from last entry
+      entryDiv.style.borderBottom='1px solid var(--border)';
+      td.appendChild(entryDiv);
+    });
+    // Remove bottom border on last entry
+    if(td.lastChild) td.lastChild.style.borderBottom='none';
+    return td;
+  }
+
+  // Pod sections
+  Object.entries(PODS).forEach(([podId,pod])=>{
+    if(!pod.facIds?.length) return;
+
+    // Pod header row
+    const podRow=document.createElement('tr');
+    const podTd=document.createElement('td');
+    podTd.colSpan=6;
+    podTd.style.cssText=`background:${pod.color};color:#fff;font-size:11px;font-weight:800;padding:5px 12px;letter-spacing:.04em;`;
+    podTd.textContent=pod.name;
+    podRow.appendChild(podTd);
+    tbody.appendChild(podRow);
+
+    pod.facIds.forEach(facId=>{
+      const fac=facById(facId);if(!fac)return;
+      const row=document.createElement('tr');
+
+      const labelTd=document.createElement('td');
+      labelTd.style.cssText='padding:6px 10px;font-size:12px;font-weight:700;background:var(--surface2);border:1px solid var(--border);vertical-align:top;';
+      labelTd.textContent=fac.name;
+      row.appendChild(labelTd);
+
+      for(let i=0;i<5;i++){
+        row.appendChild(buildCompanyCell(facId,i));
+      }
+      tbody.appendChild(row);
+    });
+  });
+
+  // Standalone facilities
+  const standaloneFacs=FACILITIES.filter(f=>!Object.values(PODS).some(p=>p.facIds?.includes(f.id)));
+  if(standaloneFacs.length){
+    const podRow=document.createElement('tr');
+    const podTd=document.createElement('td');
+    podTd.colSpan=6;
+    podTd.style.cssText='background:#555;color:#fff;font-size:11px;font-weight:800;padding:5px 12px;';
+    podTd.textContent='Standalone';
+    podRow.appendChild(podTd);
+    tbody.appendChild(podRow);
+
+    standaloneFacs.forEach(fac=>{
+      const row=document.createElement('tr');
+      const labelTd=document.createElement('td');
+      labelTd.style.cssText='padding:6px 10px;font-size:12px;font-weight:700;background:var(--surface2);border:1px solid var(--border);vertical-align:top;';
+      labelTd.textContent=fac.name;
+      row.appendChild(labelTd);
+      for(let i=0;i<5;i++) row.appendChild(buildCompanyCell(fac.id,i));
+      tbody.appendChild(row);
+    });
+  }
+}
+
   const hdr=document.createElement('div');
   hdr.className='vg-header';
   hdr.innerHTML=`
@@ -8972,103 +9149,6 @@ function renderViewerCompany(panel){
     panel.appendChild(strip);
   }
 
-  const wrap=document.createElement('div');
-  wrap.className='vg-wrap';
-  panel.appendChild(wrap);
-
-  // One grid for all facilities — grouped by pod
-  const grid=document.createElement('div');
-  grid.className='vg-grid cols-5';
-  setVGColumns(grid,130);
-  wrap.appendChild(grid);
-
-  // Header row
-  grid.appendChild(buildVGHeader('Facility'));
-
-  // Pod groups
-  Object.entries(PODS).forEach(([podId,pod])=>{
-    if(!pod.facIds?.length) return;
-
-    // Pod section header
-    const secHead=document.createElement('div');
-    secHead.className='vg-section-head';
-    secHead.style.background=pod.color;
-    secHead.textContent=pod.name;
-    grid.appendChild(secHead);
-
-    pod.facIds.forEach(facId=>{
-      const fac=facById(facId);if(!fac)return;
-
-      const lbl=document.createElement('div');
-      lbl.className='vg-row-label';
-      lbl.textContent=fac.name;
-      grid.appendChild(lbl);
-
-      for(let i=0;i<5;i++){
-        const oh=effectiveHours(facId,i,'live');
-        const cell=buildVGCell(i,null,{closed:!oh});
-
-        if(!oh){
-          const cl=document.createElement('span'); cl.className='vg-empty'; cl.textContent='Closed'; cell.appendChild(cl);
-        } else {
-          const present=getLiveCell(facId,i).filter(e=>!isOnPTO(e.staffId,i));
-          if(present.length===0){
-            const gap=document.createElement('span'); gap.className='vg-gap'; gap.textContent='⚠ No coverage'; cell.appendChild(gap);
-          } else {
-            present.sort((a,b)=>toMins(a.start)-toMins(b.start)).forEach(entry=>{
-              const s=staffById(entry.staffId);if(!s)return;
-              const entry_el=document.createElement('div');
-              entry_el.className='vg-pcc-entry';
-              const nameEl=document.createElement('div'); nameEl.className='vg-pcc-name'; nameEl.textContent=s.name;
-              const timeEl=document.createElement('span'); timeEl.className='vg-time'; timeEl.style.fontSize='10px'; timeEl.textContent=fmtRange(entry.start,entry.end);
-              entry_el.appendChild(nameEl);
-              entry_el.appendChild(timeEl);
-              // Specialty badges
-              getStaffQueueAssignments(s.id,i).forEach(q=>{
-                const sp=document.createElement('span'); sp.className='vg-specialty'; sp.style.color=q.color; sp.textContent='🔬 '+q.name; entry_el.appendChild(sp);
-              });
-              // Meetings
-              getMeetingsForDay(i).forEach(mtg=>{
-                if(!mtg.staffIds.includes(s.id)) return;
-                const m=document.createElement('span'); m.className='vg-meeting'; m.textContent='📅 '+fmtTime(mtg.startTime)+' '+mtg.name; entry_el.appendChild(m);
-              });
-              cell.appendChild(entry_el);
-            });
-          }
-        }
-        grid.appendChild(cell);
-      }
-    });
-  });
-
-  // Standalone facilities (no pod)
-  const standaloneFacs=FACILITIES.filter(f=>!f.podId);
-  if(standaloneFacs.length){
-    const secHead=document.createElement('div');
-    secHead.className='vg-section-head';
-    secHead.style.background='#555';
-    secHead.textContent='Other Locations';
-    grid.appendChild(secHead);
-    standaloneFacs.forEach(fac=>{
-      const lbl=document.createElement('div'); lbl.className='vg-row-label'; lbl.textContent=fac.name; grid.appendChild(lbl);
-      for(let i=0;i<5;i++){
-        const oh=effectiveHours(fac.id,i,'live');
-        const cell=buildVGCell(i,null,{closed:!oh});
-        if(!oh){ const cl=document.createElement('span'); cl.className='vg-empty'; cl.textContent='Closed'; cell.appendChild(cl); }
-        else {
-          const present=getLiveCell(fac.id,i).filter(e=>!isOnPTO(e.staffId,i));
-          if(!present.length){ const g=document.createElement('span'); g.className='vg-gap'; g.textContent='⚠ No coverage'; cell.appendChild(g); }
-          else present.sort((a,b)=>toMins(a.start)-toMins(b.start)).forEach(entry=>{
-            const s=staffById(entry.staffId);if(!s)return;
-            const n=document.createElement('div'); n.className='vg-pcc-name'; n.textContent=s.name; cell.appendChild(n);
-            const t=document.createElement('span'); t.className='vg-time'; t.style.fontSize='10px'; t.textContent=fmtRange(entry.start,entry.end); cell.appendChild(t);
-          });
-        }
-        grid.appendChild(cell);
-      }
-    });
-  }
-}
 
 // Legacy stubs — no longer used
 function renderViewerContextStrip(){ 
