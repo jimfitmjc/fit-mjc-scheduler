@@ -1035,7 +1035,142 @@ body.schedule-locked .ack-btn { display:none !important; }
   background: var(--brand); color: #fff; border-color: var(--brand);
 }
 
-/* ── SPECIALTY BENCH ── */
+/* ── LEADERSHIP DASHBOARD ── */
+.dash-overlay{
+  position:fixed;inset:0;background:#f0f2f5;z-index:8000;
+  display:none;flex-direction:column;overflow:hidden;
+}
+.dash-overlay.open{display:flex;}
+.dash-topbar{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 20px;background:#fff;
+  border-bottom:2px solid #cc0000;flex-shrink:0;
+  box-shadow:0 2px 8px rgba(0,0,0,.08);
+}
+.dash-topbar-title{font-size:16px;font-weight:800;flex:1;}
+.dash-topbar-sub{font-size:11px;color:var(--text-3);}
+.dash-tabs{
+  display:flex;gap:2px;padding:0 20px;
+  background:#fff;border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.dash-tab{
+  padding:10px 18px;font-size:12px;font-weight:700;
+  border:none;background:none;cursor:pointer;
+  color:var(--text-3);border-bottom:3px solid transparent;
+  font-family:inherit;transition:all .15s;
+}
+.dash-tab:hover{color:var(--text);}
+.dash-tab.active{color:var(--brand);border-bottom-color:var(--brand);}
+.dash-body{
+  flex:1;overflow-y:auto;padding:20px;
+  display:flex;flex-direction:column;gap:16px;
+}
+.dash-section{
+  background:#fff;border-radius:var(--r);
+  border:1px solid var(--border);overflow:hidden;
+}
+.dash-section-hdr{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 16px;background:var(--surface2);
+  border-bottom:1px solid var(--border);
+  font-size:12px;font-weight:800;
+}
+.dash-section-body{padding:14px 16px;}
+.dash-grid{
+  display:grid;
+  grid-template-columns:140px repeat(5,1fr);
+  border:1px solid var(--border);border-radius:var(--r-sm);
+  overflow:hidden;
+}
+.dash-grid-head{
+  padding:6px 8px;font-size:10px;font-weight:700;
+  text-align:center;background:var(--surface2);
+  border-right:1px solid var(--border);
+  border-bottom:1px solid var(--border);
+  color:var(--text-2);
+}
+.dash-grid-head:first-child{text-align:left;}
+.dash-grid-head.today{background:var(--brand-lt);color:var(--brand);}
+.dash-grid-label{
+  padding:7px 10px;font-size:11px;font-weight:700;
+  background:var(--surface2);border-right:2px solid var(--border);
+  border-bottom:1px solid var(--border);
+}
+.dash-grid-label.pod-label{
+  color:#fff;font-size:10px;font-weight:800;
+  letter-spacing:.04em;
+}
+.dash-grid-cell{
+  padding:5px 8px;border-right:1px solid var(--border);
+  border-bottom:1px solid var(--border);
+  text-align:center;font-size:12px;
+}
+.dash-cell-ok{color:var(--ok-tx);}
+.dash-cell-gap{color:var(--brand);font-size:10px;font-weight:700;}
+.dash-cell-none{color:var(--text-3);font-style:italic;font-size:10px;}
+.dash-cell-closed{color:#ccc;font-size:10px;}
+/* Watch alerts */
+.dash-alerts{display:flex;flex-direction:column;gap:6px;}
+.dash-alert{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:8px 12px;border-radius:var(--r-sm);
+  font-size:12px;border-left:3px solid;
+}
+.dash-alert.warn{background:var(--gap-bg);border-color:var(--brand);color:var(--gap-tx);}
+.dash-alert.info{background:var(--warn-bg);border-color:var(--warn-bd);color:#92400e;}
+.dash-alert.ok{background:var(--ok-bg);border-color:var(--ok-bd);color:var(--ok-tx);}
+.dash-alert-icon{font-size:14px;flex-shrink:0;margin-top:1px;}
+/* Stat cards */
+.dash-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px;}
+.dash-stat{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--r-sm);padding:12px 14px;text-align:center;
+}
+.dash-stat-val{font-size:22px;font-weight:900;line-height:1;}
+.dash-stat-lbl{font-size:10px;color:var(--text-3);margin-top:3px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;}
+.dash-stat.ok .dash-stat-val{color:var(--ok-tx);}
+.dash-stat.warn .dash-stat-val{color:var(--brand);}
+.dash-stat.info .dash-stat-val{color:#0284c7;}
+/* Float distribution */
+.dash-float-row{
+  display:flex;align-items:center;gap:10px;
+  padding:7px 0;border-bottom:1px solid var(--border);
+  font-size:12px;
+}
+.dash-float-row:last-child{border-bottom:none;}
+.dash-float-name{font-weight:700;min-width:130px;}
+.dash-float-fac{flex:1;color:var(--text-2);}
+.dash-float-hrs{font-family:'Fira Code',monospace;font-size:11px;min-width:40px;text-align:right;}
+.dash-float-bar{height:6px;border-radius:3px;background:var(--border);flex-shrink:0;width:80px;overflow:hidden;}
+.dash-float-bar-fill{height:100%;border-radius:3px;background:var(--ok-bd);}
+/* Notes */
+.dash-notes-ta{
+  width:100%;min-height:80px;resize:vertical;
+  font-family:inherit;font-size:12px;padding:8px 10px;
+  border:1px solid var(--border2);border-radius:var(--r-sm);
+  background:var(--surface);line-height:1.5;
+}
+/* PCC hours table */
+.dash-pcc-table{width:100%;border-collapse:collapse;font-size:11px;}
+.dash-pcc-table th{padding:6px 8px;text-align:left;font-size:10px;font-weight:700;color:var(--text-3);border-bottom:2px solid var(--border);text-transform:uppercase;letter-spacing:.06em;}
+.dash-pcc-table td{padding:6px 8px;border-bottom:1px solid var(--border);}
+.dash-pcc-table tr:last-child td{border-bottom:none;}
+.dash-pcc-var.over{color:var(--brand);}
+.dash-pcc-var.under{color:var(--warn-bd);}
+.dash-pcc-bar{height:4px;border-radius:2px;background:var(--border);overflow:hidden;margin-top:3px;min-width:60px;}
+.dash-pcc-bar-fill{height:100%;border-radius:2px;}
+/* Capacity pod cards */
+.dash-pod-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;}
+.dash-pod-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden;}
+.dash-pod-card-hdr{padding:8px 12px;color:#fff;font-size:11px;font-weight:800;}
+.dash-pod-card-body{padding:10px 12px;font-size:11px;}
+.dash-pod-row{display:flex;justify-content:space-between;margin-bottom:4px;}
+/* Week nav */
+.dash-week-nav{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.dash-week-nav button{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:4px 10px;cursor:pointer;font-family:inherit;font-size:12px;}
+.dash-week-nav button:hover{background:var(--surface);}
+.dash-week-label{font-size:13px;font-weight:700;}
 .specialty-bench {
   border-top: 1px solid var(--border); background: var(--surface);
   flex-shrink: 0;
@@ -1576,6 +1711,7 @@ body.focus-mode .fac-label:has(.fstat.ok) {
   <button class="tbtn" id="closures-btn">🗓 Holidays &amp; Closures</button>
   <button class="tbtn" id="meetings-btn">📅 Meetings</button>
   <button class="tbtn" id="specialty-btn">🔬 Specialty</button>
+  <button class="tbtn" id="dashboard-btn">📊 Dashboard</button>
   <button class="tbtn" id="clear-acks-btn" title="Clear all acknowledged gaps for this week" style="display:none;">↺ Clear Acks</button>
   <button class="tbtn" id="focus-mode-btn" title="Hide fully covered cells to focus on gaps">🎯 Focus Gaps</button>
   <button class="tbtn" id="preview-viewer-btn" title="Preview the viewer experience">👁 Preview Viewer</button>
@@ -2113,6 +2249,24 @@ body.focus-mode .fac-label:has(.fstat.ok) {
       <button class="mbtn save" id="sq-save-btn">Save Queues</button>
     </div>
   </div>
+</div>
+
+<!-- Leadership Dashboard -->
+<div class="dash-overlay" id="dashboard-overlay">
+  <div class="dash-topbar">
+    <div>
+      <div class="dash-topbar-title">📊 Leadership Dashboard</div>
+      <div class="dash-topbar-sub" id="dash-topbar-sub">F.I.T. Muscle &amp; Joint Clinic</div>
+    </div>
+    <button class="mbtn save" id="dash-print-btn" style="margin-left:auto;">🖨 Print</button>
+    <button class="mbtn cancel" id="dash-close-btn">✕ Close</button>
+  </div>
+  <div class="dash-tabs">
+    <button class="dash-tab active" data-dash="week">📅 This Week</button>
+    <button class="dash-tab" data-dash="summary">📋 Weekly Summary</button>
+    <button class="dash-tab" data-dash="capacity">📈 Capacity Planner</button>
+  </div>
+  <div class="dash-body" id="dash-body"></div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -9111,6 +9265,414 @@ function renderViewerCompany(panel){
 }
 
 // Legacy stubs — no longer used
+// ═══════════════════════════════════════════════════════════════
+// LEADERSHIP DASHBOARD
+// ═══════════════════════════════════════════════════════════════
+
+let dashTab='week';
+let dashSummaryWeek=null;
+let dashSummaryData={};
+
+async function saveDashNote(wk,note){
+  if(!spReady||!isEditor) return;
+  try{
+    const key='dashnote_'+wk;
+    const existing=await listGetAll(LISTS.holidays,i=>i.fields.WeekKey===key);
+    for(const item of existing) await listDelete(LISTS.holidays,item.id);
+    if(note.trim()) await listCreate(LISTS.holidays,{Title:key,WeekKey:key,HolidayData:note});
+  }catch(e){console.warn('saveDashNote',e);}
+}
+async function loadDashNote(wk){
+  try{
+    const key='dashnote_'+wk;
+    const items=await listGetAll(LISTS.holidays,i=>i.fields.WeekKey===key);
+    return items[0]?.fields?.HolidayData||'';
+  }catch(e){return '';}
+}
+async function saveCapacityNote(note){
+  if(!spReady||!isEditor) return;
+  try{
+    const existing=await listGetAll(LISTS.holidays,i=>i.fields.WeekKey==='capacitynote');
+    for(const item of existing) await listDelete(LISTS.holidays,item.id);
+    if(note.trim()) await listCreate(LISTS.holidays,{Title:'capacitynote',WeekKey:'capacitynote',HolidayData:note});
+  }catch(e){console.warn('saveCapacityNote',e);}
+}
+async function loadCapacityNote(){
+  try{
+    const items=await listGetAll(LISTS.holidays,i=>i.fields.WeekKey==='capacitynote');
+    return items[0]?.fields?.HolidayData||'';
+  }catch(e){return '';}
+}
+
+function openDashboard(){
+  dashSummaryWeek=weekKey(currentMonday);
+  document.getElementById('dashboard-overlay').classList.add('open');
+  document.getElementById('dash-topbar-sub').textContent=
+    `F.I.T. Muscle & Joint Clinic · Week of ${currentMonday.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}`;
+  renderDashTab();
+}
+document.getElementById('dash-close-btn').addEventListener('click',()=>document.getElementById('dashboard-overlay').classList.remove('open'));
+document.getElementById('dashboard-btn').addEventListener('click',openDashboard);
+document.querySelectorAll('.dash-tab').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.dash-tab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    dashTab=btn.dataset.dash;
+    renderDashTab();
+  });
+});
+
+function renderDashTab(){
+  const body=document.getElementById('dash-body');
+  body.innerHTML='<div style="padding:40px;text-align:center;color:var(--text-3);">Loading…</div>';
+  if(dashTab==='week') renderDashWeek(body);
+  else if(dashTab==='summary') renderDashSummary(body);
+  else if(dashTab==='capacity') renderDashCapacity(body);
+}
+
+function dashCovStatus(facId,dayIdx,liveData){
+  const oh=effectiveHours(facId,dayIdx,'live');
+  if(!oh) return 'closed';
+  const entries=liveData?.[facId]?.[dayIdx]||[];
+  const present=entries.filter(e=>!isOnPTO(e.staffId,dayIdx));
+  if(!present.length) return 'none';
+  const gaps=getFacilityGapWindows(facId,dayIdx);
+  return gaps.length?'gap':'ok';
+}
+
+async function renderDashWeek(body){
+  body.innerHTML='';
+  const k=weekKey(currentMonday);
+  const todayDow=new Date().getDay()-1;
+
+  // Auto alerts
+  const alerts=[];
+  FACILITIES.forEach(fac=>{
+    for(let i=0;i<5;i++){
+      const oh=effectiveHours(fac.id,i,'live');if(!oh)return;
+      const present=getLiveCell(fac.id,i).filter(e=>!isOnPTO(e.staffId,i));
+      if(!present.length) alerts.push({type:'warn',icon:'⚠',msg:`${fac.name} has no coverage ${DAYS[i]}`});
+      else{
+        const gaps=getFacilityGapWindows(fac.id,i);
+        if(gaps.length) alerts.push({type:'info',icon:'⚠',msg:`${fac.name} ${DAYS[i]} gap ${gaps.map(g=>fmtRange(g.start,g.end)).join(', ')}`});
+      }
+    }
+  });
+  activeQueues().forEach(q=>{
+    for(let i=0;i<5;i++){
+      const gaps=getSpecialtyGaps(q.id,i);
+      if(gaps.length) alerts.push({type:'warn',icon:'🔬',msg:`${q.name} gap ${DAYS[i]} ${gaps.map(g=>fmtRange(g.start,g.end)).join(', ')}`});
+    }
+  });
+  const ptoSet=new Set();
+  for(let i=0;i<5;i++){
+    getPTO(i).forEach(sid=>{
+      const s=staffById(sid);if(!s)return;
+      const qs=activeQueues().filter(q=>getQueueAssignment(q.id,i).includes(sid));
+      qs.forEach(q=>{
+        const key2=`${sid}_${i}_${q.id}`;
+        if(!ptoSet.has(key2)){ptoSet.add(key2);alerts.push({type:'info',icon:'🏖',msg:`${s.name} out ${DAYS[i]} — ${q.name} needs coverage`});}
+      });
+    });
+  }
+  staff.forEach(s=>{
+    const hrs=coordWeekHours(s.id);
+    const ptoHrs=[0,1,2,3,4].reduce((sum,d)=>sum+(isOnPTO(s.id,d)?getPTOHours(s.id,d):0),0);
+    const variance=hrs+ptoHrs-getEffectiveTarget(s.id);
+    if(variance<-8) alerts.push({type:'info',icon:'⏱',msg:`${s.name} tracking ${Math.abs(variance).toFixed(1)}h under target`});
+    if(variance>4) alerts.push({type:'info',icon:'⏱',msg:`${s.name} tracking ${variance.toFixed(1)}h over target`});
+  });
+  if(!alerts.length) alerts.push({type:'ok',icon:'✓',msg:'No coverage concerns this week'});
+
+  // Alerts section
+  const alertSec=makeDashSection('⚠ Watch This Week',`${alerts.filter(a=>a.type!=='ok').length} item(s)`);
+  const alertBody=document.createElement('div');
+  alertBody.className='dash-section-body dash-alerts';
+  alerts.forEach(a=>{ const d=document.createElement('div'); d.className=`dash-alert ${a.type}`; d.innerHTML=`<span class="dash-alert-icon">${a.icon}</span><span>${a.msg}</span>`; alertBody.appendChild(d); });
+  alertSec.appendChild(alertBody);
+  body.appendChild(alertSec);
+
+  // Notes
+  const noteVal=await loadDashNote(k);
+  const noteSec=makeDashSection('📝 Editor Notes','visible to all editors');
+  const noteBody=document.createElement('div'); noteBody.className='dash-section-body';
+  const ta=document.createElement('textarea'); ta.className='dash-notes-ta';
+  ta.placeholder='Add notes for this week — clinic closures, special events, staffing considerations…';
+  ta.value=noteVal;
+  let nt=null; ta.addEventListener('input',()=>{clearTimeout(nt);nt=setTimeout(()=>saveDashNote(k,ta.value),1500);});
+  noteBody.appendChild(ta); noteSec.appendChild(noteBody); body.appendChild(noteSec);
+
+  // Clinic coverage grid
+  const covSec=makeDashSection('📍 Clinic Coverage','');
+  const covBody=document.createElement('div'); covBody.className='dash-section-body'; covBody.style.padding='0';
+  const covGrid=document.createElement('div'); covGrid.className='dash-grid';
+  ['Facility',...DAYS.map((d,i)=>d+' '+addDays(currentMonday,i).getDate())].forEach((h,i)=>{
+    const el=document.createElement('div'); el.className='dash-grid-head'+(i>0&&i-1===todayDow?' today':''); el.textContent=h; covGrid.appendChild(el);
+  });
+  Object.entries(PODS).forEach(([podId,pod])=>{
+    if(!pod.facIds?.length)return;
+    const podEl=document.createElement('div'); podEl.className='dash-grid-label pod-label';
+    podEl.style.cssText=`background:${pod.color};grid-column:1/-1;`; podEl.textContent=pod.name; covGrid.appendChild(podEl);
+    pod.facIds.forEach(facId=>{
+      const fac=facById(facId);if(!fac)return;
+      const lbl=document.createElement('div'); lbl.className='dash-grid-label'; lbl.textContent=fac.name; covGrid.appendChild(lbl);
+      for(let i=0;i<5;i++){
+        const status=dashCovStatus(facId,i,live[k]);
+        const cell=document.createElement('div'); cell.className='dash-grid-cell';
+        if(status==='ok') cell.innerHTML='<span class="dash-cell-ok">✓</span>';
+        else if(status==='none') cell.innerHTML='<span class="dash-cell-gap">✗</span>';
+        else if(status==='gap') cell.innerHTML=`<span class="dash-cell-gap">⚠ ${getFacilityGapWindows(facId,i).map(g=>fmtRange(g.start,g.end)).join('<br>')}</span>`;
+        else cell.innerHTML='<span class="dash-cell-closed">—</span>';
+        covGrid.appendChild(cell);
+      }
+    });
+  });
+  covBody.appendChild(covGrid); covSec.appendChild(covBody); body.appendChild(covSec);
+
+  // Float distribution
+  const floatSec=makeDashSection('🔄 Float Distribution','');
+  const floatBody=document.createElement('div'); floatBody.className='dash-section-body';
+  staff.filter(s=>s.type==='float'||s.type==='hybrid').forEach(s=>{
+    const row=document.createElement('div'); row.className='dash-float-row';
+    const hrs=coordWeekHours(s.id); const target=getEffectiveTarget(s.id);
+    const pct=Math.min(100,Math.round(hrs/target*100));
+    const varColor=hrs<target-4?'var(--warn-bd)':hrs>target+2?'var(--brand)':'var(--ok-bd)';
+    const placements=[];
+    for(let i=0;i<5;i++){
+      FACILITIES.forEach(fac=>{ if(getLiveCell(fac.id,i).some(e=>e.staffId===s.id)) placements.push(DAYS[i].slice(0,3)+' '+fac.name.split(' ')[0]); });
+      if(isOnPTO(s.id,i)) placements.push(DAYS[i].slice(0,3)+' PTO');
+    }
+    row.innerHTML=`<div class="dash-float-name">${s.name}</div><div class="dash-float-fac">${placements.length?placements.join(' · '):'<span style="color:var(--text-3);font-style:italic;">Unassigned</span>'}</div><div class="dash-float-hrs" style="color:${varColor};">${hrs.toFixed(1)}h</div><div class="dash-float-bar"><div class="dash-float-bar-fill" style="width:${pct}%;background:${varColor};"></div></div>`;
+    floatBody.appendChild(row);
+  });
+  floatSec.appendChild(floatBody); body.appendChild(floatSec);
+
+  // Specialty coverage grid
+  if(activeQueues().length){
+    const specSec=makeDashSection('🔬 Specialty Coverage','');
+    const specBody=document.createElement('div'); specBody.className='dash-section-body'; specBody.style.padding='0';
+    const specGrid=document.createElement('div'); specGrid.className='dash-grid';
+    ['Queue',...DAYS.map((d,i)=>d+' '+addDays(currentMonday,i).getDate())].forEach((h,i)=>{
+      const el=document.createElement('div'); el.className='dash-grid-head'+(i>0&&i-1===todayDow?' today':''); el.textContent=h; specGrid.appendChild(el);
+    });
+    activeQueues().forEach(q=>{
+      const lbl=document.createElement('div'); lbl.className='dash-grid-label';
+      lbl.innerHTML=`<span style="width:8px;height:8px;border-radius:50%;background:${q.color};display:inline-block;margin-right:6px;"></span>${q.name}`;
+      specGrid.appendChild(lbl);
+      for(let i=0;i<5;i++){
+        const assigned=getQueueAssignment(q.id,i);
+        const gaps=getSpecialtyGaps(q.id,i);
+        const cell=document.createElement('div'); cell.className='dash-grid-cell';
+        if(!assigned.length) cell.innerHTML='<span class="dash-cell-gap">✗</span>';
+        else if(gaps.length) cell.innerHTML=`<span class="dash-cell-gap" style="color:${q.color};">⚠ ${gaps.map(g=>fmtRange(g.start,g.end)).join('<br>')}</span>`;
+        else { const names=assigned.map(sid=>staffById(sid)?.name.split(' ')[0]).filter(Boolean); cell.innerHTML=`<span class="dash-cell-ok" style="color:${q.color};font-size:10px;">${names.join(', ')}</span>`; }
+        specGrid.appendChild(cell);
+      }
+    });
+    specBody.appendChild(specGrid); specSec.appendChild(specBody); body.appendChild(specSec);
+  }
+}
+
+async function renderDashSummary(body){
+  body.innerHTML='';
+  const navDiv=document.createElement('div'); navDiv.className='dash-week-nav';
+  const prevBtn=document.createElement('button'); prevBtn.textContent='◀ Prev Week';
+  const nextBtn=document.createElement('button'); nextBtn.textContent='Next Week ▶';
+  const weekLbl=document.createElement('div'); weekLbl.className='dash-week-label';
+  const summaryMon=mondayOf(new Date(dashSummaryWeek+'T12:00:00'));
+  weekLbl.textContent=`Week of ${summaryMon.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}`;
+  prevBtn.addEventListener('click',()=>{ const m=mondayOf(new Date(dashSummaryWeek+'T12:00:00')); m.setDate(m.getDate()-7); dashSummaryWeek=weekKey(m); renderDashSummary(body); });
+  nextBtn.addEventListener('click',()=>{ const m=mondayOf(new Date(dashSummaryWeek+'T12:00:00')); m.setDate(m.getDate()+7); dashSummaryWeek=weekKey(m); renderDashSummary(body); });
+  navDiv.appendChild(prevBtn); navDiv.appendChild(weekLbl); navDiv.appendChild(nextBtn); body.appendChild(navDiv);
+
+  const loading=document.createElement('div'); loading.style.cssText='padding:20px;text-align:center;color:var(--text-3);'; loading.textContent='Loading…'; body.appendChild(loading);
+
+  // Fetch data
+  let liveData={};
+  const isCurrent=dashSummaryWeek===weekKey(currentMonday);
+  if(isCurrent){ liveData=live[dashSummaryWeek]||{}; }
+  else if(dashSummaryData[dashSummaryWeek]){ liveData=dashSummaryData[dashSummaryWeek]; }
+  else {
+    try{
+      const items=await listGetAll(LISTS.schedule,i=>i.fields.WeekKey===dashSummaryWeek);
+      items.forEach(item=>{ const f=item.fields; if(!liveData[f.FacId])liveData[f.FacId]={}; try{liveData[f.FacId][parseInt(f.DayIdx)]=JSON.parse(f.Entries||'[]');}catch(e){} });
+      dashSummaryData[dashSummaryWeek]=liveData;
+    }catch(e){}
+  }
+  loading.remove();
+
+  // Stats
+  let totalCells=0,coveredCells=0,noneCells=0,totalHrs=0;
+  FACILITIES.forEach(fac=>{
+    for(let i=0;i<5;i++){
+      const oh=effectiveHours(fac.id,i,'live'); if(!oh)return;
+      totalCells++;
+      const entries=liveData?.[fac.id]?.[i]||[];
+      const present=entries.filter(e=>!isOnPTO(e.staffId,i));
+      if(!present.length){noneCells++;return;}
+      coveredCells++;
+      entries.forEach(e=>totalHrs+=shiftHours(e.start,e.end,e.lunch));
+    }
+  });
+  const covPct=totalCells?Math.round(coveredCells/totalCells*100):0;
+
+  const statsSec=makeDashSection('📊 Coverage Outcomes','');
+  const statsBody=document.createElement('div'); statsBody.className='dash-section-body';
+  statsBody.innerHTML=`<div class="dash-stats">
+    <div class="dash-stat ${covPct>=90?'ok':covPct>=75?'info':'warn'}"><div class="dash-stat-val">${covPct}%</div><div class="dash-stat-lbl">Coverage</div></div>
+    <div class="dash-stat"><div class="dash-stat-val">${coveredCells}</div><div class="dash-stat-lbl">Cells Covered</div></div>
+    <div class="dash-stat ${noneCells>0?'warn':'ok'}"><div class="dash-stat-val">${noneCells}</div><div class="dash-stat-lbl">Uncovered</div></div>
+    <div class="dash-stat info"><div class="dash-stat-val">${totalHrs.toFixed(0)}h</div><div class="dash-stat-lbl">Shift Hours</div></div>
+  </div>`;
+  statsSec.appendChild(statsBody); body.appendChild(statsSec);
+
+  // PCC Hours
+  const pccSec=makeDashSection('👤 PCC Hours Summary','');
+  const pccBody=document.createElement('div'); pccBody.className='dash-section-body'; pccBody.style.padding='0';
+  const pccTable=document.createElement('table'); pccTable.className='dash-pcc-table';
+  pccTable.innerHTML='<thead><tr><th>PCC</th><th>Type</th><th>Target</th><th>Scheduled</th><th>Variance</th></tr></thead>';
+  const tbody2=document.createElement('tbody');
+  staff.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(s=>{
+    let hrs=0;
+    if(isCurrent) hrs=coordWeekHours(s.id);
+    else FACILITIES.forEach(fac=>{ for(let i=0;i<5;i++){const e=(liveData?.[fac.id]?.[i]||[]).find(e=>e.staffId===s.id);if(e)hrs+=shiftHours(e.start,e.end,e.lunch);}});
+    const target=getEffectiveTarget(s.id); const variance=hrs-target;
+    const varClass=variance<-4?'under':variance>4?'over':'';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="font-weight:700;">${s.name}</td><td>${s.type==='float'?'🔄':s.type==='hybrid'?'🔀':'📌'}</td><td>${target}h</td><td>${hrs.toFixed(1)}h</td><td class="dash-pcc-var ${varClass}">${variance>=0?'+':''}${variance.toFixed(1)}h</td>`;
+    tbody2.appendChild(tr);
+  });
+  pccTable.appendChild(tbody2); pccBody.appendChild(pccTable); pccSec.appendChild(pccBody); body.appendChild(pccSec);
+}
+
+async function renderDashCapacity(body){
+  body.innerHTML='';
+  const totalTarget=staff.reduce((s,p)=>s+(p.target||40),0);
+  const staticCount=staff.filter(s=>s.type==='static').length;
+  const floatCount=staff.filter(s=>s.type==='float'||s.type==='hybrid').length;
+
+  const ovSec=makeDashSection('👥 Staffing Overview','');
+  const ovBody=document.createElement('div'); ovBody.className='dash-section-body';
+  ovBody.innerHTML=`<div class="dash-stats">
+    <div class="dash-stat info"><div class="dash-stat-val">${staff.length}</div><div class="dash-stat-lbl">Total PCCs</div></div>
+    <div class="dash-stat"><div class="dash-stat-val">${staticCount}</div><div class="dash-stat-lbl">Static</div></div>
+    <div class="dash-stat"><div class="dash-stat-val">${floatCount}</div><div class="dash-stat-lbl">Float/Hybrid</div></div>
+    <div class="dash-stat info"><div class="dash-stat-val">${totalTarget}h</div><div class="dash-stat-lbl">Target hrs/wk</div></div>
+  </div>`;
+  ovSec.appendChild(ovBody); body.appendChild(ovSec);
+
+  const podSec=makeDashSection('🏷 By Pod','');
+  const podBody=document.createElement('div'); podBody.className='dash-section-body';
+  const podGrid2=document.createElement('div'); podGrid2.className='dash-pod-grid';
+  Object.entries(PODS).forEach(([podId,pod])=>{
+    if(!pod.facIds?.length)return;
+    const podObj=podById(podId);
+    const podStaff=staff.filter(s=>s.podId===podId);
+    const podTarget=podStaff.reduce((sum,s)=>sum+(s.target||40),0);
+    const highVol=pod.facIds.filter(fid=>facById(fid)?.volume==='high').map(fid=>facById(fid)?.name.split(' ')[0]).join(', ')||'None';
+    const card=document.createElement('div'); card.className='dash-pod-card';
+    card.innerHTML=`<div class="dash-pod-card-hdr" style="background:${podObj?.color||'#666'};">${pod.name}</div>
+      <div class="dash-pod-card-body">
+        <div class="dash-pod-row"><span>Facilities</span><strong>${pod.facIds.length}</strong></div>
+        <div class="dash-pod-row"><span>Static PCCs</span><strong>${podStaff.filter(s=>s.type==='static').length}</strong></div>
+        <div class="dash-pod-row"><span>Float/Hybrid</span><strong>${podStaff.filter(s=>s.type!=='static').length}</strong></div>
+        <div class="dash-pod-row"><span>Target hrs/wk</span><strong>${podTarget}h</strong></div>
+        <div class="dash-pod-row"><span>High volume</span><strong>${highVol}</strong></div>
+      </div>`;
+    podGrid2.appendChild(card);
+  });
+  podBody.appendChild(podGrid2); podSec.appendChild(podBody); body.appendChild(podSec);
+
+  // Float ratio
+  const floatHrsTotal=staff.filter(s=>s.type==='float'||s.type==='hybrid').reduce((s,p)=>s+(p.target||40),0);
+  const totalOpen=FACILITIES.reduce((sum,fac)=>{ let h=0; for(let i=0;i<5;i++){const oh=fac.officeHours[i];if(oh)h+=(toMins(oh.close)-toMins(oh.open))/60;} return sum+h;},0);
+  const ratio=(floatHrsTotal/totalOpen*100).toFixed(0);
+  const ratioSec=makeDashSection('🔄 Float Coverage Capacity','');
+  const ratioBody=document.createElement('div'); ratioBody.className='dash-section-body';
+  ratioBody.innerHTML=`<div class="dash-stats">
+    <div class="dash-stat info"><div class="dash-stat-val">${floatHrsTotal}h</div><div class="dash-stat-lbl">Float hrs/wk</div></div>
+    <div class="dash-stat"><div class="dash-stat-val">${Math.round(totalOpen)}h</div><div class="dash-stat-lbl">Clinic open hrs</div></div>
+    <div class="dash-stat ${ratio>=15?'ok':'warn'}"><div class="dash-stat-val">${ratio}%</div><div class="dash-stat-lbl">Float ratio</div></div>
+  </div>
+  <p style="font-size:11px;color:var(--text-3);margin:8px 0 0;">Float ratio = float hours ÷ total clinic open hours. Higher ratio = more buffer for gap coverage.</p>`;
+  ratioSec.appendChild(ratioBody); body.appendChild(ratioSec);
+
+  // Trends stub
+  const trendSec=makeDashSection('📈 Historical Trends','coming soon');
+  const trendBody=document.createElement('div'); trendBody.className='dash-section-body';
+  trendBody.style.cssText='text-align:center;padding:20px;color:var(--text-3);';
+  trendBody.innerHTML='<div style="font-size:24px;margin-bottom:8px;">📈</div><div style="font-weight:700;margin-bottom:4px;">Coming Soon</div><div style="font-size:12px;">Historical trends will appear here after several weeks of data are saved.</div>';
+  trendSec.appendChild(trendBody); body.appendChild(trendSec);
+
+  // Staffing notes
+  const capNote=await loadCapacityNote();
+  const notesSec=makeDashSection('📝 Staffing Notes','leadership discussion points');
+  const notesBody=document.createElement('div'); notesBody.className='dash-section-body';
+  const ta2=document.createElement('textarea'); ta2.className='dash-notes-ta'; ta2.style.minHeight='120px';
+  ta2.placeholder='Staffing considerations, capacity concerns, hiring needs, float placement philosophy…';
+  ta2.value=capNote;
+  let cnt=null; ta2.addEventListener('input',()=>{clearTimeout(cnt);cnt=setTimeout(()=>saveCapacityNote(ta2.value),1500);});
+  notesBody.appendChild(ta2); notesSec.appendChild(notesBody); body.appendChild(notesSec);
+}
+
+function makeDashSection(title,sub){
+  const sec=document.createElement('div'); sec.className='dash-section';
+  const hdr=document.createElement('div'); hdr.className='dash-section-hdr';
+  hdr.innerHTML=`<span>${title}</span>${sub?`<span style="font-size:10px;font-weight:400;color:var(--text-3);margin-left:auto;">${sub}</span>`:''}`;
+  sec.appendChild(hdr); return sec;
+}
+
+document.getElementById('dash-print-btn').addEventListener('click',()=>{
+  const k=weekKey(currentMonday);
+  const style=`<style>*{box-sizing:border-box;-webkit-print-color-adjust:exact;}body{font-family:system-ui,sans-serif;margin:0;padding:16px;font-size:11px;}h1{font-size:15px;font-weight:800;margin:0 0 2px;}.sub{font-size:10px;color:#666;margin-bottom:12px;}.sec{margin-bottom:12px;border:1px solid #ddd;border-radius:4px;overflow:hidden;page-break-inside:avoid;}.sec-hdr{padding:6px 12px;background:#f5f5f5;font-weight:800;font-size:11px;border-bottom:1px solid #ddd;}.sec-body{padding:10px 12px;}.alert{padding:4px 8px;border-radius:3px;font-size:10px;border-left:3px solid;margin-bottom:4px;}.alert.warn{background:#fff0f0;border-color:#cc0000;}.alert.info{background:#fffbeb;border-color:#d97706;}.alert.ok{background:#f0fdf4;border-color:#16a34a;}table{width:100%;border-collapse:collapse;font-size:10px;}th,td{border:1px solid #ddd;padding:4px 6px;}th{background:#f5f5f5;font-size:9px;font-weight:700;}.pod-hdr{color:#fff;font-weight:800;font-size:10px;}.ok{color:#16a34a;font-weight:700;}.gap{color:#cc0000;font-weight:700;}.none{color:#cc0000;}.fr{display:flex;gap:8px;padding:3px 0;border-bottom:1px solid #eee;font-size:10px;}.fn{font-weight:700;min-width:120px;}</style>`;
+  let html=`<!DOCTYPE html><html><head><title>FIT Dashboard</title>${style}</head><body>`;
+  html+=`<h1>📊 F.I.T. Muscle & Joint Clinic — Leadership Dashboard</h1><div class="sub">Week of ${currentMonday.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})} · Printed ${new Date().toLocaleDateString()}</div>`;
+
+  // Alerts
+  const alerts2=[];
+  FACILITIES.forEach(fac=>{for(let i=0;i<5;i++){const oh=effectiveHours(fac.id,i,'live');if(!oh)return;const p=getLiveCell(fac.id,i).filter(e=>!isOnPTO(e.staffId,i));if(!p.length)alerts2.push({type:'warn',msg:`⚠ ${fac.name} no coverage ${DAYS[i]}`});else{const g=getFacilityGapWindows(fac.id,i);if(g.length)alerts2.push({type:'info',msg:`⚠ ${fac.name} ${DAYS[i]} gap ${g.map(g=>fmtRange(g.start,g.end)).join(', ')}`});}}});
+  activeQueues().forEach(q=>{for(let i=0;i<5;i++){const g=getSpecialtyGaps(q.id,i);if(g.length)alerts2.push({type:'warn',msg:`🔬 ${q.name} gap ${DAYS[i]}`});}});
+  if(!alerts2.length) alerts2.push({type:'ok',msg:'✓ No coverage concerns'});
+  html+=`<div class="sec"><div class="sec-hdr">⚠ Watch This Week</div><div class="sec-body">${alerts2.map(a=>`<div class="alert ${a.type}">${a.msg}</div>`).join('')}</div></div>`;
+
+  // Clinic grid
+  html+=`<div class="sec"><div class="sec-hdr">📍 Clinic Coverage</div><table><tr><th>Facility</th>${DAYS.map((d,i)=>`<th>${d} ${addDays(currentMonday,i).getDate()}</th>`).join('')}</tr>`;
+  Object.entries(PODS).forEach(([pid,pod])=>{
+    if(!pod.facIds?.length)return;
+    html+=`<tr><td colspan="6" class="pod-hdr" style="background:${pod.color}">${pod.name}</td></tr>`;
+    pod.facIds.forEach(fid=>{
+      const fac=facById(fid);if(!fac)return;
+      html+=`<tr><td style="font-weight:700">${fac.name}</td>`;
+      for(let i=0;i<5;i++){const s=dashCovStatus(fid,i,live[k]);html+=s==='ok'?'<td class="ok">✓</td>':s==='none'?'<td class="none">✗</td>':s==='gap'?'<td class="gap">⚠</td>':'<td style="color:#aaa">—</td>';}
+      html+=`</tr>`;
+    });
+  });
+  html+=`</table></div>`;
+
+  // Floats
+  html+=`<div class="sec"><div class="sec-hdr">🔄 Float Distribution</div><div class="sec-body">`;
+  staff.filter(s=>s.type==='float'||s.type==='hybrid').forEach(s=>{
+    const hrs=coordWeekHours(s.id);const pl=[];
+    for(let i=0;i<5;i++){FACILITIES.forEach(f=>{if(getLiveCell(f.id,i).some(e=>e.staffId===s.id))pl.push(DAYS[i].slice(0,3)+' '+f.name.split(' ')[0]);});if(isOnPTO(s.id,i))pl.push(DAYS[i].slice(0,3)+' PTO');}
+    html+=`<div class="fr"><div class="fn">${s.name}</div><div style="flex:1">${pl.join(' · ')||'Unassigned'}</div><div style="font-weight:700">${hrs.toFixed(1)}h</div></div>`;
+  });
+  html+=`</div></div>`;
+
+  // Specialty
+  if(activeQueues().length){
+    html+=`<div class="sec"><div class="sec-hdr">🔬 Specialty Coverage</div><table><tr><th>Queue</th>${DAYS.map((d,i)=>`<th>${d} ${addDays(currentMonday,i).getDate()}</th>`).join('')}</tr>`;
+    activeQueues().forEach(q=>{
+      html+=`<tr><td style="font-weight:700;color:${q.color}">${q.name}</td>`;
+      for(let i=0;i<5;i++){const a=getQueueAssignment(q.id,i);const g=getSpecialtyGaps(q.id,i);html+=!a.length?'<td class="none">✗</td>':g.length?'<td class="gap">⚠</td>':`<td class="ok">${a.map(sid=>staffById(sid)?.name.split(' ')[0]).join(', ')}</td>`;}
+      html+=`</tr>`;
+    });
+    html+=`</table></div>`;
+  }
+  html+=`</body></html>`;
+  const w=window.open('','_blank','width=900,height=700');
+  w.document.write(html);w.document.close();w.onload=()=>w.print();
+});
+
 function applyAccessMode(){
   if(isEditor){
     document.body.classList.remove('view-only','viewer-company-clean');
