@@ -7674,10 +7674,10 @@ async function spSignIn(){
         auth: {
           clientId:  SP_CONFIG.clientId,
           authority: `https://login.microsoftonline.com/${SP_CONFIG.tenantId}`,
-          redirectUri: window.location.href.split('?')[0],
+          redirectUri: window.location.origin + window.location.pathname.replace(/\/$/, ''),
+          postLogoutRedirectUri: window.location.origin + window.location.pathname.replace(/\/$/, ''),
+          navigateToLoginRequestUrl: false,
         },
-        // localStorage persists tokens across iframes and tabs
-        // so SharePoint-embedded users don't need to sign in again
         cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true },
       });
     }
@@ -7720,31 +7720,18 @@ async function spSignIn(){
             spToken = silent.accessToken;
             currentUser = accounts[0];
           } catch(silentErr){
-            // Need interactive login
-            if(inIframe){
-              // Pre-fill the hint so user just taps their account — no typing
-              const popupReq = { scopes: SP_CONFIG.scopes };
-              if(hint) popupReq.loginHint = hint;
-              const result = await msalApp.loginPopup(popupReq);
-              spToken = result.accessToken;
-              currentUser = result.account;
-            } else {
-              await msalApp.acquireTokenRedirect({ scopes: SP_CONFIG.scopes });
-              return;
-            }
-          }
-        } else {
-          // No cached accounts — popup with hint pre-filled
-          if(inIframe){
-            const popupReq = { scopes: SP_CONFIG.scopes };
-            if(hint) popupReq.loginHint = hint;
-            const result = await msalApp.loginPopup(popupReq);
-            spToken = result.accessToken;
-            currentUser = result.account;
-          } else {
-            await msalApp.acquireTokenRedirect({ scopes: SP_CONFIG.scopes });
+            // Need interactive login — always use redirect (works on all browsers/mobile)
+            const redirectReq = { scopes: SP_CONFIG.scopes };
+            if(hint) redirectReq.loginHint = hint;
+            await msalApp.acquireTokenRedirect(redirectReq);
             return;
           }
+        } else {
+          // No cached accounts — redirect to login
+          const redirectReq = { scopes: SP_CONFIG.scopes };
+          if(hint) redirectReq.loginHint = hint;
+          await msalApp.loginRedirect(redirectReq);
+          return;
         }
       }
     }
@@ -7775,6 +7762,9 @@ async function spSignIn(){
     updateSyncStatus('error', 'Sign-in failed');
     const errEl=document.getElementById('signin-error');
     if(errEl) errEl.textContent=`Sign-in error: ${err.message||err}. Try again or refresh.`;
+    // Still apply access mode — non-editors land in viewer mode even without auth
+    // isEditor stays false so viewer experience loads
+    applyAccessMode();
     render();
   }
 }
@@ -7787,12 +7777,9 @@ async function spGetToken(){
     const r = await msalApp.acquireTokenSilent({ scopes: SP_CONFIG.scopes, account: accounts[0] });
     return r.accessToken;
   } catch(e){
+    // Token refresh failed — redirect to re-authenticate
     try {
-      const inIframe = window.parent !== window;
-      if(inIframe){
-        const r = await msalApp.acquireTokenPopup({ scopes: SP_CONFIG.scopes });
-        return r.accessToken;
-      }
+      await msalApp.acquireTokenRedirect({ scopes: SP_CONFIG.scopes });
     } catch(e2){}
     return null;
   }
@@ -9955,12 +9942,28 @@ function applyAccessMode(){
     document.getElementById('bench-wrap').style.display='';
   } else {
     document.body.classList.add('view-only');
-    document.getElementById('view-only-badge').style.display='inline-flex';
+    document.getElementById('view-only-badge').style.display='';
     document.getElementById('viewer-week-nav').style.display='flex';
     initViewerTabs();
     initMobViewerTabs();
-    // Initialize locked weeks and then render viewer
-    initViewerWeekNav().then(()=>applyViewerView());
+    if(spReady){
+      // SP connected — load locked weeks and render viewer
+      initViewerWeekNav().then(()=>applyViewerView());
+    } else {
+      // SP not connected — show a helpful message
+      viewerWeekKey=weekKey(currentMonday);
+      renderViewerWeekNav();
+      const panel=document.getElementById('viewer-panel');
+      if(panel){
+        panel.style.display='flex';
+        panel.innerHTML=`<div style="padding:40px;text-align:center;color:var(--text-3);">
+          <div style="font-size:32px;margin-bottom:10px;">🔄</div>
+          <div style="font-weight:800;font-size:15px;margin-bottom:6px;">Connecting…</div>
+          <div style="font-size:12px;">Having trouble signing in. Please refresh the page and sign in with your F.I.T. Microsoft account.</div>
+          <button onclick="location.reload()" style="margin-top:16px;padding:8px 20px;background:var(--brand);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">↺ Refresh</button>
+        </div>`;
+      }
+    }
     document.addEventListener('dragstart',e=>{
       if(!isEditor){e.preventDefault();e.stopPropagation();}
     },true);
