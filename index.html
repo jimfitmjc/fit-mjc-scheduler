@@ -1498,6 +1498,25 @@ body.schedule-locked .ack-btn { display:none !important; }
   margin-bottom: 1px;
 }
 
+/* ── VIEWER WEEK NAVIGATION ── */
+.viewer-week-nav {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px; background: var(--surface);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.vwn-btn {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 5px 12px;
+  cursor: pointer; font-family: inherit; font-size: 12px;
+  font-weight: 700; color: var(--text-2); transition: all .15s;
+}
+.vwn-btn:hover { background: var(--surface); border-color: var(--brand); color: var(--brand); }
+.vwn-btn.vwn-today { color: var(--brand); border-color: var(--brand); }
+.vwn-btn:disabled { opacity:.35; cursor:default; pointer-events:none; }
+.vwn-center { flex:1; display:flex; align-items:center; justify-content:center; gap:8px; }
+.vwn-label { font-size:13px; font-weight:800; color:var(--text); }
+.vwn-select { font-size:12px; padding:5px 8px; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--surface); font-family:inherit; color:var(--text); max-width:220px; }
+
 /* ── VIEWER TAB BAR ── */
 /* ── VIEWER TAB BAR ── */
 .viewer-tabs {
@@ -1783,6 +1802,17 @@ body.focus-mode .fac-label:has(.fstat.ok) {
     <!-- Grid -->
     <div class="grid-wrap">
       <!-- Viewer tab bar (hidden for editors) -->
+      <!-- Viewer week navigation — shown only in viewer/preview mode -->
+      <div class="viewer-week-nav" id="viewer-week-nav" style="display:none;">
+        <button class="vwn-btn" id="vwn-prev">◀</button>
+        <div class="vwn-center">
+          <span class="vwn-label" id="vwn-label">Week of —</span>
+          <!-- Mobile dropdown of locked weeks -->
+          <select class="vwn-select" id="vwn-select" style="display:none;"></select>
+        </div>
+        <button class="vwn-btn vwn-today" id="vwn-today">Today</button>
+        <button class="vwn-btn" id="vwn-next">▶</button>
+      </div>
       <div class="viewer-tabs" id="viewer-tabs">
         <button class="viewer-tab" data-view="mine">📅 My Schedule</button>
         <button class="viewer-tab" data-view="company">🏢 Company</button>
@@ -6964,6 +6994,9 @@ document.getElementById('preview-viewer-btn').addEventListener('click',()=>{
     // Force My Schedule as the default view before initializing tabs
     viewerView='mine';
     initViewerTabs();
+    // Show week nav in preview mode too
+    document.getElementById('viewer-week-nav').style.display='flex';
+    renderViewerWeekNav();
     // Reset mobile viewer tab init so it re-inits with preview context
     const mvt=document.getElementById('mob-viewer-tabs');
     if(mvt) delete mvt.dataset.initialized;
@@ -6973,6 +7006,7 @@ document.getElementById('preview-viewer-btn').addEventListener('click',()=>{
     showToast('Previewing viewer experience','ok');
     render();
   } else {
+    document.getElementById('viewer-week-nav').style.display='none';
     document.body.classList.remove('view-only','view-mine','previewing','viewer-company-clean');
     document.getElementById('viewer-tabs').style.display='none';
     document.getElementById('viewer-panel').style.display='none';
@@ -8444,17 +8478,19 @@ let vcsDay = null; // selected day index for context strip
 // Build the unified grid header row (day columns)
 function buildVGHeader(labelText=''){
   const frag=document.createDocumentFragment();
-
-  // Label corner cell
   const corner=document.createElement('div');
   corner.className='vg-col-head';
   corner.textContent=labelText;
   frag.appendChild(corner);
 
-  // Day columns — today wider
+  // Use viewer week monday for dates
+  const vMon=getViewerMonday();
+  const todayKey=weekKey(mondayOf(new Date()));
+  const isCurrentWeek=(viewerWeekKey||weekKey(currentMonday))===todayKey;
+
   for(let i=0;i<5;i++){
-    const d=addDays(currentMonday,i);
-    const today=isToday(d);
+    const d=addDays(vMon,i);
+    const today=isCurrentWeek&&isToday(d);
     const h=document.createElement('div');
     h.className='vg-col-head'+(today?' vg-today':'');
     h.innerHTML=`<span class="vg-day">${DAYS[i]}</span><span class="vg-date">${d.getDate()}</span>`;
@@ -8485,7 +8521,6 @@ function buildVGCell(dayIdx, content=null, opts={}){
   return cell;
 }
 
-// Build cell content for a PCC on a day (time + specialty + meetings)
 function buildVGPCCContent(staffId, dayIdx, facId=null){
   const frag=document.createDocumentFragment();
   const onPTO=isOnPTO(staffId,dayIdx);
@@ -8498,27 +8533,30 @@ function buildVGPCCContent(staffId, dayIdx, facId=null){
     return {frag, isPTO:true};
   }
 
-  // Find shift — at specific facility or any
+  // Use viewer cache if navigating to a different week
+  const vKey=viewerWeekKey||weekKey(currentMonday);
+  const isViewerWeek=vKey!==weekKey(currentMonday);
+
   let entry=null, fac=null;
   if(facId){
-    entry=getLiveCell(facId,dayIdx).find(e=>e.staffId===staffId);
+    const entries=isViewerWeek?(viewerScheduleCache[vKey]?.[facId]?.[dayIdx]||[]):getLiveCell(facId,dayIdx);
+    entry=entries.find(e=>e.staffId===staffId);
     fac=facById(facId);
   } else {
     for(const f of FACILITIES){
-      entry=getLiveCell(f.id,dayIdx).find(e=>e.staffId===staffId);
+      const entries=isViewerWeek?(viewerScheduleCache[vKey]?.[f.id]?.[dayIdx]||[]):getLiveCell(f.id,dayIdx);
+      entry=entries.find(e=>e.staffId===staffId);
       if(entry){ fac=f; break; }
     }
   }
 
   if(!entry) return {frag, isEmpty:true};
 
-  // Time
   const timeEl=document.createElement('span');
   timeEl.className='vg-time';
   timeEl.textContent=fmtRange(entry.start,entry.end);
   frag.appendChild(timeEl);
 
-  // Facility name (for views where row isn't the facility)
   if(!facId&&fac){
     const facEl=document.createElement('span');
     facEl.style.cssText='display:block;font-size:10px;color:var(--text-3);margin-bottom:2px;';
@@ -8526,7 +8564,6 @@ function buildVGPCCContent(staffId, dayIdx, facId=null){
     frag.appendChild(facEl);
   }
 
-  // Specialty assignments
   getStaffQueueAssignments(staffId,dayIdx).forEach(q=>{
     const sp=document.createElement('span');
     sp.className='vg-specialty';
@@ -8535,7 +8572,6 @@ function buildVGPCCContent(staffId, dayIdx, facId=null){
     frag.appendChild(sp);
   });
 
-  // Meetings
   getMeetingsForDay(dayIdx).forEach(mtg=>{
     if(!mtg.staffIds.includes(staffId)) return;
     const conflict=getSpecialtyConflicts(dayIdx).some(c=>c.meeting.id===mtg.id&&c.staffId===staffId);
@@ -8660,11 +8696,20 @@ function renderViewerMySchedule(panel){
   const userEmail=(currentUser?.username||'').toLowerCase();
   let me=staff.find(s=>(s.email||'').toLowerCase()===userEmail);
 
-  const wrap=document.createElement('div');
-  wrap.className='vg-wrap';
+  const vMon=getViewerMonday();
+  const vKey=viewerWeekKey||weekKey(currentMonday);
+  const isPublished=lockedWeeks.includes(vKey)||vKey===weekKey(currentMonday);
 
-  // Preview mode — use sample PCC
-  let isPreview=false;
+  // Show unpublished message if week not locked
+  if(!isPublished&&!previewingAsViewer){
+    panel.innerHTML=`<div style="padding:40px;text-align:center;">
+      <div style="font-size:36px;margin-bottom:10px;">📋</div>
+      <div style="font-weight:800;font-size:15px;margin-bottom:6px;">Schedule Not Yet Published</div>
+      <div style="font-size:12px;color:var(--text-3);">This week's schedule hasn't been finalized yet. Check back soon or use the navigation to view a published week.</div>
+    </div>`;
+    panel.appendChild(wrap);
+    return;
+  }
   if(!me&&previewingAsViewer){
     me=staff.find(s=>s.type==='static')||staff[0];
     isPreview=true;
@@ -9673,11 +9718,175 @@ document.getElementById('dash-print-btn').addEventListener('click',()=>{
   w.document.write(html);w.document.close();w.onload=()=>w.print();
 });
 
+// ═══════════════════════════════════════════════════════════════
+// VIEWER WEEK NAVIGATION
+// ═══════════════════════════════════════════════════════════════
+
+let viewerWeekKey = null;        // currently displayed week in viewer
+let lockedWeeks = [];            // sorted array of locked weekKeys
+let viewerScheduleCache = {};    // weekKey → live data object
+
+async function initViewerWeekNav(){
+  // Load all lock records from PCC_Holidays
+  try {
+    const items = await listGetAll(LISTS.holidays, i => i.fields.WeekKey?.startsWith('lock_'));
+    lockedWeeks = items
+      .filter(i => i.fields.HolidayData === 'locked')
+      .map(i => i.fields.WeekKey.replace('lock_', ''))
+      .filter(Boolean)
+      .sort();
+  } catch(e){
+    console.warn('initViewerWeekNav: could not load locked weeks', e);
+    lockedWeeks = [];
+  }
+
+  // Default to current week if locked, else nearest locked week
+  const currentKey = weekKey(currentMonday);
+  if(lockedWeeks.includes(currentKey)){
+    viewerWeekKey = currentKey;
+  } else if(lockedWeeks.length){
+    // Find closest locked week to today
+    const today = weekKey(mondayOf(new Date()));
+    const future = lockedWeeks.filter(k => k >= today);
+    const past = lockedWeeks.filter(k => k < today);
+    viewerWeekKey = future.length ? future[0] : past[past.length - 1];
+  } else {
+    viewerWeekKey = currentKey; // fallback — will show unpublished message
+  }
+
+  renderViewerWeekNav();
+  await loadViewerWeekData(viewerWeekKey);
+}
+
+function renderViewerWeekNav(){
+  const nav = document.getElementById('viewer-week-nav');
+  const label = document.getElementById('vwn-label');
+  const sel = document.getElementById('vwn-select');
+  const prevBtn = document.getElementById('vwn-prev');
+  const nextBtn = document.getElementById('vwn-next');
+  const todayBtn = document.getElementById('vwn-today');
+  if(!nav) return;
+
+  nav.style.display = 'flex';
+
+  // Update label
+  if(viewerWeekKey){
+    const mon = mondayOf(new Date(viewerWeekKey + 'T12:00:00'));
+    const fri = addDays(mon, 4);
+    label.textContent = mon.toLocaleDateString('en-US',{month:'short',day:'numeric'}) +
+      ' – ' + fri.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  }
+
+  // Mobile dropdown
+  const isMob = isMobile();
+  label.style.display = isMob ? 'none' : '';
+  sel.style.display = isMob ? '' : 'none';
+  if(isMob){
+    sel.innerHTML = '';
+    if(lockedWeeks.length){
+      lockedWeeks.forEach(wk => {
+        const mon = mondayOf(new Date(wk + 'T12:00:00'));
+        const opt = document.createElement('option');
+        opt.value = wk;
+        opt.textContent = 'Week of ' + mon.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+        if(wk === viewerWeekKey) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    } else {
+      sel.innerHTML = '<option>No published weeks yet</option>';
+    }
+  }
+
+  // Prev/Next disabled state
+  const idx = lockedWeeks.indexOf(viewerWeekKey);
+  prevBtn.disabled = idx <= 0;
+  nextBtn.disabled = idx < 0 || idx >= lockedWeeks.length - 1;
+
+  // Today button — highlight if current week is locked
+  const curKey = weekKey(currentMonday);
+  todayBtn.disabled = !lockedWeeks.includes(curKey);
+  todayBtn.title = todayBtn.disabled ? 'Current week not yet published' : 'Go to current week';
+}
+
+async function loadViewerWeekData(wk){
+  if(!wk) return;
+
+  // Current week — use in-memory live data
+  if(wk === weekKey(currentMonday)){
+    viewerScheduleCache[wk] = live[wk] || {};
+    return;
+  }
+
+  // Already cached
+  if(viewerScheduleCache[wk]) return;
+
+  // Fetch from SharePoint
+  try {
+    const items = await listGetAll(LISTS.schedule, i => i.fields.WeekKey === wk);
+    const data = {};
+    items.forEach(item => {
+      const f = item.fields;
+      if(!data[f.FacId]) data[f.FacId] = {};
+      try { data[f.FacId][parseInt(f.DayIdx)] = JSON.parse(f.Entries || '[]'); } catch(e){}
+    });
+    viewerScheduleCache[wk] = data;
+  } catch(e){
+    console.warn('loadViewerWeekData failed for', wk, e);
+    viewerScheduleCache[wk] = {};
+  }
+}
+
+async function navigateViewerWeek(wk){
+  viewerWeekKey = wk;
+  renderViewerWeekNav();
+
+  // Show loading state
+  const panel = document.getElementById('viewer-panel');
+  if(panel && panel.style.display !== 'none'){
+    panel.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-3);">Loading schedule…</div>';
+  }
+
+  await loadViewerWeekData(wk);
+  applyViewerView();
+}
+
+// Wire nav buttons
+document.getElementById('vwn-prev')?.addEventListener('click', async ()=>{
+  const idx = lockedWeeks.indexOf(viewerWeekKey);
+  if(idx > 0) await navigateViewerWeek(lockedWeeks[idx - 1]);
+});
+document.getElementById('vwn-next')?.addEventListener('click', async ()=>{
+  const idx = lockedWeeks.indexOf(viewerWeekKey);
+  if(idx >= 0 && idx < lockedWeeks.length - 1) await navigateViewerWeek(lockedWeeks[idx + 1]);
+});
+document.getElementById('vwn-today')?.addEventListener('click', async ()=>{
+  const curKey = weekKey(currentMonday);
+  if(lockedWeeks.includes(curKey)) await navigateViewerWeek(curKey);
+});
+document.getElementById('vwn-select')?.addEventListener('change', async (e)=>{
+  if(e.target.value) await navigateViewerWeek(e.target.value);
+});
+
+// Helper — get live data for viewer (uses viewerScheduleCache when navigating)
+function getViewerLiveCell(facId, dayIdx){
+  if(!viewerWeekKey) return [];
+  const data = viewerScheduleCache[viewerWeekKey] || live[viewerWeekKey] || {};
+  return data?.[facId]?.[dayIdx] || [];
+}
+
+// Helper — get monday for viewer week
+function getViewerMonday(){
+  if(!viewerWeekKey) return currentMonday;
+  return mondayOf(new Date(viewerWeekKey + 'T12:00:00'));
+}
+
+// ── Hook initViewerWeekNav into applyAccessMode ────────────────
 function applyAccessMode(){
   if(isEditor){
     document.body.classList.remove('view-only','viewer-company-clean');
     document.getElementById('view-only-badge').style.display='none';
     document.getElementById('viewer-tabs').style.display='none';
+    document.getElementById('viewer-week-nav').style.display='none';
     document.getElementById('viewer-panel').style.display='none';
     document.getElementById('viewer-context-strip').style.display='none';
     document.getElementById('grid-scroll').style.display='';
@@ -9688,8 +9897,11 @@ function applyAccessMode(){
   } else {
     document.body.classList.add('view-only');
     document.getElementById('view-only-badge').style.display='inline-flex';
+    document.getElementById('viewer-week-nav').style.display='flex';
     initViewerTabs();
     initMobViewerTabs();
+    // Initialize locked weeks and then render viewer
+    initViewerWeekNav().then(()=>applyViewerView());
     document.addEventListener('dragstart',e=>{
       if(!isEditor){e.preventDefault();e.stopPropagation();}
     },true);
