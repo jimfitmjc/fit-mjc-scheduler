@@ -6660,8 +6660,13 @@ function applyLockState(){
   const banner=document.getElementById('lock-banner');
   const btn=document.getElementById('lock-btn');
   if(banner){
-    banner.classList.toggle('active',!!locked);
-    if(locked) banner.textContent=`🔒 LOCKED by ${lock.by?.split('@')[0]||'editor'} — ${lock.reason||'Schedule finalized'} · Click Unlock to edit`;
+    // Only show lock banner to editors — viewers don't need to know
+    if(isEditor&&!previewingAsViewer){
+      banner.classList.toggle('active',!!locked);
+      if(locked) banner.textContent=`🔒 LOCKED by ${lock.by?.split('@')[0]||'editor'} — ${lock.reason||'Schedule finalized'} · Click Unlock to edit`;
+    } else {
+      banner.classList.remove('active');
+    }
   }
   if(btn&&isSeniorEditor()){
     btn.style.display='';
