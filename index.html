@@ -2486,6 +2486,7 @@ let spCollapsed = false;
 // ═══════════════════════════════════════════════════════════════
 
 function getMonday(d){const dt=new Date(d);const day=dt.getDay();dt.setDate(dt.getDate()+(day===0?-6:1-day));dt.setHours(0,0,0,0);return dt;}
+const mondayOf=getMonday; // alias
 function addDays(d,n){const dt=new Date(d);dt.setDate(dt.getDate()+n);return dt;}
 function weekKey(m){return m.toISOString().slice(0,10);}
 function isToday(d){const t=new Date();return d.getDate()===t.getDate()&&d.getMonth()===t.getMonth()&&d.getFullYear()===t.getFullYear();}
