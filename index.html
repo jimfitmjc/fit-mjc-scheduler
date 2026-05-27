@@ -2636,7 +2636,10 @@ function activeQueues(){ return queues.filter(q=>q.active); }
 
 // ── Queue assignment accessors (array, max 3) ─────────────────────
 function getQueueAssignment(queueId, dayIdx){
-  const k=weekKey(currentMonday);
+  // Use viewer week key when in viewer/preview mode, otherwise current week
+  const k=((!isEditor||previewingAsViewer)&&viewerWeekKey)
+    ? viewerWeekKey
+    : weekKey(currentMonday);
   const val=queueAssignments[k]?.[queueId]?.[dayIdx];
   if(!val) return [];
   return Array.isArray(val)?val:[val].filter(Boolean);
@@ -9819,7 +9822,7 @@ async function loadViewerWeekData(wk){
   // Already cached
   if(viewerScheduleCache[wk]) return;
 
-  // Fetch from SharePoint
+  // Fetch schedule from SharePoint
   try {
     const items = await listGetAll(LISTS.schedule, i => i.fields.WeekKey === wk);
     const data = {};
@@ -9830,8 +9833,38 @@ async function loadViewerWeekData(wk){
     });
     viewerScheduleCache[wk] = data;
   } catch(e){
-    console.warn('loadViewerWeekData failed for', wk, e);
+    console.warn('loadViewerWeekData schedule failed for', wk, e);
     viewerScheduleCache[wk] = {};
+  }
+
+  // Also fetch queue assignments for this week if not already loaded
+  if(!queueAssignments[wk]){
+    try {
+      const qaItems=await listGetAll(LISTS.queueAssignments,i=>i.fields.WeekKey===wk);
+      if(qaItems.length){
+        const loaded=JSON.parse(qaItems[0].fields.AssignmentData||'{}');
+        Object.keys(loaded).forEach(qid=>{
+          Object.keys(loaded[qid]).forEach(day=>{
+            const v=loaded[qid][day];
+            if(!Array.isArray(v)) loaded[qid][day]=v?[v]:[];
+          });
+        });
+        queueAssignments[wk]=loaded;
+      } else {
+        // Fall back to template
+        queueAssignments[wk]={};
+        activeQueues().forEach(q=>{
+          queueAssignments[wk][q.id]={};
+          for(let i=0;i<5;i++){
+            const tmpl=getQueueTemplateAssignment(q.id,i);
+            if(tmpl.length) queueAssignments[wk][q.id][i]=[...tmpl];
+          }
+        });
+      }
+    } catch(e){
+      console.warn('loadViewerWeekData queues failed for',wk,e);
+      queueAssignments[wk]={};
+    }
   }
 }
 
