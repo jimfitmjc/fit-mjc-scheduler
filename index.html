@@ -7640,7 +7640,29 @@ const EDITORS = [
   'jazmin.rodriguez@fitmjc.com',
 ];
 
+// Clinic directors — email → default facility ID
+// Land on their facility tab by default, free to navigate elsewhere
+const DIRECTORS = {
+  'aaron@fitmjc.com':      'f6',  // Lee's Summit
+  'alexb@fitmjc.com':      'f12', // Waukee Iowa
+  'bridgette@fitmjc.com':  'f4',  // Leawood
+  'davis@fitmjc.com':      'f7',  // Olathe
+  'dilyn@fitmjc.com':      'f11', // Shawnee
+  'elijah.hay@fitmjc.com': 'f5',  // Liberty
+  'jimmykase@fitmjc.com':  'f3',  // KCK
+  'mattc@fitmjc.com':      'f4',  // Leawood
+  'matthew@fitmjc.com':    'f4',  // Leawood
+  'meganh@fitmjc.com':     'f10', // Raymore
+  'michael@fitmjc.com':    'f8',  // Overland Park
+  'reid@fitmjc.com':       'f9',  // Paola
+  'ryan@fitmjc.com':       'f1',  // Blue Valley
+  'skylar@fitmjc.com':     'f8',  // Overland Park
+  'theo@fitmjc.com':       'f2',  // Crossroads
+};
+
 let isEditor = false; // Set to true after sign-in if user is in EDITORS list
+let isDirector = false; // Set to true if user is in DIRECTORS map
+let directorFacId = null; // Default facility for director
 
 const LISTS = {
   staff:             'PCC_Staff',
@@ -7665,7 +7687,7 @@ let currentUser = null;
 let spReady = false;
 
 // ── Auth ─────────────────────────────────────────────────────────
-async function spSignIn(){
+async function spSignIn(interactive=false){
   try {
     updateSyncStatus('signing-in','Signing in…');
 
@@ -7694,8 +7716,6 @@ async function spSignIn(){
 
     if(!spToken){
       const accounts = msalApp.getAllAccounts();
-
-      // Retrieve any stored login hint from previous sessions
       let storedHint = null;
       try {
         storedHint = localStorage.getItem('fit_login_hint') ||
@@ -7703,7 +7723,7 @@ async function spSignIn(){
       } catch(e){}
       const hint = accounts[0]?.username || storedHint;
 
-      // Option B+C: ssoSilent with login hint
+      // Always try silent first
       try {
         const ssoReq = { scopes: SP_CONFIG.scopes };
         if(hint) ssoReq.loginHint = hint;
@@ -7711,7 +7731,6 @@ async function spSignIn(){
         spToken = sso.accessToken;
         currentUser = sso.account;
       } catch(ssoErr){
-        // ssoSilent failed — try cached account silent
         if(accounts.length > 0){
           try {
             const silent = await msalApp.acquireTokenSilent({
@@ -7720,18 +7739,26 @@ async function spSignIn(){
             spToken = silent.accessToken;
             currentUser = accounts[0];
           } catch(silentErr){
-            // Need interactive login — always use redirect (works on all browsers/mobile)
-            const redirectReq = { scopes: SP_CONFIG.scopes };
-            if(hint) redirectReq.loginHint = hint;
-            await msalApp.acquireTokenRedirect(redirectReq);
-            return;
+            // Silent failed — only redirect if user explicitly clicked sign in
+            if(interactive){
+              const redirectReq = { scopes: SP_CONFIG.scopes };
+              if(hint) redirectReq.loginHint = hint;
+              await msalApp.acquireTokenRedirect(redirectReq);
+              return;
+            } else {
+              // Auto-load silent fail — show viewer as non-editor, show sign-in button
+              throw new Error('silent_fail');
+            }
           }
         } else {
-          // No cached accounts — redirect to login
-          const redirectReq = { scopes: SP_CONFIG.scopes };
-          if(hint) redirectReq.loginHint = hint;
-          await msalApp.loginRedirect(redirectReq);
-          return;
+          if(interactive){
+            const redirectReq = { scopes: SP_CONFIG.scopes };
+            if(hint) redirectReq.loginHint = hint;
+            await msalApp.loginRedirect(redirectReq);
+            return;
+          } else {
+            throw new Error('silent_fail');
+          }
         }
       }
     }
@@ -7746,9 +7773,11 @@ async function spSignIn(){
       }
     } catch(e){}
 
-    // Check if signed-in user is an editor
+    // Check if signed-in user is an editor or director
     const userEmail = (currentUser?.username||'').toLowerCase();
     isEditor = EDITORS.map(e=>e.toLowerCase()).includes(userEmail);
+    isDirector = !isEditor && !!DIRECTORS[userEmail];
+    directorFacId = isDirector ? DIRECTORS[userEmail] : null;
 
     // Auto-hide sign-in overlay (silent auth succeeds without user interaction)
     const overlay=document.getElementById('signin-overlay');
@@ -8593,10 +8622,11 @@ function initViewerTabs(){
   const bar=document.getElementById('viewer-tabs');
   bar.style.display='flex';
   const sel=document.getElementById('viewer-tab-select');
-  // Default to My Schedule
-  viewerView='mine';
+  // Only set default if not already set (directors may have a pre-assigned view)
+  if(!viewerView) viewerView='mine';
+  const activeView=viewerView;
   bar.querySelectorAll('.viewer-tab').forEach(b=>{
-    b.classList.toggle('active', b.dataset.view==='mine');
+    b.classList.toggle('active', b.dataset.view===activeView);
     b.addEventListener('click',()=>{
       bar.querySelectorAll('.viewer-tab').forEach(x=>x.classList.remove('active'));
       b.classList.add('active');
@@ -8617,6 +8647,20 @@ function initViewerTabs(){
       applyViewerView();
     });
   });
+
+  // If director — pre-populate and pre-select their facility in the dropdown
+  if(isDirector && directorFacId && viewerView==='facility'){
+    sel.style.display='block';
+    sel.innerHTML='<option value="">— Select Facility —</option>';
+    FACILITIES.forEach(f=>{
+      const o=document.createElement('option');
+      o.value=f.id; o.textContent=f.name;
+      if(f.id===directorFacId) o.selected=true;
+      sel.appendChild(o);
+    });
+    sel.onchange=()=>{ viewerSubId=sel.value||null; applyViewerView(); };
+  }
+
   applyViewerView();
 }
 
@@ -9946,21 +9990,34 @@ function applyAccessMode(){
     document.getElementById('viewer-week-nav').style.display='flex';
     initViewerTabs();
     initMobViewerTabs();
+
+    // Directors default to their facility — PCCs default to My Schedule
+    if(isDirector && directorFacId){
+      viewerView='facility';
+      viewerSubId=directorFacId;
+    } else {
+      viewerView='mine';
+      viewerSubId=null;
+    }
+
     if(spReady){
-      // SP connected — load locked weeks and render viewer
+      // Authenticated — load locked weeks and render
       initViewerWeekNav().then(()=>applyViewerView());
     } else {
-      // SP not connected — show a helpful message
+      // Not authenticated — hide the floating overlay and show sign-in in the viewer panel
+      const overlay=document.getElementById('signin-overlay');
+      if(overlay) overlay.style.display='none';
       viewerWeekKey=weekKey(currentMonday);
       renderViewerWeekNav();
       const panel=document.getElementById('viewer-panel');
       if(panel){
         panel.style.display='flex';
-        panel.innerHTML=`<div style="padding:40px;text-align:center;color:var(--text-3);">
-          <div style="font-size:32px;margin-bottom:10px;">🔄</div>
-          <div style="font-weight:800;font-size:15px;margin-bottom:6px;">Connecting…</div>
-          <div style="font-size:12px;">Having trouble signing in. Please refresh the page and sign in with your F.I.T. Microsoft account.</div>
-          <button onclick="location.reload()" style="margin-top:16px;padding:8px 20px;background:var(--brand);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:13px;">↺ Refresh</button>
+        panel.style.flexDirection='column';
+        panel.innerHTML=`<div style="padding:40px;text-align:center;">
+          <div style="font-size:36px;margin-bottom:12px;">👋</div>
+          <div style="font-weight:800;font-size:16px;margin-bottom:8px;">Welcome to the PCC Scheduler</div>
+          <div style="font-size:13px;color:var(--text-2);margin-bottom:20px;max-width:300px;margin-left:auto;margin-right:auto;">Sign in with your F.I.T. Microsoft account to view your schedule.</div>
+          <button onclick="loadMSAL(()=>spSignIn(true))" style="padding:10px 28px;background:var(--brand);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:800;font-size:14px;font-family:inherit;">Sign in with Microsoft</button>
         </div>`;
       }
     }
@@ -10023,7 +10080,7 @@ function loadMSAL(callback){
 document.getElementById('signin-btn').addEventListener('click',()=>{
   const errEl=document.getElementById('signin-error');
   if(errEl) errEl.textContent='';
-  loadMSAL(()=>spSignIn());
+  loadMSAL(()=>spSignIn(true)); // interactive=true → triggers redirect to Microsoft login
 });
 
 // Start: render immediately with local data, then try silent sign-in
