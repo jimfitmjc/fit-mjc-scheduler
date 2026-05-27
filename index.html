@@ -6997,9 +6997,10 @@ document.getElementById('preview-viewer-btn').addEventListener('click',()=>{
     document.body.classList.add('view-only','previewing');
     viewerView='mine';
     initViewerTabs();
-    // Hide editor top bar and toolbar in preview mode
-    document.getElementById('top-bar').style.display='none';
+    // Keep black header visible so editor can see Back to Editor button
+    // Just hide the editor toolbar (load template, add PCC etc)
     document.getElementById('toolbar').style.display='none';
+    document.getElementById('top-bar').style.display='';
     // Show viewer week nav and initialize locked weeks
     document.getElementById('viewer-week-nav').style.display='flex';
     // Initialize locked weeks then render
@@ -7014,8 +7015,7 @@ document.getElementById('preview-viewer-btn').addEventListener('click',()=>{
     btn.title='Return to editor mode';
     showToast('Previewing viewer experience','ok');
   } else {
-    // Restore editor top bar and toolbar
-    document.getElementById('top-bar').style.display='';
+    // Restore editor toolbar
     document.getElementById('top-bar').style.display='';
     document.getElementById('toolbar').style.display='';
     document.getElementById('viewer-week-nav').style.display='none';
@@ -9740,30 +9740,31 @@ async function initViewerWeekNav(){
   // Load all lock records from PCC_Holidays
   try {
     const items = await listGetAll(LISTS.holidays, i => i.fields.WeekKey?.startsWith('lock_'));
+    console.log('[ViewerNav] lock items found:', items.length, items.map(i=>i.fields.WeekKey+'='+i.fields.HolidayData));
     lockedWeeks = items
       .filter(i => i.fields.HolidayData === 'locked')
       .map(i => i.fields.WeekKey.replace('lock_', ''))
       .filter(Boolean)
       .sort();
+    console.log('[ViewerNav] lockedWeeks:', lockedWeeks);
   } catch(e){
     console.warn('initViewerWeekNav: could not load locked weeks', e);
     lockedWeeks = [];
   }
 
-  // Default to current week if locked, else nearest locked week
-  const currentKey = weekKey(currentMonday);
-  if(lockedWeeks.includes(currentKey)){
-    viewerWeekKey = currentKey;
+  // Default to today's week if locked, else nearest locked week
+  const todayKey = weekKey(mondayOf(new Date()));
+  if(lockedWeeks.includes(todayKey)){
+    viewerWeekKey = todayKey;
   } else if(lockedWeeks.length){
-    // Find closest locked week to today
-    const today = weekKey(mondayOf(new Date()));
-    const future = lockedWeeks.filter(k => k >= today);
-    const past = lockedWeeks.filter(k => k < today);
+    const future = lockedWeeks.filter(k => k >= todayKey);
+    const past = lockedWeeks.filter(k => k < todayKey);
     viewerWeekKey = future.length ? future[0] : past[past.length - 1];
   } else {
-    viewerWeekKey = currentKey; // fallback — will show unpublished message
+    viewerWeekKey = todayKey;
   }
 
+  console.log('[ViewerNav] viewerWeekKey set to:', viewerWeekKey);
   renderViewerWeekNav();
   await loadViewerWeekData(viewerWeekKey);
 }
@@ -9812,10 +9813,12 @@ function renderViewerWeekNav(){
   prevBtn.disabled = idx <= 0;
   nextBtn.disabled = idx < 0 || idx >= lockedWeeks.length - 1;
 
-  // Today button — highlight if current week is locked
-  const curKey = weekKey(currentMonday);
-  todayBtn.disabled = !lockedWeeks.includes(curKey);
-  todayBtn.title = todayBtn.disabled ? 'Current week not yet published' : 'Go to current week';
+  // Today button — go to this week if it's locked
+  const todayKey = weekKey(mondayOf(new Date()));
+  const todayIsLocked = lockedWeeks.includes(todayKey);
+  todayBtn.disabled = !todayIsLocked || viewerWeekKey === todayKey;
+  todayBtn.title = !todayIsLocked ? 'This week not yet published' :
+    viewerWeekKey === todayKey ? 'Already viewing this week' : 'Go to this week';
 }
 
 async function loadViewerWeekData(wk){
