@@ -609,6 +609,10 @@ body.view-only .pto-hdr span { display: none !important; }
   color: #fff !important;
   font-weight: 700 !important;
 }
+/* In preview mode — hide all toolbar items except the Back to Editor button */
+#toolbar.preview-mode > *:not(#preview-viewer-btn) {
+  display: none !important;
+}
 /* Preview mode banner */
 .preview-banner {
   display: none;
@@ -6997,9 +7001,8 @@ document.getElementById('preview-viewer-btn').addEventListener('click',()=>{
     document.body.classList.add('view-only','previewing');
     viewerView='mine';
     initViewerTabs();
-    // Keep black header visible so editor can see Back to Editor button
-    // Just hide the editor toolbar (load template, add PCC etc)
-    document.getElementById('toolbar').style.display='none';
+    // Keep toolbar visible but hide editor-only buttons — preview button stays accessible
+    document.getElementById('toolbar').classList.add('preview-mode');
     document.getElementById('top-bar').style.display='';
     // Show viewer week nav and initialize locked weeks
     document.getElementById('viewer-week-nav').style.display='flex';
@@ -7018,6 +7021,7 @@ document.getElementById('preview-viewer-btn').addEventListener('click',()=>{
     // Restore editor toolbar
     document.getElementById('top-bar').style.display='';
     document.getElementById('toolbar').style.display='';
+    document.getElementById('toolbar').classList.remove('preview-mode');
     document.getElementById('viewer-week-nav').style.display='none';
     document.body.classList.remove('view-only','view-mine','previewing','viewer-company-clean');
     document.getElementById('viewer-tabs').style.display='none';
@@ -9742,7 +9746,10 @@ async function initViewerWeekNav(){
     const items = await listGetAll(LISTS.holidays, i => i.fields.WeekKey?.startsWith('lock_'));
     console.log('[ViewerNav] lock items found:', items.length, items.map(i=>i.fields.WeekKey+'='+i.fields.HolidayData));
     lockedWeeks = items
-      .filter(i => i.fields.HolidayData === 'locked')
+      .filter(i => {
+        try { return JSON.parse(i.fields.HolidayData||'{}')?.locked === true; }
+        catch(e){ return false; }
+      })
       .map(i => i.fields.WeekKey.replace('lock_', ''))
       .filter(Boolean)
       .sort();
