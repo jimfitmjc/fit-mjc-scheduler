@@ -3255,21 +3255,11 @@ function renderSpecialtyTemplateSection(){
 
   activeQueues().forEach((q,qi)=>{
     const isLast=qi===activeQueues().length-1;
-    // Queue label
     const lbl=document.createElement('div');
     lbl.style.cssText=`display:flex;align-items:center;gap:6px;padding:6px 10px;font-size:11px;font-weight:700;border-right:1px solid var(--border);${isLast?'':'border-bottom:1px solid var(--border);'}background:var(--surface);`;
     lbl.innerHTML=`<span style="width:8px;height:8px;border-radius:50%;background:${q.color};flex-shrink:0;display:inline-block;"></span>${q.name}`;
     grid.appendChild(lbl);
 
-    for(let i=0;i<5;i++){
-      const cell=document.createElement('div');
-      cell.style.cssText=`padding:4px;border-right:${i<4?'1px solid var(--border)':'none'};${isLast?'':'border-bottom:1px solid var(--border);'}background:var(--surface);`;
-      const current=getQueueTemplateAssignment(q.id,i);
-      const sortedStaff=staff.slice().sort((a,b)=>{
-        const aT=(a.specialties||[]).includes(q.id)?0:1;
-        const bT=(b.specialties||[]).includes(q.id)?0:1;
-        return aT-bT||a.name.localeCompare(b.name);
-      });
     for(let i=0;i<5;i++){
       const cell=document.createElement('div');
       cell.style.cssText=`padding:4px 6px;border-right:${i<4?'1px solid var(--border)':'none'};${isLast?'':'border-bottom:1px solid var(--border);'}background:var(--surface);min-height:36px;cursor:pointer;`;
@@ -3295,7 +3285,6 @@ function renderSpecialtyTemplateSection(){
 
       renderTemplateCell(cell,q.id,i);
       grid.appendChild(cell);
-    }
     }
   });
 }
