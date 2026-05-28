@@ -2712,38 +2712,56 @@ function getQueueRole(queueId, staffId, dayIdx){
 function getSpecialtyGaps(queueId, dayIdx){
   const entries=getQueueAssignment(queueId,dayIdx);
   if(!entries.length) return [];
-  // Collect shift windows from non-PTO assigned staff
+
+  // Fixed specialty coverage window Mon–Fri
+  const WINDOW_START=toMins('07:00');
+  const WINDOW_END  =toMins('18:30');
+
+  // Option C floor — only flag gaps where at least one clinic is actually open
+  const openFacs=FACILITIES.filter(f=>effectiveHours(f.id,dayIdx,'live'));
+  if(!openFacs.length) return [];
+
+  // Clamp window to actual clinic activity (no false gaps before/after any clinic is open)
+  const clinicStart=Math.min(...openFacs.map(f=>toMins(effectiveHours(f.id,dayIdx,'live').open)));
+  const clinicEnd  =Math.max(...openFacs.map(f=>toMins(effectiveHours(f.id,dayIdx,'live').close)));
+  const dayStart=Math.max(WINDOW_START,clinicStart);
+  const dayEnd  =Math.min(WINDOW_END,  clinicEnd);
+  if(dayStart>=dayEnd) return [];
+
+  // Collect shift windows from non-PTO assigned staff, clamped to window
   const windows=[];
   entries.forEach(e=>{
     if(isOnPTO(e.staffId,dayIdx)) return;
     FACILITIES.forEach(fac=>{
       const shift=getViewerLiveCell(fac.id,dayIdx).find(s=>s.staffId===e.staffId);
-      if(shift) windows.push({s:toMins(shift.start),e:toMins(shift.end)});
+      if(shift){
+        const s=Math.max(toMins(shift.start),dayStart);
+        const en=Math.min(toMins(shift.end),dayEnd);
+        if(en>s) windows.push({s,e:en});
+      }
     });
   });
-  // Get day open range from clinics
-  let openMin=null,closeMin=null;
-  FACILITIES.forEach(fac=>{
-    const oh=effectiveHours(fac.id,dayIdx,'live');
-    if(!oh) return;
-    const o=toMins(oh.open),c=toMins(oh.close);
-    if(openMin===null||o<openMin) openMin=o;
-    if(closeMin===null||c>closeMin) closeMin=c;
-  });
-  if(openMin===null) return [];
-  if(!windows.length) return [{start:fromMins(openMin),end:fromMins(closeMin),mins:closeMin-openMin}];
-  // Merge windows and find gaps
+
+  if(!windows.length) return [{start:fromMins(dayStart),end:fromMins(dayEnd),mins:dayEnd-dayStart}];
+
+  // Merge overlapping windows
   windows.sort((a,b)=>a.s-b.s);
   const merged=[];
   windows.forEach(w=>{
     if(!merged.length||w.s>merged[merged.length-1].e) merged.push({...w});
     else merged[merged.length-1].e=Math.max(merged[merged.length-1].e,w.e);
   });
+
+  // Find uncovered gaps within window
   const gaps=[];
-  let cur=openMin;
-  merged.forEach(w=>{if(w.s>cur)gaps.push({start:fromMins(cur),end:fromMins(w.s),mins:w.s-cur});cur=Math.max(cur,w.e);});
-  if(cur<closeMin) gaps.push({start:fromMins(cur),end:fromMins(closeMin),mins:closeMin-cur});
-  return gaps.filter(g=>g.mins>30);
+  let cur=dayStart;
+  merged.forEach(w=>{
+    if(w.s>cur) gaps.push({start:fromMins(cur),end:fromMins(w.s),mins:w.s-cur});
+    cur=Math.max(cur,w.e);
+  });
+  if(cur<dayEnd) gaps.push({start:fromMins(cur),end:fromMins(dayEnd),mins:dayEnd-cur});
+
+  return gaps.filter(g=>g.mins>30); // ignore gaps under 30 minutes
 }
 
 // Returns queues with role for a staff member on a day
