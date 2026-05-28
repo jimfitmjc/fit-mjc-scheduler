@@ -9195,6 +9195,7 @@ function renderViewerMySchedule(panel){
     </div>`;
     return;
   }
+  let isPreview=false;
   if(!me&&previewingAsViewer){
     me=staff.find(s=>s.type==='static')||staff[0];
     isPreview=true;
