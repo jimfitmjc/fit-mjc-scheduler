@@ -1715,7 +1715,7 @@ body.focus-mode .fac-label:has(.fstat.ok) {
     <div class="leg"><div class="leg-dot" style="background:var(--pto-bd)"></div>PTO</div>
   </div>
   <span id="gap-badge">⚠ — gaps</span>
-  <div class="week-nav">
+  <div class="week-nav" id="editor-week-nav">
     <button id="prev-week">‹</button>
     <span id="week-label"></span>
     <button id="next-week">›</button>
@@ -7098,8 +7098,9 @@ function applyLockState(){
   const banner=document.getElementById('lock-banner');
   const btn=document.getElementById('lock-btn');
   if(banner){
-    // Only show lock banner to editors — viewers don't need to know
-    if(isEditor&&!previewingAsViewer){
+    // Only show lock banner to editors NOT in preview mode
+    const inPreview=document.body.classList.contains('previewing');
+    if(isEditor&&!inPreview){
       banner.classList.toggle('active',!!locked);
       if(locked) banner.textContent=`🔒 LOCKED by ${lock.by?.split('@')[0]||'editor'} — ${lock.reason||'Schedule finalized'} · Click Unlock to edit`;
     } else {
@@ -7444,11 +7445,15 @@ document.getElementById('preview-viewer-btn').addEventListener('click',()=>{
     document.body.classList.add('view-only','previewing');
     viewerView='mine';
     initViewerTabs();
-    // Keep toolbar visible but hide editor-only buttons — preview button stays accessible
     document.getElementById('toolbar').classList.add('preview-mode');
-    document.getElementById('top-bar').style.display='';
-    // Show viewer week nav and initialize locked weeks
+    // Hide the editor week navigator and Today button — viewer has its own
+    document.getElementById('editor-week-nav').style.display='none';
+    document.getElementById('today-btn').style.display='none';
     document.getElementById('viewer-week-nav').style.display='flex';
+    // Sync viewer week to the editor's current week if it's locked,
+    // otherwise initViewerWeekNav will pick the nearest locked week
+    const editorWeek=weekKey(currentMonday);
+    if(lockedWeeks.includes(editorWeek)) viewerWeekKey=editorWeek;
     // Initialize locked weeks then render
     initViewerWeekNav().then(()=>{
       renderViewerWeekNav();
@@ -7461,8 +7466,9 @@ document.getElementById('preview-viewer-btn').addEventListener('click',()=>{
     btn.title='Return to editor mode';
     showToast('Previewing viewer experience','ok');
   } else {
-    // Restore editor toolbar
-    document.getElementById('top-bar').style.display='';
+    // Restore editor week navigator
+    document.getElementById('editor-week-nav').style.display='';
+    document.getElementById('today-btn').style.display='';
     document.getElementById('toolbar').style.display='';
     document.getElementById('toolbar').classList.remove('preview-mode');
     document.getElementById('viewer-week-nav').style.display='none';
