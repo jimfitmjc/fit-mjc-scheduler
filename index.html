@@ -4563,11 +4563,57 @@ document.getElementById('fachrs-modal').addEventListener('click',e=>{if(e.target
 // Global facility hours button: open picker for selected facility
 // (We'll use a simple prompt for which facility)
 document.getElementById('fac-hours-btn').addEventListener('click',()=>{
-  // build a quick select
-  const name=prompt('Enter facility number (1–12) to edit hours:');
-  const num=parseInt(name);
-  if(num>=1&&num<=12) openFacHrsModal('f'+num);
-  else showToast('Enter a number 1–12','err');
+  // Build a quick picker modal with facility names grouped by pod
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:8500;display:flex;align-items:center;justify-content:center;';
+
+  const card=document.createElement('div');
+  card.style.cssText='background:var(--surface);border-radius:var(--r);box-shadow:0 8px 32px rgba(0,0,0,.2);padding:20px;min-width:280px;max-width:340px;';
+  card.innerHTML='<div style="font-size:14px;font-weight:800;margin-bottom:14px;">🕐 Edit Facility Hours</div>';
+
+  // Group by pod
+  Object.entries(PODS).forEach(([podId,pod])=>{
+    if(!pod.facIds?.length) return;
+    const podLbl=document.createElement('div');
+    podLbl.style.cssText=`font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:${pod.color};margin:8px 0 4px;`;
+    podLbl.textContent=pod.name;
+    card.appendChild(podLbl);
+    pod.facIds.forEach(facId=>{
+      const fac=facById(facId);if(!fac)return;
+      const btn=document.createElement('button');
+      btn.style.cssText='width:100%;text-align:left;padding:7px 10px;margin-bottom:3px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface2);cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;';
+      btn.textContent=fac.name;
+      btn.addEventListener('click',()=>{ document.body.removeChild(overlay); openFacHrsModal(facId); });
+      card.appendChild(btn);
+    });
+  });
+
+  // Standalone facilities
+  const standaloneFacs=FACILITIES.filter(f=>!Object.values(PODS).some(p=>p.facIds?.includes(f.id)));
+  if(standaloneFacs.length){
+    const lbl=document.createElement('div');
+    lbl.style.cssText='font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);margin:8px 0 4px;';
+    lbl.textContent='Standalone';
+    card.appendChild(lbl);
+    standaloneFacs.forEach(fac=>{
+      const btn=document.createElement('button');
+      btn.style.cssText='width:100%;text-align:left;padding:7px 10px;margin-bottom:3px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface2);cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;';
+      btn.textContent=fac.name;
+      btn.addEventListener('click',()=>{ document.body.removeChild(overlay); openFacHrsModal(fac.id); });
+      card.appendChild(btn);
+    });
+  }
+
+  const cancelBtn=document.createElement('button');
+  cancelBtn.className='mbtn cancel';
+  cancelBtn.style.cssText+='width:100%;margin-top:10px;';
+  cancelBtn.textContent='Cancel';
+  cancelBtn.addEventListener('click',()=>document.body.removeChild(overlay));
+  card.appendChild(cancelBtn);
+
+  overlay.appendChild(card);
+  overlay.addEventListener('click',e=>{ if(e.target===overlay) document.body.removeChild(overlay); });
+  document.body.appendChild(overlay);
 });
 
 // Also: double-click facility label to rename, single click to set hours
