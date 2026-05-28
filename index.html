@@ -8226,11 +8226,11 @@ async function spSignIn(interactive=false){
     await spInit();
   } catch(err){
     console.error('Auth error:', err);
-    updateSyncStatus('error', 'Sign-in failed');
-    const errEl=document.getElementById('signin-error');
-    if(errEl) errEl.textContent=`Sign-in error: ${err.message||err}. Try again or refresh.`;
-    // Still apply access mode — non-editors land in viewer mode even without auth
-    // isEditor stays false so viewer experience loads
+    console.error('Auth error code:', err.errorCode);
+    console.error('Auth error message:', err.message);
+    // Show error in status AND as a visible toast so PCCs can report it
+    updateSyncStatus('error', `Sign-in failed: ${err.errorCode||err.message||'unknown'}`);
+    showToast(`Auth error: ${err.errorCode||err.message||'unknown'}`, 'err');
     applyAccessMode();
     render();
   }
