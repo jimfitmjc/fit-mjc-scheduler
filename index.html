@@ -1822,6 +1822,7 @@ body.focus-mode .fac-label:has(.fstat.ok) {
         <button class="viewer-tab" data-view="company">🏢 Company</button>
         <button class="viewer-tab" data-view="facility">🏥 Facility</button>
         <button class="viewer-tab" data-view="pcc">👤 PCC</button>
+        <button class="viewer-tab" data-view="focus">🎯 Focus Areas</button>
         <select class="viewer-tab-select" id="viewer-tab-select" style="display:none"></select>
       </div>
       <!-- Viewer context strip — float availability + PTO (viewers only) -->
@@ -1859,7 +1860,7 @@ body.focus-mode .fac-label:has(.fstat.ok) {
         <!-- Specialty bench — collapsible, one row per queue, 5 day columns -->
         <div class="specialty-bench" id="specialty-bench" style="display:none;">
           <div class="specialty-bench-hdr" id="specialty-bench-hdr">
-            🔬 Specialty Coverage
+            🎯 Focus Area Coverage
             <span id="specialty-bench-gaps" style="margin-left:6px;"></span>
             <span class="bench-count" id="specialty-bench-toggle" style="cursor:pointer;margin-left:auto;">▲ Collapse</span>
           </div>
@@ -2262,7 +2263,7 @@ body.focus-mode .fac-label:has(.fstat.ok) {
 <!-- Specialty Coverage Modal — queue management and cross-training only -->
 <div class="modal-overlay" id="specialty-modal">
   <div class="modal specialty-panel">
-    <h3>🔬 Specialty Queues</h3>
+    <h3>🎯 Focus Areas</h3>
     <p style="font-size:12px;color:var(--text-3);margin-bottom:14px;">Manage specialty queues and cross-training. Set rotation assignments in <strong>📋 Template Mode</strong> below the shift grid.</p>
     <!-- Queue management -->
     <div class="hc-section">
@@ -2444,10 +2445,13 @@ let queues = [
   {id:'auths',   name:'Authorizations',   color:'#d97706', active:true},
 ];
 
-// queueAssignments[weekKey][queueId][dayIdx] = [staffId, ...] (max 3)
+// Display label for specialty queues — change here to update everywhere in the UI
+const FOCUS_AREA_LABEL = 'Focus Area';
+
+// queueAssignments[weekKey][queueId][dayIdx] = [{staffId, priority}, ...] ordered priority list
 let queueAssignments = {};
 
-// queueTemplate[queueId][dayIdx] = [staffId, ...] — default weekly rotation (max 3)
+// queueTemplate[queueId][dayIdx] = [{staffId, priority}, ...] ordered priority list
 let queueTemplate = {};
 
 // ── Meetings ──────────────────────────────────────────────────────
@@ -2638,30 +2642,39 @@ function getTmplClosure(facId,dayIdx){
 function queueById(id){ return queues.find(q=>q.id===id)||null; }
 function activeQueues(){ return queues.filter(q=>q.active); }
 
-// ── Queue assignment accessors (array, max 3) ─────────────────────
-function getQueueAssignment(queueId, dayIdx){
-  // Use viewer week key when in viewer/preview mode, otherwise current week
-  const k=((!isEditor||previewingAsViewer)&&viewerWeekKey)
-    ? viewerWeekKey
-    : weekKey(currentMonday);
-  const val=queueAssignments[k]?.[queueId]?.[dayIdx];
-  if(!val) return [];
-  return Array.isArray(val)?val:[val].filter(Boolean);
+// ── Normalize stored queue entries to priority array ──────────────
+function normalizeQueueEntries(val){
+  if(!val||!val.length) return [];
+  if(typeof val[0]==='object'&&val[0].staffId) return val;
+  return val.filter(Boolean).map((staffId,i)=>({staffId,priority:i+1}));
 }
-function setQueueAssignment(queueId, dayIdx, staffIds){
+
+// ── Queue assignment accessors — ordered priority list ────────────
+function getQueueAssignment(queueId, dayIdx){
+  const k=((!isEditor||previewingAsViewer)&&viewerWeekKey)
+    ? viewerWeekKey : weekKey(currentMonday);
+  const val=queueAssignments[k]?.[queueId]?.[dayIdx];
+  return normalizeQueueEntries(val||[]);
+}
+function getQueueAssignmentIds(queueId, dayIdx){
+  return getQueueAssignment(queueId,dayIdx).map(e=>e.staffId);
+}
+function setQueueAssignment(queueId, dayIdx, entries){
   const k=weekKey(currentMonday);
   if(!queueAssignments[k]) queueAssignments[k]={};
   if(!queueAssignments[k][queueId]) queueAssignments[k][queueId]={};
-  queueAssignments[k][queueId][dayIdx]=(staffIds||[]).filter(Boolean).slice(0,3);
+  queueAssignments[k][queueId][dayIdx]=entries.map((e,i)=>
+    typeof e==='string'?{staffId:e,priority:i+1}:{staffId:e.staffId,priority:i+1}
+  ).filter(e=>e.staffId);
 }
 function getQueueTemplateAssignment(queueId, dayIdx){
-  const val=queueTemplate[queueId]?.[dayIdx];
-  if(!val) return [];
-  return Array.isArray(val)?val:[val].filter(Boolean);
+  return normalizeQueueEntries(queueTemplate[queueId]?.[dayIdx]||[]);
 }
-function setQueueTemplateAssignment(queueId, dayIdx, staffIds){
+function setQueueTemplateAssignment(queueId, dayIdx, entries){
   if(!queueTemplate[queueId]) queueTemplate[queueId]={};
-  queueTemplate[queueId][dayIdx]=(staffIds||[]).filter(Boolean).slice(0,3);
+  queueTemplate[queueId][dayIdx]=entries.map((e,i)=>
+    typeof e==='string'?{staffId:e,priority:i+1}:{staffId:e.staffId,priority:i+1}
+  ).filter(e=>e.staffId);
 }
 function loadQueueTemplateForWeek(){
   const k=weekKey(currentMonday);
@@ -2678,10 +2691,37 @@ function loadQueueTemplateForWeek(){
   });
 }
 
-// ── Specialty coverage gap detection (zero grace buffer) ──────────
+// ── Role calculation (derived from position after PTO/shift compression) ──
+function getQueueRole(queueId, staffId, dayIdx){
+  const entries=getQueueAssignment(queueId,dayIdx);
+  if(!entries.length) return null;
+  if(!entries.find(e=>e.staffId===staffId)) return null;
+  // Compress — only people on shift and not on PTO
+  const active=entries.filter(e=>{
+    if(isOnPTO(e.staffId,dayIdx)) return false;
+    return FACILITIES.some(f=>getViewerLiveCell(f.id,dayIdx).some(s=>s.staffId===e.staffId));
+  });
+  const activeIdx=active.findIndex(e=>e.staffId===staffId);
+  if(activeIdx<0) return null;
+  if(activeIdx===0) return 'Lead';
+  if(activeIdx===1) return 'Support';
+  return 'Backup';
+}
+
+// ── Refined gap detection — gap only if no trained person has shift covering window ──
 function getSpecialtyGaps(queueId, dayIdx){
-  const assignedIds=getQueueAssignment(queueId,dayIdx);
-  if(!assignedIds.length) return [];
+  const entries=getQueueAssignment(queueId,dayIdx);
+  if(!entries.length) return [];
+  // Collect shift windows from non-PTO assigned staff
+  const windows=[];
+  entries.forEach(e=>{
+    if(isOnPTO(e.staffId,dayIdx)) return;
+    FACILITIES.forEach(fac=>{
+      const shift=getViewerLiveCell(fac.id,dayIdx).find(s=>s.staffId===e.staffId);
+      if(shift) windows.push({s:toMins(shift.start),e:toMins(shift.end)});
+    });
+  });
+  // Get day open range from clinics
   let openMin=null,closeMin=null;
   FACILITIES.forEach(fac=>{
     const oh=effectiveHours(fac.id,dayIdx,'live');
@@ -2691,46 +2731,43 @@ function getSpecialtyGaps(queueId, dayIdx){
     if(closeMin===null||c>closeMin) closeMin=c;
   });
   if(openMin===null) return [];
-  const intervals=[];
-  assignedIds.forEach(sid=>{
-    if(isOnPTO(sid,dayIdx)) return;
-    FACILITIES.forEach(fac=>{
-      const entry=getLiveCell(fac.id,dayIdx).find(e=>e.staffId===sid);
-      if(!entry) return;
-      intervals.push([Math.max(toMins(entry.start),openMin),Math.min(toMins(entry.end),closeMin)]);
-    });
+  if(!windows.length) return [{start:fromMins(openMin),end:fromMins(closeMin),mins:closeMin-openMin}];
+  // Merge windows and find gaps
+  windows.sort((a,b)=>a.s-b.s);
+  const merged=[];
+  windows.forEach(w=>{
+    if(!merged.length||w.s>merged[merged.length-1].e) merged.push({...w});
+    else merged[merged.length-1].e=Math.max(merged[merged.length-1].e,w.e);
   });
-  if(!intervals.length) return [{start:fromMins(openMin),end:fromMins(closeMin),mins:closeMin-openMin}];
-  intervals.sort((a,b)=>a[0]-b[0]);
   const gaps=[];
   let cur=openMin;
-  intervals.forEach(([s,e])=>{if(s>cur)gaps.push({start:fromMins(cur),end:fromMins(s),mins:s-cur});cur=Math.max(cur,e);});
+  merged.forEach(w=>{if(w.s>cur)gaps.push({start:fromMins(cur),end:fromMins(w.s),mins:w.s-cur});cur=Math.max(cur,w.e);});
   if(cur<closeMin) gaps.push({start:fromMins(cur),end:fromMins(closeMin),mins:closeMin-cur});
-  return gaps;
+  return gaps.filter(g=>g.mins>30);
 }
 
-// Returns queues a given staff member is assigned to on a day
+// Returns queues with role for a staff member on a day
 function getStaffQueueAssignments(staffId, dayIdx){
-  return activeQueues().filter(q=>getQueueAssignment(q.id,dayIdx).includes(staffId));
+  return activeQueues()
+    .filter(q=>getQueueAssignmentIds(q.id,dayIdx).includes(staffId))
+    .map(q=>({...q,role:getQueueRole(q.id,staffId,dayIdx)}));
 }
 
-// Meeting conflicts — check if any assigned PCC in a queue has a meeting
+// Meeting conflicts
 function getSpecialtyConflicts(dayIdx){
   const k=weekKey(currentMonday);
   const conflicts=[];
   const instances=meetingInstances[k]?.[dayIdx]||[];
   activeQueues().forEach(q=>{
-    const assignedIds=getQueueAssignment(q.id,dayIdx);
-    if(!assignedIds.length) return;
+    const ids=getQueueAssignmentIds(q.id,dayIdx);
+    if(!ids.length) return;
     instances.forEach(inst=>{
       if(inst.skipped) return;
       const mtg=meetings.find(m=>m.id===inst.meetingId);
       if(!mtg) return;
       const affected=getMeetingStaffIds(mtg,dayIdx);
-      assignedIds.forEach(sid=>{
-        if(affected.includes(sid)){
-          conflicts.push({queue:q,staffId:sid,meeting:mtg,instance:inst});
-        }
+      ids.forEach(sid=>{
+        if(affected.includes(sid)) conflicts.push({queue:q,staffId:sid,meeting:mtg,instance:inst});
       });
     });
   });
@@ -3211,7 +3248,7 @@ function renderSpecialtyTemplateSection(){
   if(!activeQueues().length){
     const msg=document.createElement('div');
     msg.style.cssText='grid-column:1/-1;padding:16px;text-align:center;font-size:12px;color:var(--text-3);font-style:italic;';
-    msg.textContent='No specialty queues defined. Click 🔬 Specialty to add queues.';
+    msg.textContent='No focus areas defined. Click 🔬 Focus Areas to add queues.';
     grid.appendChild(msg);
     return;
   }
@@ -3233,29 +3270,32 @@ function renderSpecialtyTemplateSection(){
         const bT=(b.specialties||[]).includes(q.id)?0:1;
         return aT-bT||a.name.localeCompare(b.name);
       });
-      for(let slot=0;slot<3;slot++){
-        const sel=document.createElement('select');
-        sel.dataset.queue=q.id; sel.dataset.day=i; sel.dataset.slot=slot; sel.dataset.tmpl='1';
-        sel.style.cssText='width:100%;font-size:9px;margin-bottom:2px;padding:1px 2px;border:1px solid var(--border2);border-radius:2px;background:var(--surface);font-family:inherit;';
-        sel.innerHTML='<option value="">—</option>';
-        sortedStaff.forEach(s=>{
-          const trained=(s.specialties||[]).includes(q.id);
-          const o=document.createElement('option');
-          o.value=s.id;
-          o.textContent=s.name.split(' ')[0]+(trained?' ✓':'*');
-          if(current[slot]===s.id) o.selected=true;
-          sel.appendChild(o);
-        });
-        // Auto-save on change
-        sel.addEventListener('change',()=>{
-          const vals=[];
-          cell.querySelectorAll('select').forEach(s=>{ if(s.value) vals.push(s.value); });
-          setQueueTemplateAssignment(q.id,i,vals);
-          saveQueueTemplate();
-        });
-        cell.appendChild(sel);
+    for(let i=0;i<5;i++){
+      const cell=document.createElement('div');
+      cell.style.cssText=`padding:4px 6px;border-right:${i<4?'1px solid var(--border)':'none'};${isLast?'':'border-bottom:1px solid var(--border);'}background:var(--surface);min-height:36px;cursor:pointer;`;
+
+      function renderTemplateCell(cellEl, queueId, dayIndex){
+        cellEl.innerHTML='';
+        const current=getQueueTemplateAssignment(queueId,dayIndex);
+        if(!current.length){
+          cellEl.innerHTML='<div style="font-size:10px;color:var(--text-3);padding:4px;text-align:center;">+ Assign</div>';
+        } else {
+          current.forEach((entry,idx)=>{
+            const s=staffById(entry.staffId);if(!s)return;
+            const role=idx===0?'Lead':idx===1?'Support':'Backup';
+            const roleColor=idx===0?q.color:'var(--text-3)';
+            const row=document.createElement('div');
+            row.style.cssText=`font-size:9px;padding:1px 4px;border-radius:3px;margin-bottom:2px;background:${q.color}12;display:flex;justify-content:space-between;gap:4px;`;
+            row.innerHTML=`<span style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.name.split(' ')[0]}</span><span style="color:${roleColor};font-weight:800;flex-shrink:0;">${role}</span>`;
+            cellEl.appendChild(row);
+          });
+        }
+        cellEl.onclick=()=>openSpecialtyTemplateCell(q,dayIndex,cellEl);
       }
+
+      renderTemplateCell(cell,q.id,i);
       grid.appendChild(cell);
+    }
     }
   });
 }
@@ -3602,7 +3642,7 @@ function makeChip(s,entry,facId,dayIdx,isAbsent){
   try {
     const staffQueues=getStaffQueueAssignments(s.id, parseInt(dayIdx));
     specialtyHtml=staffQueues.map(q=>
-      `<span class="specialty-chip-badge" style="background:${q.color}15;color:${q.color};border-color:${q.color}44;">🔬 ${q.name}</span>`
+      `<span class="specialty-chip-badge" style="background:${q.color}15;color:${q.color};border-color:${q.color}44;">🎯 ${q.name}${q.role?' · '+q.role:''}</span>`
     ).join('');
   } catch(e){ specialtyHtml=''; }
 
@@ -5981,7 +6021,7 @@ function renderSqTemplateGrid(){
   const grid=document.getElementById('sq-template-grid');
   grid.innerHTML=''; grid.className='sq-template-grid';
   const corner=document.createElement('div');
-  corner.className='sq-grid-head queue-head'; corner.textContent='Queue \\ Day'; grid.appendChild(corner);
+  corner.className='sq-grid-head queue-head'; corner.textContent=`${FOCUS_AREA_LABEL} \\ Day`; grid.appendChild(corner);
   DAYS.forEach(d=>{ const h=document.createElement('div'); h.className='sq-grid-head'; h.textContent=d; grid.appendChild(h); });
   activeQueues().forEach(q=>{
     const lbl=document.createElement('div');
@@ -5989,27 +6029,24 @@ function renderSqTemplateGrid(){
     lbl.innerHTML=`<span class="sq-dot" style="background:${q.color}"></span>${q.name}`;
     grid.appendChild(lbl);
     for(let i=0;i<5;i++){
-      const cell=document.createElement('div'); cell.className='sq-grid-cell'; cell.style.padding='3px';
       const current=getQueueTemplateAssignment(q.id,i);
-      const sortedStaff=staff.slice().sort((a,b)=>{
-        const aT=(a.specialties||[]).includes(q.id)?0:1;
-        const bT=(b.specialties||[]).includes(q.id)?0:1;
-        return aT-bT||a.name.localeCompare(b.name);
-      });
-      for(let slot=0;slot<3;slot++){
-        const sel=document.createElement('select');
-        sel.dataset.queue=q.id; sel.dataset.day=i; sel.dataset.slot=slot; sel.dataset.mode='template';
-        sel.style.cssText='width:100%;font-size:9px;margin-bottom:2px;padding:1px 2px;border:1px solid var(--border2);border-radius:2px;background:var(--surface);font-family:inherit;';
-        sel.innerHTML='<option value="">—</option>';
-        sortedStaff.forEach(s=>{
-          const trained=(s.specialties||[]).includes(q.id);
-          const o=document.createElement('option');
-          o.value=s.id; o.textContent=s.name.split(' ')[0]+(trained?'':'*');
-          if(current[slot]===s.id) o.selected=true;
-          sel.appendChild(o);
+      const cell=document.createElement('div');
+      cell.className='sq-grid-cell';
+      cell.style.cssText='padding:4px 6px;cursor:pointer;min-height:32px;';
+      if(!current.length){
+        cell.innerHTML='<div style="font-size:10px;color:var(--text-3);text-align:center;padding:4px;">+ Assign</div>';
+      } else {
+        current.forEach((entry,idx)=>{
+          const s=staffById(entry.staffId);if(!s)return;
+          const role=idx===0?'Lead':idx===1?'Support':'Backup';
+          const roleColor=idx===0?q.color:'var(--text-3)';
+          const row=document.createElement('div');
+          row.style.cssText=`font-size:9px;padding:1px 4px;border-radius:3px;margin-bottom:2px;background:${q.color}12;display:flex;justify-content:space-between;gap:4px;`;
+          row.innerHTML=`<span style="font-weight:700;">${s.name.split(' ')[0]}</span><span style="color:${roleColor};font-weight:800;">${role}</span>`;
+          cell.appendChild(row);
         });
-        cell.appendChild(sel);
       }
+      cell.addEventListener('click',()=>openSpecialtyTemplateCell(q,i,cell));
       grid.appendChild(cell);
     }
   });
@@ -6019,7 +6056,7 @@ function renderSqWeekGrid(){
   const grid=document.getElementById('sq-week-grid');
   grid.innerHTML=''; grid.className='sq-template-grid';
   const corner=document.createElement('div');
-  corner.className='sq-grid-head queue-head'; corner.textContent='Queue \\ Day'; grid.appendChild(corner);
+  corner.className='sq-grid-head queue-head'; corner.textContent=`${FOCUS_AREA_LABEL} \\ Day`; grid.appendChild(corner);
   DAYS.forEach((d,i)=>{
     const date=addDays(currentMonday,i);
     const h=document.createElement('div');
@@ -6032,29 +6069,35 @@ function renderSqWeekGrid(){
     lbl.innerHTML=`<span class="sq-dot" style="background:${q.color}"></span>${q.name}`;
     grid.appendChild(lbl);
     for(let i=0;i<5;i++){
-      const cell=document.createElement('div'); cell.className='sq-grid-cell'; cell.style.padding='3px';
-      const conflicts=getSpecialtyConflicts(i).filter(c=>c.queue.id===q.id);
-      if(conflicts.length){ const b=document.createElement('div'); b.className='sq-conflict-badge'; b.textContent='⚠ Meeting conflict'; cell.appendChild(b); }
       const current=getQueueAssignment(q.id,i);
-      const sortedStaff=staff.slice().sort((a,b)=>{
-        const aT=(a.specialties||[]).includes(q.id)?0:1;
-        const bT=(b.specialties||[]).includes(q.id)?0:1;
-        return aT-bT||a.name.localeCompare(b.name);
-      });
-      for(let slot=0;slot<3;slot++){
-        const sel=document.createElement('select');
-        sel.dataset.queue=q.id; sel.dataset.day=i; sel.dataset.slot=slot;
-        sel.style.cssText=`width:100%;font-size:9px;margin-bottom:2px;padding:1px 2px;border:1px solid ${conflicts.length?'var(--brand)':'var(--border2)'};border-radius:2px;background:var(--surface);font-family:inherit;`;
-        sel.innerHTML='<option value="">—</option>';
-        sortedStaff.forEach(s=>{
-          const trained=(s.specialties||[]).includes(q.id);
-          const o=document.createElement('option');
-          o.value=s.id; o.textContent=s.name.split(' ')[0]+(trained?'':'*');
-          if(current[slot]===s.id) o.selected=true;
-          sel.appendChild(o);
-        });
-        cell.appendChild(sel);
+      const gaps=getSpecialtyGaps(q.id,i);
+      const conflicts=getSpecialtyConflicts(i).filter(c=>c.queue.id===q.id);
+      const cell=document.createElement('div');
+      cell.className='sq-grid-cell'+(gaps.length?' has-gap':'');
+      cell.style.cssText=`padding:4px 6px;cursor:pointer;min-height:32px;`;
+      if(conflicts.length){
+        const b=document.createElement('div'); b.className='sq-conflict-badge'; b.textContent='⚠ Conflict'; cell.appendChild(b);
       }
+      if(!current.length){
+        cell.innerHTML+='<div style="font-size:10px;color:var(--text-3);text-align:center;padding:4px;">+ Assign</div>';
+      } else {
+        current.forEach((entry,idx)=>{
+          const s=staffById(entry.staffId);if(!s)return;
+          const role=idx===0?'Lead':idx===1?'Support':'Backup';
+          const roleColor=idx===0?q.color:'var(--text-3)';
+          const row=document.createElement('div');
+          row.style.cssText=`font-size:9px;padding:1px 4px;border-radius:3px;margin-bottom:2px;background:${q.color}12;display:flex;justify-content:space-between;gap:4px;`;
+          row.innerHTML=`<span style="font-weight:700;">${s.name.split(' ')[0]}</span><span style="color:${roleColor};font-weight:800;">${role}</span>`;
+          cell.appendChild(row);
+        });
+        if(gaps.length){
+          const gf=document.createElement('div');
+          gf.style.cssText='font-size:9px;color:var(--brand);font-weight:700;';
+          gf.textContent=`⚠ ${gaps.length} gap${gaps.length>1?'s':''}`;
+          cell.appendChild(gf);
+        }
+      }
+      cell.addEventListener('click',()=>openSpecialtyCell(q,i,cell));
       grid.appendChild(cell);
     }
   });
@@ -6149,13 +6192,14 @@ function renderSpecialtyBench(){
         cell.style.cursor='default';
       } else {
         if(assigned.length){
-          assigned.forEach(sid=>{
-            const s=staffById(sid);if(!s)return;
-            const onPTO=isOnPTO(sid,i);
+          assigned.forEach((entry,idx)=>{
+            const s=staffById(entry.staffId);if(!s)return;
+            const onPTO=isOnPTO(entry.staffId,i);
+            const role=idx===0?'Lead':idx===1?'Support':'Backup';
             const nameEl=document.createElement('div');
             nameEl.className='sbg-pcc-name';
-            nameEl.style.cssText=`background:${q.color}18;color:${q.color};border:1px solid ${q.color}33;${onPTO?'opacity:.5;text-decoration:line-through;':''}`;
-            nameEl.textContent=s.name.split(' ')[0];
+            nameEl.style.cssText=`background:${q.color}18;color:${q.color};border:1px solid ${q.color}33;${onPTO?'opacity:.5;text-decoration:line-through;':''}display:flex;align-items:center;justify-content:space-between;gap:4px;`;
+            nameEl.innerHTML=`<span>${s.name.split(' ')[0]}${onPTO?' 🏖':''}</span><span style="font-size:8px;font-weight:800;opacity:.7;text-transform:uppercase;">${role}</span>`;
             cell.appendChild(nameEl);
           });
           if(gaps.length){
@@ -6183,77 +6227,339 @@ function renderSpecialtyBench(){
 // ── Specialty cell assignment popup ──────────────────────────────
 let specialtyCellOverlay=null;
 function openSpecialtyCell(queue, dayIdx, anchorEl){
-  // Close any existing popup
   if(specialtyCellOverlay){ specialtyCellOverlay.remove(); specialtyCellOverlay=null; }
 
-  const assigned=getQueueAssignment(queue.id,dayIdx);
+  const assigned=getQueueAssignment(queue.id,dayIdx); // [{staffId,priority}]
   const d=addDays(currentMonday,dayIdx);
   const gaps=getSpecialtyGaps(queue.id,dayIdx);
 
   const popup=document.createElement('div');
-  popup.style.cssText=`position:fixed;z-index:9999;background:var(--surface);border:1.5px solid ${queue.color};border-radius:var(--r);box-shadow:0 8px 24px rgba(0,0,0,.15);padding:14px;min-width:240px;max-width:280px;`;
+  popup.style.cssText=`position:fixed;z-index:9999;background:var(--surface);border:1.5px solid ${queue.color};border-radius:var(--r);box-shadow:0 8px 24px rgba(0,0,0,.15);padding:14px;min-width:300px;max-width:340px;`;
   specialtyCellOverlay=popup;
 
-  // Position near anchor
   const rect=anchorEl.getBoundingClientRect();
-  popup.style.left=Math.min(rect.left, window.innerWidth-290)+'px';
+  popup.style.left=Math.min(rect.left,window.innerWidth-350)+'px';
   popup.style.top=(rect.bottom+4)+'px';
 
-  popup.innerHTML=`
-    <div style="font-size:12px;font-weight:800;color:${queue.color};margin-bottom:8px;">
-      🔬 ${queue.name} — ${DAYS[dayIdx]} ${d.getDate()}
-    </div>
-    ${gaps.length?`<div style="font-size:10px;color:var(--brand);font-weight:700;margin-bottom:6px;">⚠ ${gaps.map(g=>fmtRange(g.start,g.end)).join(', ')} uncovered</div>`:''}
-    <div style="font-size:10px;color:var(--text-3);margin-bottom:6px;">Select up to 3 PCCs (✓ = cross-trained)</div>
-    <div id="scp-list" style="display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;margin-bottom:10px;"></div>
-    <div style="display:flex;gap:6px;justify-content:flex-end;">
-      <button class="mbtn cancel" id="scp-cancel">Cancel</button>
-      <button class="mbtn save" id="scp-save">Apply</button>
-    </div>`;
+  // Working priority list — mutable copy
+  let priorityList=[...assigned];
 
-  // Build PCC list — trained first, then others
-  const list=popup.querySelector('#scp-list');
-  const trained=staff.filter(s=>(s.specialties||[]).includes(queue.id));
-  const others=staff.filter(s=>!(s.specialties||[]).includes(queue.id));
+  function getRoleLabel(idx){
+    if(idx===0) return 'Lead';
+    if(idx===1) return 'Support';
+    return 'Backup';
+  }
 
-  [...trained,...others].forEach(s=>{
-    const isTrained=(s.specialties||[]).includes(queue.id);
-    const onPTO=isOnPTO(s.id,dayIdx);
-    const checked=assigned.includes(s.id);
-    const row=document.createElement('label');
-    row.style.cssText=`display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600;${onPTO?'opacity:.4;':''}${checked?`background:${queue.color}15;`:''};`;
-    const cb=document.createElement('input');
-    cb.type='checkbox'; cb.value=s.id; cb.checked=checked;
-    if(onPTO) cb.disabled=true;
-    cb.addEventListener('change',()=>{
-      // Max 3 enforcement
-      const checkedCount=list.querySelectorAll('input:checked').length;
-      if(checkedCount>3){ cb.checked=false; showToast('Max 3 PCCs per queue per day','err'); return; }
-      row.style.background=cb.checked?`${queue.color}15`:'';
+  function buildPopup(){
+    popup.innerHTML='';
+
+    // Header
+    const hdr=document.createElement('div');
+    hdr.style.cssText=`font-size:12px;font-weight:800;color:${queue.color};margin-bottom:8px;`;
+    hdr.textContent=`🎯 ${queue.name} — ${DAYS[dayIdx]} ${d.getDate()}`;
+    popup.appendChild(hdr);
+
+    if(gaps.length){
+      const gapEl=document.createElement('div');
+      gapEl.style.cssText='font-size:10px;color:var(--brand);font-weight:700;margin-bottom:6px;';
+      gapEl.textContent=`⚠ ${gaps.map(g=>fmtRange(g.start,g.end)).join(', ')} uncovered`;
+      popup.appendChild(gapEl);
+    }
+
+    // Priority list
+    const listLabel=document.createElement('div');
+    listLabel.style.cssText='font-size:10px;color:var(--text-3);margin-bottom:4px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;';
+    listLabel.textContent=`Priority Order (drag or use ↑↓ to reorder)`;
+    popup.appendChild(listLabel);
+
+    const listEl=document.createElement('div');
+    listEl.id='scp-priority-list';
+    listEl.style.cssText='display:flex;flex-direction:column;gap:3px;margin-bottom:8px;min-height:20px;';
+
+    function renderList(){
+      listEl.innerHTML='';
+      priorityList.forEach((entry,idx)=>{
+        const s=staffById(entry.staffId); if(!s) return;
+        const onPTO=isOnPTO(s.id,dayIdx);
+        const shifts=FACILITIES.flatMap(f=>getViewerLiveCell(f.id,dayIdx).filter(e=>e.staffId===s.id));
+        const shiftTime=shifts.length?fmtRange(shifts[0].start,shifts[0].end):'No shift';
+        const role=getRoleLabel(idx);
+        const roleColor=idx===0?queue.color:idx===1?'var(--text-2)':'var(--text-3)';
+
+        const row=document.createElement('div');
+        row.draggable=true;
+        row.dataset.idx=idx;
+        row.style.cssText=`display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:6px;background:${queue.color}12;border:1px solid ${queue.color}30;font-size:11px;cursor:grab;${onPTO?'opacity:.5;':''}`;
+
+        // Drag handle
+        const handle=document.createElement('span');
+        handle.textContent='⠿';
+        handle.style.cssText='color:var(--text-3);cursor:grab;font-size:14px;flex-shrink:0;';
+        row.appendChild(handle);
+
+        // Position number
+        const num=document.createElement('span');
+        num.style.cssText=`font-weight:900;font-size:12px;color:${queue.color};min-width:14px;`;
+        num.textContent=idx+1;
+        row.appendChild(num);
+
+        // Name + info
+        const info=document.createElement('div');
+        info.style.cssText='flex:1;min-width:0;';
+        info.innerHTML=`<div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.name}${onPTO?' 🏖':''}</div>
+          <div style="font-size:10px;color:var(--text-3);">${shiftTime}</div>`;
+        row.appendChild(info);
+
+        // Role badge
+        const badge=document.createElement('span');
+        badge.style.cssText=`font-size:9px;font-weight:800;color:${roleColor};padding:2px 6px;border-radius:999px;border:1px solid currentColor;flex-shrink:0;text-transform:uppercase;letter-spacing:.04em;`;
+        badge.textContent=role;
+        row.appendChild(badge);
+
+        // ↑↓ buttons
+        const arrows=document.createElement('div');
+        arrows.style.cssText='display:flex;flex-direction:column;gap:1px;flex-shrink:0;';
+        const up=document.createElement('button');
+        up.textContent='↑'; up.style.cssText='background:none;border:none;cursor:pointer;font-size:11px;line-height:1;padding:0 2px;color:var(--text-2);';
+        up.disabled=idx===0;
+        up.addEventListener('click',()=>{
+          [priorityList[idx-1],priorityList[idx]]=[priorityList[idx],priorityList[idx-1]];
+          renderList();
+        });
+        const dn=document.createElement('button');
+        dn.textContent='↓'; dn.style.cssText='background:none;border:none;cursor:pointer;font-size:11px;line-height:1;padding:0 2px;color:var(--text-2);';
+        dn.disabled=idx===priorityList.length-1;
+        dn.addEventListener('click',()=>{
+          [priorityList[idx],priorityList[idx+1]]=[priorityList[idx+1],priorityList[idx]];
+          renderList();
+        });
+        arrows.appendChild(up); arrows.appendChild(dn);
+        row.appendChild(arrows);
+
+        // Remove button
+        const rm=document.createElement('button');
+        rm.textContent='✕'; rm.style.cssText='background:none;border:none;cursor:pointer;font-size:11px;color:var(--text-3);padding:0 2px;flex-shrink:0;';
+        rm.addEventListener('click',()=>{ priorityList.splice(idx,1); renderList(); });
+        row.appendChild(rm);
+
+        // Drag events
+        row.addEventListener('dragstart',e=>{ e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',idx); row.style.opacity='.4'; });
+        row.addEventListener('dragend',()=>{ row.style.opacity='1'; });
+        row.addEventListener('dragover',e=>{ e.preventDefault(); e.dataTransfer.dropEffect='move'; row.style.background=`${queue.color}25`; });
+        row.addEventListener('dragleave',()=>{ row.style.background=`${queue.color}12`; });
+        row.addEventListener('drop',e=>{
+          e.preventDefault(); row.style.background=`${queue.color}12`;
+          const fromIdx=parseInt(e.dataTransfer.getData('text/plain'));
+          const toIdx=idx;
+          if(fromIdx===toIdx) return;
+          const [moved]=priorityList.splice(fromIdx,1);
+          priorityList.splice(toIdx,0,moved);
+          renderList();
+        });
+
+        listEl.appendChild(row);
+      });
+
+      if(!priorityList.length){
+        const empty=document.createElement('div');
+        empty.style.cssText='padding:8px;text-align:center;color:var(--text-3);font-size:11px;font-style:italic;';
+        empty.textContent='No one assigned — add from the list below';
+        listEl.appendChild(empty);
+      }
+    }
+
+    renderList();
+    popup.appendChild(listEl);
+
+    // Add staff section
+    const addLabel=document.createElement('div');
+    addLabel.style.cssText='font-size:10px;color:var(--text-3);margin-bottom:4px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;';
+    addLabel.textContent='Add to priority list';
+    popup.appendChild(addLabel);
+
+    const addList=document.createElement('div');
+    addList.style.cssText='max-height:140px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;margin-bottom:10px;';
+
+    const trained=staff.filter(s=>(s.specialties||[]).includes(queue.id));
+    const others=staff.filter(s=>!(s.specialties||[]).includes(queue.id));
+
+    [...trained,...others].forEach(s=>{
+      const alreadyAdded=priorityList.some(e=>e.staffId===s.id);
+      if(alreadyAdded) return;
+      const onPTO=isOnPTO(s.id,dayIdx);
+      const shifts=FACILITIES.flatMap(f=>getLiveCell(f.id,dayIdx).filter(e=>e.staffId===s.id));
+      const shiftTime=shifts.length?` · ${fmtRange(shifts[0].start,shifts[0].end)}`:'';
+      const isTrained=(s.specialties||[]).includes(queue.id);
+
+      const row=document.createElement('div');
+      row.style.cssText=`display:flex;align-items:center;justify-content:space-between;padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;${onPTO?'opacity:.4;':''}hover:background:var(--surface2);`;
+      row.innerHTML=`<span>${isTrained?'✓ ':''}${s.name}${shiftTime}${onPTO?' 🏖':''}</span>`;
+      const addBtn=document.createElement('button');
+      addBtn.textContent='+ Add';
+      addBtn.style.cssText='background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer;font-family:inherit;font-weight:700;';
+      addBtn.addEventListener('click',()=>{
+        if(!priorityList.some(e=>e.staffId===s.id)){
+          priorityList.push({staffId:s.id,priority:priorityList.length+1});
+          renderList();
+          row.remove();
+        }
+      });
+      row.appendChild(addBtn);
+      addList.appendChild(row);
     });
-    row.appendChild(cb);
-    const shifts=FACILITIES.flatMap(f=>getLiveCell(f.id,dayIdx).filter(e=>e.staffId===s.id));
-    const shiftTime=shifts.length?` · ${fmtRange(shifts[0].start,shifts[0].end)}`:'';
-    row.innerHTML+=`${isTrained?'✓ ':''}${s.name}${shiftTime}${onPTO?' 🏖':''}`;
-    list.appendChild(row);
-  });
 
-  popup.querySelector('#scp-cancel').addEventListener('click',()=>{ popup.remove(); specialtyCellOverlay=null; });
-  popup.querySelector('#scp-save').addEventListener('click',()=>{
-    const selected=[...list.querySelectorAll('input:checked')].map(cb=>cb.value);
-    setQueueAssignment(queue.id,dayIdx,selected);
-    saveQueueAssignments();
-    popup.remove(); specialtyCellOverlay=null;
-    renderSpecialtyBench();
-    render();
-    showToast(`${queue.name} updated ✓`,'ok');
-  });
+    if(addList.children.length===0){
+      addList.innerHTML='<div style="padding:6px;text-align:center;color:var(--text-3);font-size:11px;font-style:italic;">All staff added</div>';
+    }
+    popup.appendChild(addList);
 
+    // Buttons
+    const btns=document.createElement('div');
+    btns.style.cssText='display:flex;gap:6px;justify-content:flex-end;';
+    const cancelBtn=document.createElement('button');
+    cancelBtn.className='mbtn cancel'; cancelBtn.textContent='Cancel';
+    cancelBtn.addEventListener('click',()=>{ popup.remove(); specialtyCellOverlay=null; });
+    const saveBtn=document.createElement('button');
+    saveBtn.className='mbtn save'; saveBtn.textContent='Apply';
+    saveBtn.addEventListener('click',()=>{
+      setQueueAssignment(queue.id,dayIdx,priorityList);
+      saveQueueAssignments();
+      popup.remove(); specialtyCellOverlay=null;
+      renderSpecialtyBench();
+      render();
+      showToast(`${queue.name} updated ✓`,'ok');
+    });
+    btns.appendChild(cancelBtn); btns.appendChild(saveBtn);
+    popup.appendChild(btns);
+  }
+
+  buildPopup();
   document.body.appendChild(popup);
 
-  // Close on outside click
   setTimeout(()=>{
     const close=(e)=>{ if(!popup.contains(e.target)){ popup.remove(); specialtyCellOverlay=null; document.removeEventListener('click',close); } };
+    document.addEventListener('click',close);
+  },100);
+}
+
+// Template-mode version of specialty cell popup — saves to queueTemplate
+function openSpecialtyTemplateCell(queue, dayIdx, anchorEl){
+  if(specialtyCellOverlay){ specialtyCellOverlay.remove(); specialtyCellOverlay=null; }
+
+  let priorityList=[...getQueueTemplateAssignment(queue.id,dayIdx)];
+  const popup=document.createElement('div');
+  popup.style.cssText=`position:fixed;z-index:9999;background:var(--surface);border:1.5px solid ${queue.color};border-radius:var(--r);box-shadow:0 8px 24px rgba(0,0,0,.15);padding:14px;min-width:300px;max-width:340px;`;
+  specialtyCellOverlay=popup;
+  const rect=anchorEl.getBoundingClientRect();
+  popup.style.left=Math.min(rect.left,window.innerWidth-350)+'px';
+  popup.style.top=(rect.bottom+4)+'px';
+
+  function getRoleLabel(idx){ return idx===0?'Lead':idx===1?'Support':'Backup'; }
+
+  function buildPopup(){
+    popup.innerHTML=`<div style="font-size:12px;font-weight:800;color:${queue.color};margin-bottom:8px;">🎯 ${queue.name} — ${DAYS[dayIdx]} (Template)</div>`;
+
+    const listLabel=document.createElement('div');
+    listLabel.style.cssText='font-size:10px;color:var(--text-3);margin-bottom:4px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;';
+    listLabel.textContent='Priority Order';
+    popup.appendChild(listLabel);
+
+    const listEl=document.createElement('div');
+    listEl.style.cssText='display:flex;flex-direction:column;gap:3px;margin-bottom:8px;min-height:20px;';
+
+    function renderList(){
+      listEl.innerHTML='';
+      priorityList.forEach((entry,idx)=>{
+        const s=staffById(entry.staffId);if(!s)return;
+        const row=document.createElement('div');
+        row.draggable=true; row.dataset.idx=idx;
+        row.style.cssText=`display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:6px;background:${queue.color}12;border:1px solid ${queue.color}30;font-size:11px;cursor:grab;`;
+        const role=getRoleLabel(idx);
+        const roleColor=idx===0?queue.color:idx===1?'var(--text-2)':'var(--text-3)';
+        row.innerHTML=`<span style="color:var(--text-3);font-size:14px;">⠿</span>
+          <span style="font-weight:900;font-size:12px;color:${queue.color};min-width:14px;">${idx+1}</span>
+          <div style="flex:1;font-weight:700;">${s.name}</div>
+          <span style="font-size:9px;font-weight:800;color:${roleColor};padding:2px 6px;border-radius:999px;border:1px solid currentColor;text-transform:uppercase;">${role}</span>`;
+
+        const arrows=document.createElement('div');
+        arrows.style.cssText='display:flex;flex-direction:column;gap:1px;';
+        const up=document.createElement('button');
+        up.textContent='↑'; up.style.cssText='background:none;border:none;cursor:pointer;font-size:11px;padding:0 2px;color:var(--text-2);';
+        up.disabled=idx===0;
+        up.onclick=()=>{[priorityList[idx-1],priorityList[idx]]=[priorityList[idx],priorityList[idx-1]];renderList();};
+        const dn=document.createElement('button');
+        dn.textContent='↓'; dn.style.cssText='background:none;border:none;cursor:pointer;font-size:11px;padding:0 2px;color:var(--text-2);';
+        dn.disabled=idx===priorityList.length-1;
+        dn.onclick=()=>{[priorityList[idx],priorityList[idx+1]]=[priorityList[idx+1],priorityList[idx]];renderList();};
+        arrows.appendChild(up);arrows.appendChild(dn);
+        row.appendChild(arrows);
+
+        const rm=document.createElement('button');
+        rm.textContent='✕'; rm.style.cssText='background:none;border:none;cursor:pointer;font-size:11px;color:var(--text-3);padding:0 2px;';
+        rm.onclick=()=>{priorityList.splice(idx,1);renderList();};
+        row.appendChild(rm);
+
+        // Drag
+        row.addEventListener('dragstart',e=>{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',idx);row.style.opacity='.4';});
+        row.addEventListener('dragend',()=>row.style.opacity='1');
+        row.addEventListener('dragover',e=>{e.preventDefault();row.style.background=`${queue.color}25`;});
+        row.addEventListener('dragleave',()=>row.style.background=`${queue.color}12`);
+        row.addEventListener('drop',e=>{e.preventDefault();row.style.background=`${queue.color}12`;const from=parseInt(e.dataTransfer.getData('text/plain'));if(from===idx)return;const[m]=priorityList.splice(from,1);priorityList.splice(idx,0,m);renderList();});
+        listEl.appendChild(row);
+      });
+      if(!priorityList.length){
+        listEl.innerHTML='<div style="padding:8px;text-align:center;color:var(--text-3);font-size:11px;font-style:italic;">No one assigned</div>';
+      }
+    }
+    renderList();
+    popup.appendChild(listEl);
+
+    // Add staff
+    const addLabel=document.createElement('div');
+    addLabel.style.cssText='font-size:10px;color:var(--text-3);margin-bottom:4px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;';
+    addLabel.textContent='Add to priority list';
+    popup.appendChild(addLabel);
+    const addList=document.createElement('div');
+    addList.style.cssText='max-height:120px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;margin-bottom:10px;';
+    const trained=staff.filter(s=>(s.specialties||[]).includes(queue.id));
+    const others=staff.filter(s=>!(s.specialties||[]).includes(queue.id));
+    [...trained,...others].forEach(s=>{
+      if(priorityList.some(e=>e.staffId===s.id)) return;
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:3px 8px;font-size:11px;';
+      row.innerHTML=`<span>${(s.specialties||[]).includes(queue.id)?'✓ ':''}${s.name}</span>`;
+      const btn=document.createElement('button');
+      btn.textContent='+ Add'; btn.style.cssText='background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer;font-family:inherit;font-weight:700;';
+      btn.onclick=()=>{priorityList.push({staffId:s.id,priority:priorityList.length+1});renderList();row.remove();};
+      row.appendChild(btn);
+      addList.appendChild(row);
+    });
+    if(!addList.children.length) addList.innerHTML='<div style="padding:6px;text-align:center;color:var(--text-3);font-size:11px;font-style:italic;">All staff added</div>';
+    popup.appendChild(addList);
+
+    const btns=document.createElement('div');
+    btns.style.cssText='display:flex;gap:6px;justify-content:flex-end;';
+    const cancel=document.createElement('button');
+    cancel.className='mbtn cancel'; cancel.textContent='Cancel';
+    cancel.onclick=()=>{popup.remove();specialtyCellOverlay=null;};
+    const save=document.createElement('button');
+    save.className='mbtn save'; save.textContent='Save Template';
+    save.onclick=()=>{
+      setQueueTemplateAssignment(queue.id,dayIdx,priorityList);
+      saveQueueTemplate();
+      popup.remove();specialtyCellOverlay=null;
+      // Re-render the template rotation grid
+      renderSpecialtyTemplateSection();
+      showToast(`${queue.name} template updated ✓`,'ok');
+    };
+    btns.appendChild(cancel);btns.appendChild(save);
+    popup.appendChild(btns);
+  }
+
+  buildPopup();
+  document.body.appendChild(popup);
+  setTimeout(()=>{
+    const close=(e)=>{if(!popup.contains(e.target)){popup.remove();specialtyCellOverlay=null;document.removeEventListener('click',close);}};
     document.addEventListener('click',close);
   },100);
 }
@@ -6324,9 +6630,9 @@ async function saveQueueAssignments(){
     const data=queueAssignments[k]||{};
     Object.entries(data).forEach(([qid,days])=>{
       const cleanDays={};
-      Object.entries(days).forEach(([day,ids])=>{
-        const arr=Array.isArray(ids)?ids.filter(Boolean):(ids?[ids]:[]);
-        if(arr.length) cleanDays[day]=arr;
+      Object.entries(days).forEach(([day,entries])=>{
+        const normalized=normalizeQueueEntries(Array.isArray(entries)?entries:[]).filter(e=>e.staffId);
+        if(normalized.length) cleanDays[day]=normalized;
       });
       if(Object.keys(cleanDays).length) clean[qid]=cleanDays;
     });
@@ -6334,7 +6640,7 @@ async function saveQueueAssignments(){
       await listCreate(LISTS.queueAssignments,{Title:k,WeekKey:k,AssignmentData:JSON.stringify(clean)});
       console.log('saveQueueAssignments: ok, saved',Object.keys(clean).length,'queues');
     }
-  } catch(e){ console.error('saveQueueAssignments failed:',e.message); showToast('Specialty assignment save failed — check console','err'); }
+  } catch(e){ console.error('saveQueueAssignments failed:',e.message); showToast(`${FOCUS_AREA_LABEL} assignment save failed — check console`,'err'); }
 }
 
 async function saveMeetings(){
@@ -6366,11 +6672,10 @@ async function loadQueues(){
     const tmplData=items.find(i=>i.fields.Title==='queueTemplate');
     if(tmplData?.fields?.QueueData){
       const raw=JSON.parse(tmplData.fields.QueueData);
-      // Normalize legacy string values to arrays
+      // Normalize all entries to priority objects
       Object.keys(raw).forEach(qid=>{
         Object.keys(raw[qid]).forEach(day=>{
-          const v=raw[qid][day];
-          if(!Array.isArray(v)) raw[qid][day]=v?[v]:[];
+          raw[qid][day]=normalizeQueueEntries(Array.isArray(raw[qid][day])?raw[qid][day]:[raw[qid][day]].filter(Boolean));
         });
       });
       queueTemplate=raw;
@@ -6384,22 +6689,15 @@ async function loadQueueAssignmentsForWeek(){
     const items=await listGetAll(LISTS.queueAssignments,i=>i.fields.WeekKey===k);
     if(items.length){
       const loaded=JSON.parse(items[0].fields.AssignmentData||'{}');
-      // Normalize — convert any legacy string values to arrays
+      // Normalize all entries to priority objects
       Object.keys(loaded).forEach(qid=>{
         Object.keys(loaded[qid]).forEach(day=>{
-          const val=loaded[qid][day];
-          if(!Array.isArray(val)){
-            loaded[qid][day]=val?[val]:[];
-          }
+          loaded[qid][day]=normalizeQueueEntries(Array.isArray(loaded[qid][day])?loaded[qid][day]:[loaded[qid][day]].filter(Boolean));
         });
       });
-      // Check if any real assignments exist
-      const hasRealData=Object.values(loaded).some(days=>
-        Object.values(days).some(arr=>Array.isArray(arr)&&arr.length>0)
-      );
-      if(hasRealData) queueAssignments[k]=loaded;
+      const hasData=Object.values(loaded).some(days=>Object.values(days).some(arr=>arr.length>0));
+      if(hasData) queueAssignments[k]=loaded;
     }
-    // Always fill empty days from template
     loadQueueTemplateForWeek();
   } catch(e){ console.warn('loadQueueAssignments',e); }
 }
@@ -7519,7 +7817,7 @@ function printViewerContent(){
       else { for(const f of FACILITIES){ entry=getLiveCell(f.id,i).find(e=>e.staffId===staffId); if(entry)break; } }
       if(!entry){ cells+=`<td class="${today?'today-td':''}">&nbsp;</td>`; continue; }
       const hrs=shiftHours(entry.start,entry.end,entry.lunch);
-      const specs=getStaffQueueAssignments(staffId,i).map(q=>`<span class="specialty" style="color:${q.color}">🔬 ${q.name}</span>`).join('');
+      const specs=getStaffQueueAssignments(staffId,i).map(q=>`<span class="specialty" style="color:${q.color}">🎯 ${q.name}${q.role?' · '+q.role:''}</span>`).join('');
       const mtgs=getMeetingsForDay(i).filter(m=>m.staffIds.includes(staffId)).map(m=>`<span class="meeting">📅 ${fmtTime(m.startTime)} ${m.name}</span>`).join('');
       cells+=`<td class="${today?'today-td':''}">${entry?`<span class="time">${fmtRange(entry.start,entry.end)}</span>${specs}${mtgs}`:''}</td>`;
     }
@@ -7581,7 +7879,7 @@ function printViewerContent(){
           let cell='';
           present.sort((a,b)=>toMins(a.start)-toMins(b.start)).forEach(entry=>{
             const s=staffById(entry.staffId);if(!s)return;
-            const specs=getStaffQueueAssignments(s.id,i).map(q=>`<span class="specialty" style="color:${q.color}">🔬 ${q.name}</span>`).join('');
+            const specs=getStaffQueueAssignments(s.id,i).map(q=>`<span class="specialty" style="color:${q.color}">🎯 ${q.name}${q.role?' · '+q.role:''}</span>`).join('');
             cell+=`<div class="pcc-name">${s.name}</div><span class="time">${fmtRange(entry.start,entry.end)}</span>${specs}`;
           });
           html+=`<td class="${today?'today-td':''}">${cell}</td>`;
@@ -8600,7 +8898,7 @@ function buildVGPCCContent(staffId, dayIdx, facId=null){
     const sp=document.createElement('span');
     sp.className='vg-specialty';
     sp.style.color=q.color;
-    sp.textContent='🔬 '+q.name;
+    sp.textContent=`🎯 ${q.name}${q.role?' · '+q.role:''}`;
     frag.appendChild(sp);
   });
 
@@ -8703,6 +9001,7 @@ function applyViewerView(){
   else if(viewerView==='company') renderViewerCompany(panel);
   else if(viewerView==='facility') renderViewerFacility(panel, viewerSubId);
   else if(viewerView==='pcc') renderViewerPCC(panel, viewerSubId);
+  else if(viewerView==='focus') renderViewerFocusAreas(panel);
 }
 
 // ── Viewer context strip ──────────────────────────────────────────
@@ -9198,7 +9497,7 @@ function renderViewerCompany(panel){
     strip.style.cssText='padding:6px 14px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--surface2);flex-shrink:0;';
     strip.innerHTML=`<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);flex-shrink:0;">🔬 Specialty Today:</span>`;
     activeQueues().forEach(q=>{
-      const ids=getQueueAssignment(q.id,todayIdx);
+      const ids=getQueueAssignmentIds(q.id,todayIdx);
       const names=ids.map(sid=>staffById(sid)?.name.split(' ')[0]).filter(Boolean);
       const conflict=getSpecialtyConflicts(todayIdx).some(c=>c.queue.id===q.id);
       const pill=document.createElement('span');
@@ -9359,6 +9658,230 @@ function renderViewerCompany(panel){
   }
 }
 
+// ── Focus Areas Viewer Tab ─────────────────────────────────────────
+function renderViewerFocusAreas(panel){
+  panel.innerHTML='';
+
+  const vMon=getViewerMonday();
+  const todayDow=new Date().getDay()-1;
+
+  // Header
+  const hdr=document.createElement('div');
+  hdr.className='vg-header';
+  hdr.innerHTML=`
+    <div class="vg-title">🎯 ${FOCUS_AREA_LABEL}s</div>
+    <div class="vg-meta" style="display:flex;align-items:center;gap:10px;">
+      <span style="font-size:11px;color:var(--text-3);">${vMon.toLocaleDateString('en-US',{month:'long',day:'numeric'})} – ${addDays(vMon,4).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</span>
+      <select id="fa-filter" style="font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);font-family:inherit;color:var(--text);">
+        <option value="">— All ${FOCUS_AREA_LABEL}s —</option>
+        ${activeQueues().map(q=>`<option value="${q.id}">${q.name}</option>`).join('')}
+      </select>
+    </div>`;
+  panel.appendChild(hdr);
+
+  const wrap=document.createElement('div');
+  wrap.style.cssText='flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:14px;';
+  panel.appendChild(wrap);
+
+  // Determine current viewer identity
+  const userEmail=(currentUser?.username||'').toLowerCase();
+  const me=staff.find(s=>(s.email||'').toLowerCase()===userEmail);
+
+  // MY FOCUS AREAS section — only for PCCs with assignments this week
+  if(me){
+    const myQueues=activeQueues().filter(q=>{
+      for(let i=0;i<5;i++){
+        if(getQueueAssignmentIds(q.id,i).includes(me.id)) return true;
+      }
+      return false;
+    });
+
+    if(myQueues.length){
+      const mySection=document.createElement('div');
+      mySection.className='dash-section';
+      const myHdr=document.createElement('div');
+      myHdr.className='dash-section-hdr';
+      myHdr.textContent=`👤 My ${FOCUS_AREA_LABEL}s`;
+      mySection.appendChild(myHdr);
+
+      const myBody=document.createElement('div');
+      myBody.className='dash-section-body';
+      myBody.style.padding='0';
+
+      // Mini grid — queue rows × day columns
+      const myGrid=document.createElement('div');
+      myGrid.style.cssText=`display:grid;grid-template-columns:140px repeat(5,1fr);border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden;font-size:11px;`;
+
+      // Header row
+      ['Focus Area',...DAYS.map((d,i)=>{
+        const dt=addDays(vMon,i);
+        return `${d} ${dt.getDate()}`;
+      })].forEach((h,i)=>{
+        const el=document.createElement('div');
+        el.style.cssText=`padding:6px 8px;font-size:10px;font-weight:700;background:var(--surface2);border-right:1px solid var(--border);border-bottom:1px solid var(--border);${i>0&&i-1===todayDow?'background:var(--brand-lt);color:var(--brand);':'color:var(--text-2);'}text-align:${i===0?'left':'center'};`;
+        el.textContent=h;
+        myGrid.appendChild(el);
+      });
+
+      myQueues.forEach(q=>{
+        const lbl=document.createElement('div');
+        lbl.style.cssText=`padding:7px 10px;font-weight:700;background:var(--surface2);border-right:2px solid var(--border);border-bottom:1px solid var(--border);`;
+        lbl.innerHTML=`<span style="width:8px;height:8px;border-radius:50%;background:${q.color};display:inline-block;margin-right:6px;"></span>${q.name}`;
+        myGrid.appendChild(lbl);
+
+        for(let i=0;i<5;i++){
+          const role=getQueueRole(q.id,me.id,i);
+          const cell=document.createElement('div');
+          cell.style.cssText=`padding:6px 8px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);text-align:center;${i===todayDow?'background:#fffafa;':''}`;
+          if(role){
+            const roleColor=role==='Lead'?q.color:role==='Support'?'var(--text-2)':'var(--text-3)';
+            cell.innerHTML=`<span style="font-size:10px;font-weight:800;color:${roleColor};padding:2px 8px;border-radius:999px;border:1.5px solid currentColor;display:inline-block;">${role}</span>`;
+          } else if(isOnPTO(me.id,i)){
+            cell.innerHTML='<span style="font-size:10px;color:var(--text-3);">🏖 PTO</span>';
+          } else {
+            cell.innerHTML='<span style="font-size:10px;color:var(--text-3);">—</span>';
+          }
+          myGrid.appendChild(cell);
+        }
+      });
+
+      myBody.appendChild(myGrid);
+      mySection.appendChild(myBody);
+      wrap.appendChild(mySection);
+    }
+  }
+
+  // Filter dropdown
+  document.getElementById('fa-filter')?.addEventListener('change',e=>{
+    renderFocusAreaSections(wrap, e.target.value, vMon, todayDow, me);
+  });
+
+  renderFocusAreaSections(wrap, '', vMon, todayDow, me);
+}
+
+function renderFocusAreaSections(wrap, filterQueueId, vMon, todayDow, me){
+  // Remove existing queue sections
+  wrap.querySelectorAll('.fa-queue-section').forEach(el=>el.remove());
+
+  const queuesToShow=filterQueueId
+    ? activeQueues().filter(q=>q.id===filterQueueId)
+    : activeQueues();
+
+  queuesToShow.forEach(q=>{
+    const section=document.createElement('div');
+    section.className='dash-section fa-queue-section';
+
+    // Section header with collapse toggle
+    const sHdr=document.createElement('div');
+    sHdr.className='dash-section-hdr';
+    sHdr.style.cursor='pointer';
+    sHdr.innerHTML=`
+      <span style="width:10px;height:10px;border-radius:50%;background:${q.color};display:inline-block;margin-right:8px;flex-shrink:0;"></span>
+      <span>${q.name}</span>
+      <span style="margin-left:auto;font-size:10px;font-weight:400;" class="fa-toggle">▾ collapse</span>`;
+    section.appendChild(sHdr);
+
+    const sBody=document.createElement('div');
+    sBody.style.padding='0';
+
+    // Grid — priority rows × day columns
+    const grid=document.createElement('div');
+    grid.style.cssText=`display:grid;grid-template-columns:160px repeat(5,1fr);border-top:1px solid var(--border);font-size:11px;`;
+
+    // Header
+    ['Priority',...DAYS.map((d,i)=>`${d} ${addDays(vMon,i).getDate()}`)].forEach((h,i)=>{
+      const el=document.createElement('div');
+      el.style.cssText=`padding:6px 8px;font-size:10px;font-weight:700;background:var(--surface2);border-right:1px solid var(--border);border-bottom:1px solid var(--border);${i>0&&i-1===todayDow?'background:var(--brand-lt);color:var(--brand);':'color:var(--text-2);'}`;
+      el.textContent=h;
+      grid.appendChild(el);
+    });
+
+    // Collect all unique staff across the week for this queue
+    const allEntries=new Map();
+    for(let i=0;i<5;i++){
+      getQueueAssignment(q.id,i).forEach(e=>{
+        if(!allEntries.has(e.staffId)) allEntries.set(e.staffId,e);
+      });
+    }
+
+    if(!allEntries.size){
+      // No one assigned — show empty row
+      const emptyLbl=document.createElement('div');
+      emptyLbl.style.cssText='padding:10px;text-align:center;color:var(--text-3);font-style:italic;font-size:11px;grid-column:1/-1;';
+      emptyLbl.textContent='No assignments this week';
+      grid.appendChild(emptyLbl);
+    } else {
+      allEntries.forEach((entry,staffId)=>{
+        const s=staffById(staffId);if(!s)return;
+        const isMe=me&&me.id===staffId;
+
+        const lbl=document.createElement('div');
+        lbl.style.cssText=`padding:7px 10px;font-weight:${isMe?'800':'600'};background:${isMe?q.color+'10':'var(--surface)'};border-right:2px solid var(--border);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;`;
+        lbl.innerHTML=`${isMe?'<span style="font-size:10px;">👤</span>':''}<span>${s.name}</span>`;
+        grid.appendChild(lbl);
+
+        for(let i=0;i<5;i++){
+          const role=getQueueRole(q.id,staffId,i);
+          const gaps=getSpecialtyGaps(q.id,i);
+          const cell=document.createElement('div');
+          cell.style.cssText=`padding:6px 8px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);text-align:center;${i===todayDow?'background:#fffafa;':''}`;
+
+          if(isOnPTO(staffId,i)){
+            cell.innerHTML='<span style="font-size:10px;color:var(--text-3);">🏖 PTO</span>';
+          } else {
+            // Get their shift time
+            let shiftTime='';
+            for(const fac of FACILITIES){
+              const shift=getViewerLiveCell(fac.id,i).find(e=>e.staffId===staffId);
+              if(shift){ shiftTime=fmtRange(shift.start,shift.end); break; }
+            }
+
+            if(role){
+              const roleColor=role==='Lead'?q.color:role==='Support'?'var(--text-2)':'var(--text-3)';
+              cell.innerHTML=`
+                <div style="font-size:10px;font-weight:800;color:${roleColor};">${role}</div>
+                ${shiftTime?`<div style="font-size:9px;color:var(--text-3);font-family:'Fira Code',monospace;">${shiftTime}</div>`:''}`;
+            } else {
+              cell.innerHTML='<span style="font-size:10px;color:var(--text-3);">—</span>';
+            }
+          }
+          grid.appendChild(cell);
+        }
+      });
+
+      // Gap row
+      const hasGap=Array.from({length:5},(_,i)=>getSpecialtyGaps(q.id,i).length>0).some(Boolean);
+      if(hasGap){
+        const gLbl=document.createElement('div');
+        gLbl.style.cssText='padding:6px 10px;font-size:10px;font-weight:700;color:var(--brand);background:var(--gap-bg);border-right:2px solid var(--border);border-bottom:1px solid var(--border);border-top:1px solid var(--border);';
+        gLbl.textContent='⚠ Coverage Gap';
+        grid.appendChild(gLbl);
+        for(let i=0;i<5;i++){
+          const gaps=getSpecialtyGaps(q.id,i);
+          const cell=document.createElement('div');
+          cell.style.cssText=`padding:5px 8px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);border-top:1px solid var(--border);background:var(--gap-bg);text-align:center;font-size:10px;font-weight:700;color:var(--brand);${i===todayDow?'background:#fff0f0;':''}`;
+          cell.textContent=gaps.length?gaps.map(g=>fmtRange(g.start,g.end)).join(', '):'✓';
+          if(!gaps.length) cell.style.color='var(--ok-tx)';
+          grid.appendChild(cell);
+        }
+      }
+    }
+
+    sBody.appendChild(grid);
+    section.appendChild(sBody);
+
+    // Collapse toggle
+    let collapsed=false;
+    sHdr.addEventListener('click',()=>{
+      collapsed=!collapsed;
+      sBody.style.display=collapsed?'none':'';
+      sHdr.querySelector('.fa-toggle').textContent=collapsed?'▸ expand':'▾ collapse';
+    });
+
+    wrap.appendChild(section);
+  });
+}
+
 // Legacy stubs — no longer used
 // ═══════════════════════════════════════════════════════════════
 // LEADERSHIP DASHBOARD
@@ -9463,7 +9986,7 @@ async function renderDashWeek(body){
   for(let i=0;i<5;i++){
     getPTO(i).forEach(sid=>{
       const s=staffById(sid);if(!s)return;
-      const qs=activeQueues().filter(q=>getQueueAssignment(q.id,i).includes(sid));
+      const qs=activeQueues().filter(q=>getQueueAssignmentIds(q.id,i).includes(sid));
       qs.forEach(q=>{
         const key2=`${sid}_${i}_${q.id}`;
         if(!ptoSet.has(key2)){ptoSet.add(key2);alerts.push({type:'info',icon:'🏖',msg:`${s.name} out ${DAYS[i]} — ${q.name} needs coverage`});}
@@ -9544,7 +10067,7 @@ async function renderDashWeek(body){
 
   // Specialty coverage grid
   if(activeQueues().length){
-    const specSec=makeDashSection('🔬 Specialty Coverage','');
+    const specSec=makeDashSection('🎯 Focus Area Coverage','');
     const specBody=document.createElement('div'); specBody.className='dash-section-body'; specBody.style.padding='0';
     const specGrid=document.createElement('div'); specGrid.className='dash-grid';
     ['Queue',...DAYS.map((d,i)=>d+' '+addDays(currentMonday,i).getDate())].forEach((h,i)=>{
@@ -9556,11 +10079,12 @@ async function renderDashWeek(body){
       specGrid.appendChild(lbl);
       for(let i=0;i<5;i++){
         const assigned=getQueueAssignment(q.id,i);
+        const assignedIds=assigned.map(e=>e.staffId);
         const gaps=getSpecialtyGaps(q.id,i);
         const cell=document.createElement('div'); cell.className='dash-grid-cell';
         if(!assigned.length) cell.innerHTML='<span class="dash-cell-gap">✗</span>';
         else if(gaps.length) cell.innerHTML=`<span class="dash-cell-gap" style="color:${q.color};">⚠ ${gaps.map(g=>fmtRange(g.start,g.end)).join('<br>')}</span>`;
-        else { const names=assigned.map(sid=>staffById(sid)?.name.split(' ')[0]).filter(Boolean); cell.innerHTML=`<span class="dash-cell-ok" style="color:${q.color};font-size:10px;">${names.join(', ')}</span>`; }
+        else { const names=assignedIds.map(sid=>staffById(sid)?.name.split(' ')[0]).filter(Boolean); const lead=staffById(assigned[0]?.staffId)?.name.split(' ')[0]||''; cell.innerHTML=`<span class="dash-cell-ok" style="color:${q.color};font-size:10px;"><strong>${lead}</strong>${names.length>1?' +' + (names.length-1):''}` + `</span>`; }
         specGrid.appendChild(cell);
       }
     });
@@ -9755,10 +10279,10 @@ document.getElementById('dash-print-btn').addEventListener('click',()=>{
 
   // Specialty
   if(activeQueues().length){
-    html+=`<div class="sec"><div class="sec-hdr">🔬 Specialty Coverage</div><table><tr><th>Queue</th>${DAYS.map((d,i)=>`<th>${d} ${addDays(currentMonday,i).getDate()}</th>`).join('')}</tr>`;
+    html+=`<div class="sec"><div class="sec-hdr">🎯 Focus Area Coverage</div><table><tr><th>Queue</th>${DAYS.map((d,i)=>`<th>${d} ${addDays(currentMonday,i).getDate()}</th>`).join('')}</tr>`;
     activeQueues().forEach(q=>{
       html+=`<tr><td style="font-weight:700;color:${q.color}">${q.name}</td>`;
-      for(let i=0;i<5;i++){const a=getQueueAssignment(q.id,i);const g=getSpecialtyGaps(q.id,i);html+=!a.length?'<td class="none">✗</td>':g.length?'<td class="gap">⚠</td>':`<td class="ok">${a.map(sid=>staffById(sid)?.name.split(' ')[0]).join(', ')}</td>`;}
+      for(let i=0;i<5;i++){const a=getQueueAssignment(q.id,i);const g=getSpecialtyGaps(q.id,i);const lead=staffById(a[0]?.staffId)?.name.split(' ')[0]||'';html+=!a.length?'<td class="none">✗</td>':g.length?'<td class="gap">⚠</td>':`<td class="ok">${lead}${a.length>1?' +'+(a.length-1):''}</td>`;}
       html+=`</tr>`;
     });
     html+=`</table></div>`;
@@ -9899,8 +10423,7 @@ async function loadViewerWeekData(wk){
         const loaded=JSON.parse(qaItems[0].fields.AssignmentData||'{}');
         Object.keys(loaded).forEach(qid=>{
           Object.keys(loaded[qid]).forEach(day=>{
-            const v=loaded[qid][day];
-            if(!Array.isArray(v)) loaded[qid][day]=v?[v]:[];
+            loaded[qid][day]=normalizeQueueEntries(Array.isArray(loaded[qid][day])?loaded[qid][day]:[loaded[qid][day]].filter(Boolean));
           });
         });
         queueAssignments[wk]=loaded;
