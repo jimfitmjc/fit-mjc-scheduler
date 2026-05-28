@@ -8919,28 +8919,11 @@ function renderViewerMySchedule(panel){
     });
   }
 
-  // 2️⃣ MY SPECIALTIES
-  addPrioritySection('2','My Specialties','All queues',grid=>{
-    let any=false;
-    activeQueues().forEach(q=>{
-      const lbl=document.createElement('div'); lbl.className='vg-row-label'; lbl.style.fontSize='11px';
-      lbl.innerHTML=`<span style="width:7px;height:7px;border-radius:50%;background:${q.color};display:inline-block;flex-shrink:0;margin-right:5px;"></span>${q.name}`;
-      grid.appendChild(lbl);
-      for(let i=0;i<5;i++){
-        const gaps=getSpecialtyGaps(q.id,i);
-        const cell=buildVGCell(i,null,{}); cell.classList.add('gap-only-cell');
-        gaps.forEach(g=>{ const el=document.createElement('span'); el.className='vg-gap-window'; el.style.color=q.color; el.textContent='⚠ '+fmtRange(g.start,g.end); cell.appendChild(el); any=true; });
-        grid.appendChild(cell);
-      }
-    });
-    return any;
-  });
-
-  // 3️⃣ MY POD
+  // 2️⃣ MY POD
   if(pod){
     const otherFacs=(pod.facIds||[]).filter(f=>f!==clinicFacId);
     if(otherFacs.length>0){
-      addPrioritySection('3','My Pod',pod.name,grid=>{
+      addPrioritySection('2','My Pod',pod.name,grid=>{
         let any=false;
         otherFacs.forEach(facId=>{
           const fac=facById(facId);if(!fac)return;
@@ -8956,6 +8939,23 @@ function renderViewerMySchedule(panel){
       });
     }
   }
+
+  // 3️⃣ MY SPECIALTIES
+  addPrioritySection('3','My Specialties','All queues',grid=>{
+    let any=false;
+    activeQueues().forEach(q=>{
+      const lbl=document.createElement('div'); lbl.className='vg-row-label'; lbl.style.fontSize='11px';
+      lbl.innerHTML=`<span style="width:7px;height:7px;border-radius:50%;background:${q.color};display:inline-block;flex-shrink:0;margin-right:5px;"></span>${q.name}`;
+      grid.appendChild(lbl);
+      for(let i=0;i<5;i++){
+        const gaps=getSpecialtyGaps(q.id,i);
+        const cell=buildVGCell(i,null,{}); cell.classList.add('gap-only-cell');
+        gaps.forEach(g=>{ const el=document.createElement('span'); el.className='vg-gap-window'; el.style.color=q.color; el.textContent='⚠ '+fmtRange(g.start,g.end); cell.appendChild(el); any=true; });
+        grid.appendChild(cell);
+      }
+    });
+    return any;
+  });
 
   // 4️⃣ COMPANY — one row per other pod
   const otherPods=Object.entries(PODS).filter(([pid,pDef])=>pid!==me.podId&&pDef.facIds?.length);
