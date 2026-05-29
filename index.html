@@ -1854,7 +1854,7 @@ body.focus-mode .fac-label:has(.fstat.ok) {
         </div>
         <!-- Float availability bench -->
         <div class="bench-wrap" id="bench-wrap">
-          <div class="bench-hdr">🔄 Float Availability <span>— PCCs without a shift today, available for coverage</span><span class="bench-count" id="bench-count">0</span></div>
+          <div class="bench-hdr">🔄 Float Availability <span>— Unassigned &amp; home-available floats</span><span class="bench-count" id="bench-count">0</span></div>
           <div class="bench-grid" id="bench-grid"><div class="bench-label">Available</div></div>
         </div>
         <!-- Specialty bench — collapsible, one row per queue, 5 day columns -->
@@ -2374,29 +2374,29 @@ const VOLUME_TIERS = {
 
 // officeHours index: 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri
 const FACILITIES = [
-  { id:'f1',  name:'Blue Valley',    color:FAC_COLORS[0],  podId:'pod1', volume:'medium', volumePct:9.31,
+  { id:'f1',  name:'Blue Valley',    color:FAC_COLORS[0],  podId:'pod1', volume:'medium', volumePct:9.31,  minSafe:1,
     officeHours:[{open:'07:30',close:'18:00'},{open:'12:00',close:'19:00'},{open:'07:30',close:'13:30'},{open:'12:00',close:'19:00'},{open:'07:30',close:'18:00'}] },
-  { id:'f2',  name:'Crossroads',     color:FAC_COLORS[1],  podId:'pod4', volume:'medium', volumePct:6.82,
+  { id:'f2',  name:'Crossroads',     color:FAC_COLORS[1],  podId:'pod4', volume:'medium', volumePct:6.82,  minSafe:1,
     officeHours:[{open:'07:30',close:'18:00'},{open:'12:00',close:'19:00'},{open:'07:30',close:'13:30'},{open:'12:00',close:'19:00'},{open:'07:30',close:'18:00'}] },
-  { id:'f3',  name:'Kansas City KS', color:FAC_COLORS[2],  podId:'pod2', volume:'low',    volumePct:1.90,
+  { id:'f3',  name:'Kansas City KS', color:FAC_COLORS[2],  podId:'pod2', volume:'low',    volumePct:1.90,  minSafe:1,
     officeHours:[{open:'07:30',close:'18:00'},{open:'12:00',close:'19:00'},{open:'07:30',close:'18:00'},{open:'12:00',close:'19:00'},{open:'07:30',close:'13:30'}] },
-  { id:'f4',  name:'Leawood',        color:FAC_COLORS[3],  podId:'pod3', volume:'high',   volumePct:20.35,
+  { id:'f4',  name:'Leawood',        color:FAC_COLORS[3],  podId:'pod3', volume:'high',   volumePct:20.35, minSafe:2,
     officeHours:[{open:'06:00',close:'18:00'},{open:'08:30',close:'19:00'},{open:'06:00',close:'18:00'},{open:'09:30',close:'19:00'},{open:'06:00',close:'18:00'}] },
-  { id:'f5',  name:'Liberty',        color:FAC_COLORS[4],  podId:'pod3', volume:'low',    volumePct:3.94,
+  { id:'f5',  name:'Liberty',        color:FAC_COLORS[4],  podId:'pod3', volume:'low',    volumePct:3.94,  minSafe:1,
     officeHours:[{open:'07:30',close:'18:00'},{open:'12:00',close:'19:00'},{open:'07:30',close:'13:30'},{open:'12:00',close:'19:00'},{open:'07:30',close:'18:00'}] },
-  { id:'f6',  name:"Lee's Summit",   color:FAC_COLORS[5],  podId:'pod4', volume:'high',   volumePct:12.67,
+  { id:'f6',  name:"Lee's Summit",   color:FAC_COLORS[5],  podId:'pod4', volume:'high',   volumePct:12.67, minSafe:2,
     officeHours:[{open:'07:30',close:'18:00'},{open:'12:00',close:'19:00'},{open:'07:30',close:'18:00'},{open:'12:00',close:'19:00'},{open:'07:30',close:'18:00'}] },
-  { id:'f7',  name:'Olathe',         color:FAC_COLORS[6],  podId:'pod1', volume:'high',   volumePct:11.92,
+  { id:'f7',  name:'Olathe',         color:FAC_COLORS[6],  podId:'pod1', volume:'high',   volumePct:11.92, minSafe:2,
     officeHours:[{open:'07:00',close:'18:00'},{open:'12:00',close:'19:00'},{open:'07:00',close:'13:30'},{open:'12:00',close:'19:00'},{open:'07:00',close:'18:00'}] },
-  { id:'f8',  name:'Overland Park',  color:FAC_COLORS[7],  podId:'pod2', volume:'medium', volumePct:5.38,
+  { id:'f8',  name:'Overland Park',  color:FAC_COLORS[7],  podId:'pod2', volume:'medium', volumePct:5.38,  minSafe:1,
     officeHours:[{open:'07:30',close:'18:00'},{open:'12:00',close:'19:00'},{open:'07:30',close:'13:30'},{open:'12:00',close:'19:00'},{open:'07:30',close:'18:00'}] },
-  { id:'f9',  name:'Paola',          color:FAC_COLORS[8],  podId:'pod1', volume:'low',    volumePct:2.82,
+  { id:'f9',  name:'Paola',          color:FAC_COLORS[8],  podId:'pod1', volume:'low',    volumePct:2.82,  minSafe:1,
     officeHours:[{open:'07:30',close:'18:00'},{open:'07:30',close:'13:00'},{open:'07:30',close:'13:00'},{open:'07:30',close:'18:00'},{open:'12:00',close:'18:00'}] },
-  { id:'f10', name:'Raymore',        color:FAC_COLORS[9],  podId:'pod4', volume:'medium', volumePct:9.16,
+  { id:'f10', name:'Raymore',        color:FAC_COLORS[9],  podId:'pod4', volume:'medium', volumePct:9.16,  minSafe:1,
     officeHours:[{open:'07:30',close:'18:00'},{open:'12:00',close:'19:00'},{open:'07:00',close:'17:00'},{open:'12:00',close:'19:00'},{open:'07:30',close:'18:00'}] },
-  { id:'f11', name:'Shawnee',        color:FAC_COLORS[10], podId:'pod2', volume:'high',   volumePct:15.73,
+  { id:'f11', name:'Shawnee',        color:FAC_COLORS[10], podId:'pod2', volume:'high',   volumePct:15.73, minSafe:2,
     officeHours:[{open:'07:00',close:'18:00'},{open:'07:00',close:'19:00'},{open:'07:00',close:'18:00'},{open:'07:00',close:'19:00'},{open:'07:00',close:'18:00'}] },
-  { id:'f12', name:'Waukee, Iowa',   color:FAC_COLORS[11], podId:null,   volume:'low',    volumePct:0,
+  { id:'f12', name:'Waukee, Iowa',   color:FAC_COLORS[11], podId:null,   volume:'low',    volumePct:0,     minSafe:1,
     officeHours:[{open:'07:30',close:'18:30'},{open:'12:00',close:'19:00'},{open:'07:30',close:'18:30'},{open:'12:00',close:'19:00'},{open:'07:30',close:'13:30'}] },
 ];
 
@@ -2939,6 +2939,93 @@ function isSeniorEditor(){
   const email=(currentUser?.username||'').toLowerCase();
   return LOCK_EDITORS.map(e=>e.toLowerCase()).includes(email);
 }
+
+// ═══════════════════════════════════════════════════════════════
+// FLOAT STATE ENGINE
+// ═══════════════════════════════════════════════════════════════
+
+// Check if a float's live shift exactly matches their template entry
+// Exact match = same facility + same start + same end time
+function isTemplateMatch(staffId, dayIdx){
+  const s=staffById(staffId);
+  if(!s||s.type!=='float') return false;
+  // Find live shift
+  let liveEntry=null,liveFacId=null;
+  for(const fac of FACILITIES){
+    const e=getLiveCell(fac.id,dayIdx).find(e=>e.staffId===staffId);
+    if(e){liveEntry=e;liveFacId=fac.id;break;}
+  }
+  if(!liveEntry) return false;
+  // Find template entry
+  let tmplEntry=null,tmplFacId=null;
+  for(const facId of Object.keys(tmpl)){
+    const t=tmpl[facId]?.[dayIdx];
+    const e=t?.staffEntries?.find(e=>e.staffId===staffId);
+    if(e){tmplEntry=e;tmplFacId=facId;break;}
+  }
+  if(!tmplEntry) return false;
+  return liveFacId===tmplFacId &&
+         liveEntry.start===tmplEntry.start &&
+         liveEntry.end===tmplEntry.end;
+}
+
+// Get headcount at a facility on a day (non-PTO staff with shifts)
+function getFacilityHeadcount(facId, dayIdx){
+  return getLiveCell(facId,dayIdx).filter(e=>!isOnPTO(e.staffId,dayIdx)).length;
+}
+
+// Get the facility where a float's template places them on a given day
+function getFloatTemplateFacId(staffId, dayIdx){
+  for(const facId of Object.keys(tmpl)){
+    const t=tmpl[facId]?.[dayIdx];
+    if(t?.staffEntries?.some(e=>e.staffId===staffId)) return facId;
+  }
+  return null;
+}
+
+// Canonical float state function
+// Returns: 'home-available' | 'home-essential' | 'deployed' | 'unassigned' | 'pto' | null (non-float)
+function getFloatState(staffId, dayIdx){
+  const s=staffById(staffId);
+  if(!s||s.type!=='float') return null;
+  if(isOnPTO(staffId,dayIdx)) return 'pto';
+  // Check live shift
+  let liveFacId=null;
+  for(const fac of FACILITIES){
+    if(getLiveCell(fac.id,dayIdx).some(e=>e.staffId===staffId)){liveFacId=fac.id;break;}
+  }
+  if(!liveFacId) return 'unassigned';
+  // Check template match
+  if(!isTemplateMatch(staffId,dayIdx)) return 'deployed';
+  // At home — check headcount vs minSafe
+  const fac=facById(liveFacId);
+  const minSafe=fac?.minSafe||1;
+  const headcount=getFacilityHeadcount(liveFacId,dayIdx);
+  return headcount-1>=minSafe?'home-available':'home-essential';
+}
+
+// Post-pull info for cascade display
+function getPostPullInfo(staffId, dayIdx){
+  const homeFacId=getFloatTemplateFacId(staffId,dayIdx);
+  if(!homeFacId) return null;
+  const fac=facById(homeFacId);
+  const headcount=getFacilityHeadcount(homeFacId,dayIdx);
+  const minSafe=fac?.minSafe||1;
+  return {
+    facName:fac?.name||'',
+    current:headcount,
+    afterPull:headcount-1,
+    minSafe,
+    atMinAfterPull:headcount-1<=minSafe,
+  };
+}
+
+// Is float available to deploy?
+function isFloatAvailable(staffId, dayIdx){
+  const state=getFloatState(staffId,dayIdx);
+  return state==='home-available'||state==='unassigned';
+}
+
 function setLock(val){
   const k=weekKey(currentMonday);
   scheduleLock[k]=val;
@@ -3088,11 +3175,7 @@ function renderPTORow(){
 function renderFloatBench(){
   const grid=document.getElementById('bench-grid');
   const wrap=document.getElementById('bench-wrap');
-
-  // Hide entirely in template mode
   wrap.style.display=mode==='tmpl'?'none':'';
-
-  // Remove previous day cells (keep the label)
   grid.querySelectorAll('.bench-cell').forEach(e=>e.remove());
 
   const floatStaff=staff.filter(s=>s.type==='float'||s.type==='hybrid');
@@ -3103,70 +3186,123 @@ function renderFloatBench(){
     cell.className='bench-cell';
     cell.dataset.dayIdx=i;
 
-    // Available = not on PTO, not already scheduled
-    // For hybrid PCCs, only show on their secondary days if unscheduled there
-    const available=floatStaff.filter(s=>{
-      if(isOnPTO(s.id,i)) return false;
+    // Build available list using new float state engine
+    const available=[];
+    const homeAvail=[];
+    const homeEssential=[];
+    const deployed=[];
+
+    floatStaff.forEach(s=>{
       if(s.type==='hybrid'){
-        // Only show hybrid on secondary days when not scheduled at secondary facility
+        // Hybrid logic unchanged
+        if(isOnPTO(s.id,i)) return;
         const isSecDay=s.secondaryDays?.includes(i);
-        if(!isSecDay) return false;
+        if(!isSecDay) return;
         const secEntries=getLiveCell(s.secondaryFacId,i);
-        return !secEntries.some(e=>e.staffId===s.id);
+        if(!secEntries.some(e=>e.staffId===s.id)) available.push({s,state:'unassigned'});
+        return;
       }
-      const hasShift=FACILITIES.some(fac=>{
-        const entries=getLiveCell(fac.id,i);
-        return entries.some(e=>e.staffId===s.id);
-      });
-      return !hasShift;
-    }).sort((a,b)=>{
-      // Sort floats by pod priority if available
-      const aPri=a.podPriority?.[0]||'';
-      const bPri=b.podPriority?.[0]||'';
-      return aPri.localeCompare(bPri);
+      const state=getFloatState(s.id,i);
+      if(state==='home-available') homeAvail.push({s,state});
+      else if(state==='home-essential') homeEssential.push({s,state});
+      else if(state==='deployed') deployed.push({s,state});
+      else if(state==='unassigned') available.push({s,state});
     });
 
-    totalAvail+=available.length;
+    const sortByPod=(a,b)=>(a.s.podPriority?.[0]||'').localeCompare(b.s.podPriority?.[0]||'');
+    homeAvail.sort(sortByPod);
+    available.sort(sortByPod);
+    totalAvail+=available.length+homeAvail.length;
 
-    if(available.length===0){
+    const allGroups=[...available,...homeAvail,...homeEssential,...deployed];
+    if(allGroups.length===0){
       cell.classList.add('all-covered');
       const em=document.createElement('div');
       em.className='bench-empty';
       em.textContent='✓ All floats scheduled';
       cell.appendChild(em);
     } else {
-      available.forEach(s=>{
-        const wkHrs=coordWeekHours(s.id);
-        const pod=s.podId?podById(s.podId):null;
-        const podColor=pod?podById(s.podId).color:'#888';
-        const pill=document.createElement('div');
-        pill.className='bench-pill';
-        pill.draggable=true;
-        pill.dataset.staffId=s.id;
-        pill.title=`Drag ${s.name} to a facility cell to assign a shift`;
-        pill.innerHTML=`${s.name}<span class="pill-hrs">${wkHrs.toFixed(1)}h/wk</span>${pod?`<span class="pod-badge" style="background:${podColor}22;color:${podColor};border:1px solid ${podColor}44;margin-left:2px;">${pod.name}</span>`:''}`;
-
-        // Drag from bench = same as dragging from pool
-        pill.addEventListener('dragstart',e=>{
-          drag={staffId:s.id,fromFacId:null,fromDayIdx:null,fromPTO:false,shiftEntry:null};
-          e.dataTransfer.effectAllowed='copy';
-          setTimeout(()=>pill.classList.add('dragging'),0);
-          pill.addEventListener('dragend',()=>{
-            pill.classList.remove('dragging');
-            document.querySelectorAll('.drag-over').forEach(el=>el.classList.remove('drag-over'));
-          },{once:true});
-        });
-        cell.appendChild(pill);
-      });
+      // Section: Unassigned (fully available)
+      if(available.length){
+        available.forEach(({s})=>cell.appendChild(buildFloatPill(s,i,'unassigned')));
+      }
+      // Section: Home available (soft commitment, can deploy)
+      if(homeAvail.length){
+        const lbl=document.createElement('div');
+        lbl.style.cssText='font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);padding:3px 4px 1px;';
+        lbl.textContent='🏠 Home — Available';
+        cell.appendChild(lbl);
+        homeAvail.forEach(({s})=>cell.appendChild(buildFloatPill(s,i,'home-available')));
+      }
+      // Section: Home essential (cannot pull)
+      if(homeEssential.length){
+        const lbl=document.createElement('div');
+        lbl.style.cssText='font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);padding:3px 4px 1px;';
+        lbl.textContent='🔒 Home — Essential';
+        cell.appendChild(lbl);
+        homeEssential.forEach(({s})=>cell.appendChild(buildFloatPill(s,i,'home-essential')));
+      }
+      // Section: Deployed
+      if(deployed.length){
+        const lbl=document.createElement('div');
+        lbl.style.cssText='font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);padding:3px 4px 1px;';
+        lbl.textContent='✈️ Deployed';
+        cell.appendChild(lbl);
+        deployed.forEach(({s})=>cell.appendChild(buildFloatPill(s,i,'deployed')));
+      }
     }
-
     grid.appendChild(cell);
   }
 
-  // Update badge count — total unscheduled float-days across the week
+  // Update badge
   const badge=document.getElementById('bench-count');
-  badge.textContent=totalAvail;
-  badge.style.background=totalAvail>0?'var(--brand)':'var(--ok-bd)';
+  if(badge){
+    badge.textContent=totalAvail;
+    badge.style.background=totalAvail>0?'var(--brand)':'var(--ok-bd)';
+  }
+}
+
+function buildFloatPill(s, dayIdx, state){
+  const wkHrs=coordWeekHours(s.id);
+  const pod=s.podId?podById(s.podId):null;
+  const podColor=pod?pod.color:'#888';
+  const pill=document.createElement('div');
+  pill.className='bench-pill';
+
+  // Visual style per state
+  if(state==='home-available'){
+    pill.style.cssText='border-left:3px solid #16a34a;background:rgba(22,163,74,.06);';
+    pill.title=`${s.name} is at home base — above minimum, can deploy`;
+  } else if(state==='home-essential'){
+    pill.style.cssText='border-left:3px solid var(--brand);background:var(--gap-bg);opacity:.7;cursor:not-allowed;';
+    pill.title=`${s.name} is essential at home base — cannot pull without dropping below minimum`;
+  } else if(state==='deployed'){
+    pill.style.cssText='opacity:.5;';
+    pill.title=`${s.name} is deployed — shift changed from template`;
+  } else {
+    pill.title=`Drag ${s.name} to a facility cell to assign a shift`;
+  }
+
+  // State icon
+  const icon=state==='home-available'?'🏠':state==='home-essential'?'🔒':state==='deployed'?'✈️':'';
+
+  pill.innerHTML=`${icon?`<span style="margin-right:3px;">${icon}</span>`:''}${s.name}<span class="pill-hrs">${wkHrs.toFixed(1)}h</span>${pod?`<span class="pod-badge" style="background:${podColor}22;color:${podColor};border:1px solid ${podColor}44;margin-left:2px;">${pod.name}</span>`:''}`;
+
+  // Only draggable if unassigned or home-available
+  if(state==='unassigned'||state==='home-available'){
+    pill.draggable=true;
+    pill.dataset.staffId=s.id;
+    pill.addEventListener('dragstart',e=>{
+      drag={staffId:s.id,fromFacId:null,fromDayIdx:null,fromPTO:false,shiftEntry:null};
+      e.dataTransfer.effectAllowed='copy';
+      setTimeout(()=>pill.classList.add('dragging'),0);
+      pill.addEventListener('dragend',()=>{
+        pill.classList.remove('dragging');
+        render();
+      },{once:true});
+    });
+  }
+  return pill;
 }
 
 function makePTOChip(s,dayIdx){
@@ -4043,17 +4179,14 @@ function getCascadeSuggestions(facId, dayIdx){
   const pod=fac?.podId;
   const suggestions=[];
 
-  // Find where a PCC is currently scheduled on this day
   function getScheduledAt(staffId){
     for(const f of FACILITIES){
-      const entries=getLiveCell(f.id,dayIdx);
-      const entry=entries.find(e=>e.staffId===staffId);
+      const entry=getLiveCell(f.id,dayIdx).find(e=>e.staffId===staffId);
       if(entry) return {fac:f,entry};
     }
     return null;
   }
 
-  // All floats sorted by pod priority match
   const allFloats=staff.filter(s=>s.type==='float'||s.type==='hybrid');
   const sortedFloats=allFloats.sort((a,b)=>{
     const aIdx=a.podPriority?.indexOf(pod)??99;
@@ -4067,34 +4200,59 @@ function getCascadeSuggestions(facId, dayIdx){
   sortedFloats.forEach(s=>{
     const priorityRank=s.podPriority?.indexOf(pod)??99;
     const tierNum=Math.min(priorityRank+1,4);
-
-    const onPTO=isOnPTO(s.id,dayIdx);
-    const scheduledAt=!onPTO?getScheduledAt(s.id):null;
+    const floatState=getFloatState(s.id,dayIdx); // use new state engine
+    const scheduledAt=getScheduledAt(s.id);
     const alreadyHere=scheduledAt?.fac?.id===facId;
-    const isAvailable=!onPTO&&!scheduledAt;
 
-    let status,statusColor,canAssign;
-    if(onPTO){
+    let status,statusColor,canAssign,note,warning;
+
+    if(floatState==='pto'){
       status='🏖 Out / PTO';statusColor='var(--pto-tx)';canAssign=false;
+
     } else if(alreadyHere){
       const e=scheduledAt.entry;
       status=`✓ Already here ${fmtRange(e.start,e.end)}`;statusColor='var(--ok-tx)';canAssign=false;
-    } else if(scheduledAt){
-      const e=scheduledAt.entry;
-      status=`📍 Scheduled @ ${scheduledAt.fac.name} ${fmtRange(e.start,e.end)}`;
-      statusColor='var(--warn-tx)';canAssign=true;
+
+    } else if(floatState==='home-available'){
+      // At home base, above minSafe — can deploy
+      const pullInfo=getPostPullInfo(s.id,dayIdx);
+      status=`🏠 Home @ ${pullInfo?.facName||''} — available to deploy`;
+      statusColor='var(--ok-tx)';canAssign=true;
+      if(pullInfo){
+        note=`${pullInfo.facName} will have ${pullInfo.after} PCC${pullInfo.after!==1?'s':''} (min safe: ${pullInfo.minSafe})`;
+        if(pullInfo.atMin) warning=`${pullInfo.facName} will be at minimum after pull`;
+      }
+
+    } else if(floatState==='home-essential'){
+      // At home base, at or below minSafe — cannot pull
+      const pullInfo=getPostPullInfo(s.id,dayIdx);
+      status=`🔒 Home @ ${pullInfo?.facName||''} — essential, cannot pull`;
+      statusColor='var(--brand)';canAssign=false;
+      note=`Would drop ${pullInfo?.facName||''} below minimum safe coverage (${pullInfo?.minSafe||1})`;
+
+    } else if(floatState==='deployed'){
+      // Shift changed from template — fully committed
+      const e=scheduledAt?.entry;
+      const loc=scheduledAt?.fac?.name||'';
+      status=`✈️ Deployed @ ${loc}${e?` ${fmtRange(e.start,e.end)}`:''}`;
+      statusColor='var(--text-2)';canAssign=true;
+      warning=`Moving will leave ${loc} short`;
+
     } else {
-      status='✅ Available';statusColor='var(--ok-tx)';canAssign=true;
+      // Unassigned — fully available
+      status='✅ Available — unassigned';statusColor='var(--ok-tx)';canAssign=true;
     }
 
+    const isAvailable=floatState==='unassigned'||floatState==='home-available';
     suggestions.push({
       tier:tierNum,tierLabel:tierLabels[tierNum]||'',
-      pcc:s,color:isAvailable?tierColors[tierNum]||'var(--border2)':`var(--border2)`,
-      status,statusColor,canAssign,isAvailable,scheduledAt,
+      pcc:s,color:isAvailable?tierColors[tierNum]||'var(--border2)':'var(--border2)',
+      status,statusColor,canAssign,isAvailable,scheduledAt,note,warning,
+      floatState,
     });
   });
 
-  // Summer swap (prepend as special tier 0)
+  // Summer swap
   if(facId==='f11'&&(dayIdx===0||dayIdx===2)){
     const summer=staffById('s17');
     if(summer&&!isOnPTO('s17',dayIdx)){
@@ -4125,8 +4283,6 @@ function getCascadeSuggestions(facId, dayIdx){
         warning:`${homeFac?.name} will be unattended`,
       });
     });
-
-    // Tier 5 — escalate
     const anyAssignable=suggestions.some(s=>s.canAssign);
     if(!anyAssignable){
       suggestions.push({
@@ -4562,6 +4718,19 @@ function openFacHrsModal(facId){
     row.innerHTML=`<span class="fac-day-lbl">${day}</span><input type="time" id="oh-open-${i}" value="${oh.open}"><input type="time" id="oh-close-${i}" value="${oh.close}">`;
     grid.appendChild(row);
   });
+  // Minimum safe coverage field
+  const minSafeRow=document.createElement('div');
+  minSafeRow.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--border);margin-top:8px;';
+  minSafeRow.innerHTML=`
+    <span style="font-size:11px;font-weight:700;flex:1;">Minimum Safe Coverage</span>
+    <input type="number" id="oh-minsafe" min="1" max="10" value="${fac.minSafe||1}"
+      style="width:60px;padding:4px 8px;border:1px solid var(--border2);border-radius:var(--r-sm);font-family:inherit;font-size:13px;text-align:center;">
+    <span style="font-size:10px;color:var(--text-3);">PCCs</span>`;
+  grid.appendChild(minSafeRow);
+  const minSafeNote=document.createElement('div');
+  minSafeNote.style.cssText='font-size:10px;color:var(--text-3);padding:0 0 8px;line-height:1.4;';
+  minSafeNote.textContent='The minimum number of PCCs required before a home-based float can be redeployed elsewhere.';
+  grid.appendChild(minSafeNote);
   document.getElementById('fachrs-modal').classList.add('open');
 }
 
@@ -4573,6 +4742,9 @@ document.getElementById('fachrs-save').addEventListener('click',()=>{
     const close=document.getElementById(`oh-close-${i}`).value;
     fac.officeHours[i]={open,close};
   });
+  // Save minSafe
+  const minSafeInput=document.getElementById('oh-minsafe');
+  if(minSafeInput) fac.minSafe=Math.max(1,parseInt(minSafeInput.value)||1);
   closeModal('fachrs-modal');render();showToast('Office hours saved ✓','ok');
 });
 document.getElementById('fachrs-modal').addEventListener('click',e=>{if(e.target===document.getElementById('fachrs-modal'))closeModal('fachrs-modal');});
@@ -9165,12 +9337,23 @@ function renderViewerContextStrip(){
   const floatsEl=document.getElementById('vcs-floats');
   floatsEl.innerHTML='';
   const availableFloats=staff.filter(s=>{
-    if(s.type!=='float'&&s.type!=='hybrid') return false;
-    if(isOnPTO(s.id,vcsDay)) return false;
-    return !FACILITIES.some(fac=>getViewerLiveCell(fac.id,vcsDay).some(e=>e.staffId===s.id));
+    if(s.type==='hybrid'){
+      if(isOnPTO(s.id,vcsDay)) return false;
+      const isSecDay=s.secondaryDays?.includes(vcsDay);
+      if(!isSecDay) return false;
+      return !getViewerLiveCell(s.secondaryFacId,vcsDay).some(e=>e.staffId===s.id);
+    }
+    return s.type==='float'&&isFloatAvailable(s.id,vcsDay);
   });
   if(!availableFloats.length) floatsEl.innerHTML='<span class="vcs-pill none">None available</span>';
-  else availableFloats.forEach(s=>{ const p=document.createElement('span'); p.className='vcs-pill float-pill'; p.textContent=s.name.split(' ')[0]; p.title=s.name; floatsEl.appendChild(p); });
+  else availableFloats.forEach(s=>{
+    const state=getFloatState(s.id,vcsDay);
+    const p=document.createElement('span');
+    p.className='vcs-pill float-pill';
+    p.title=state==='home-available'?`${s.name} — at home base, available to deploy`:s.name;
+    p.textContent=(state==='home-available'?'🏠 ':'')+s.name.split(' ')[0];
+    floatsEl.appendChild(p);
+  });
   const ptoEl=document.getElementById('vcs-pto');
   ptoEl.innerHTML='';
   const ptoList=getPTO(vcsDay);
@@ -9221,10 +9404,29 @@ function renderViewerMySchedule(panel){
   const pod=me.podId?podById(me.podId):null;
   const hdr=document.createElement('div');
   hdr.className='vg-header';
+
+  // For floats, compute today's state for a context-aware subtitle
+  let floatStatusBadge='';
+  if(me.type==='float'){
+    const todayDow=new Date().getDay()-1;
+    if(todayDow>=0&&todayDow<=4){
+      const todayState=getFloatState(me.id,todayDow);
+      const pullInfo=todayState==='home-available'?getPostPullInfo(me.id,todayDow):null;
+      if(todayState==='home-available')
+        floatStatusBadge=` · <span style="color:#16a34a;font-weight:700;">🏠 Home at ${pullInfo?.facName||''} — available to deploy</span>`;
+      else if(todayState==='home-essential')
+        floatStatusBadge=` · <span style="color:var(--brand);font-weight:700;">🔒 Home — essential coverage</span>`;
+      else if(todayState==='deployed')
+        floatStatusBadge=` · <span style="color:var(--text-2);font-weight:700;">✈️ Deployed</span>`;
+      else if(todayState==='unassigned')
+        floatStatusBadge=` · <span style="color:var(--ok-tx);font-weight:700;">✅ Available</span>`;
+    }
+  }
+
   hdr.innerHTML=`
     <div class="vg-title">${me.name}${isPreview?' <span style="font-size:12px;color:var(--text-3);font-weight:400;">(Preview)</span>':''}</div>
-    <div class="vg-subtitle">${me.type==='float'?'🔄 Float':me.type==='hybrid'?'🔀 Hybrid':'📌 Static'}${pod?` · <span style="color:${pod.color};font-weight:700;">${pod.name}</span>`:''}${me.primaryFacId?' · '+facById(me.primaryFacId)?.name:''}</div>
-    <div class="vg-meta"><span style="font-size:11px;color:var(--text-3);">Week of ${currentMonday.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</span></div>`;
+    <div class="vg-subtitle">${me.type==='float'?'🔄 Float':me.type==='hybrid'?'🔀 Hybrid':'📌 Static'}${pod?` · <span style="color:${pod.color};font-weight:700;">${pod.name}</span>`:''}${me.primaryFacId&&me.type!=='float'?' · '+facById(me.primaryFacId)?.name:''}${floatStatusBadge}</div>
+    <div class="vg-meta"><span style="font-size:11px;color:var(--text-3);">Week of ${getViewerMonday().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</span></div>`;
   panel.appendChild(hdr);
 
   // ── Shared column width — all grids align to this ─────────────
@@ -10199,10 +10401,19 @@ async function renderDashWeek(body){
     const varColor=hrs<target-4?'var(--warn-bd)':hrs>target+2?'var(--brand)':'var(--ok-bd)';
     const placements=[];
     for(let i=0;i<5;i++){
-      FACILITIES.forEach(fac=>{ if(getViewerLiveCell(fac.id,i).some(e=>e.staffId===s.id)) placements.push(DAYS[i].slice(0,3)+' '+fac.name.split(' ')[0]); });
-      if(isOnPTO(s.id,i)) placements.push(DAYS[i].slice(0,3)+' PTO');
+      if(s.type==='float'){
+        const state=getFloatState(s.id,i);
+        if(state==='pto'){ placements.push(DAYS[i].slice(0,3)+' PTO'); }
+        else if(state==='home-available'){ const hf=getFloatTemplateFacId(s.id,i); placements.push(`${DAYS[i].slice(0,3)} 🏠${hf?facById(hf)?.name.split(' ')[0]:''}`); }
+        else if(state==='home-essential'){ const hf=getFloatTemplateFacId(s.id,i); placements.push(`${DAYS[i].slice(0,3)} 🔒${hf?facById(hf)?.name.split(' ')[0]:''}`); }
+        else if(state==='deployed'){ FACILITIES.forEach(fac=>{ if(getViewerLiveCell(fac.id,i).some(e=>e.staffId===s.id)) placements.push(`${DAYS[i].slice(0,3)} ✈️${fac.name.split(' ')[0]}`); }); }
+        else if(state==='unassigned'){ placements.push(DAYS[i].slice(0,3)+' —'); }
+      } else {
+        FACILITIES.forEach(fac=>{ if(getViewerLiveCell(fac.id,i).some(e=>e.staffId===s.id)) placements.push(DAYS[i].slice(0,3)+' '+fac.name.split(' ')[0]); });
+        if(isOnPTO(s.id,i)) placements.push(DAYS[i].slice(0,3)+' PTO');
+      }
     }
-    row.innerHTML=`<div class="dash-float-name">${s.name}</div><div class="dash-float-fac">${placements.length?placements.join(' · '):'<span style="color:var(--text-3);font-style:italic;">Unassigned</span>'}</div><div class="dash-float-hrs" style="color:${varColor};">${hrs.toFixed(1)}h</div><div class="dash-float-bar"><div class="dash-float-bar-fill" style="width:${pct}%;background:${varColor};"></div></div>`;
+    row.innerHTML=`<div class="dash-float-name">${s.name}</div><div class="dash-float-fac" style="font-size:10px;">${placements.filter(p=>p&&!p.endsWith(' —')).join(' · ')||'<span style="color:var(--text-3);font-style:italic;">Unassigned all week</span>'}</div><div class="dash-float-hrs" style="color:${varColor};">${hrs.toFixed(1)}h</div><div class="dash-float-bar"><div class="dash-float-bar-fill" style="width:${pct}%;background:${varColor};"></div></div>`;
     floatBody.appendChild(row);
   });
   floatSec.appendChild(floatBody); body.appendChild(floatSec);
@@ -10286,6 +10497,36 @@ async function renderDashSummary(body){
     <div class="dash-stat info"><div class="dash-stat-val">${totalHrs.toFixed(0)}h</div><div class="dash-stat-lbl">Shift Hours</div></div>
   </div>`;
   statsSec.appendChild(statsBody); body.appendChild(statsSec);
+
+  // Float Deployment Summary (current week only)
+  if(isCurrent){
+    const floats=staff.filter(s=>s.type==='float');
+    const floatStateSec=makeDashSection('🔄 Float Deployment Summary','');
+    const floatStateBody=document.createElement('div'); floatStateBody.className='dash-section-body'; floatStateBody.style.padding='0';
+    const floatTbl=document.createElement('table'); floatTbl.className='dash-pcc-table';
+    floatTbl.innerHTML='<thead><tr><th>Float</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th></tr></thead>';
+    const ftbody=document.createElement('tbody');
+    const stateIcons={'home-available':'🏠','home-essential':'🔒','deployed':'✈️','unassigned':'—','pto':'🏖'};
+    const stateColors={'home-available':'#16a34a','home-essential':'var(--brand)','deployed':'var(--text-2)','unassigned':'var(--text-3)','pto':'var(--pto-tx)'};
+    floats.forEach(s=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td style="font-weight:700;">${s.name}</td>`;
+      for(let i=0;i<5;i++){
+        const state=getFloatState(s.id,i)||'unassigned';
+        const facId=(state==='home-available'||state==='home-essential')?getFloatTemplateFacId(s.id,i):getFloatLiveFacId(s.id,i);
+        const facShort=facId?facById(facId)?.name.split(' ')[0]:'';
+        const td=document.createElement('td');
+        td.style.cssText=`color:${stateColors[state]||'var(--text-3)'};font-size:10px;`;
+        td.textContent=`${stateIcons[state]||'—'}${facShort?' '+facShort:''}`;
+        tr.appendChild(td);
+      }
+      ftbody.appendChild(tr);
+    });
+    floatTbl.appendChild(ftbody);
+    floatStateBody.appendChild(floatTbl);
+    floatStateSec.appendChild(floatStateBody);
+    body.appendChild(floatStateSec);
+  }
 
   // PCC Hours
   const pccSec=makeDashSection('👤 PCC Hours Summary','');
@@ -10702,6 +10943,99 @@ function getViewerMonday(){
 function activeWeekKey(){
   return ((!isEditor||previewingAsViewer)&&viewerWeekKey)
     ? viewerWeekKey : weekKey(currentMonday);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FLOAT STATE ENGINE
+// ═══════════════════════════════════════════════════════════════
+
+// Does the float's live shift exactly match their template for this day?
+// Match = same facility AND same start time AND same end time
+function isTemplateMatch(staffId, dayIdx){
+  const s=staffById(staffId);
+  if(!s||s.type!=='float') return false;
+  // Find their live shift
+  let liveShift=null, liveFacId=null;
+  for(const fac of FACILITIES){
+    const entry=getViewerLiveCell(fac.id,dayIdx).find(e=>e.staffId===staffId);
+    if(entry){ liveShift=entry; liveFacId=fac.id; break; }
+  }
+  if(!liveShift||!liveFacId) return false; // no live shift — not a template match
+  // Find their template entry
+  let tmplShift=null, tmplFacId=null;
+  for(const facId of Object.keys(tmpl)){
+    const t=tmpl[facId]?.[dayIdx];
+    if(!t) continue;
+    const entry=t.staffEntries?.find(e=>e.staffId===staffId);
+    if(entry){ tmplShift=entry; tmplFacId=facId; break; }
+  }
+  if(!tmplShift||!tmplFacId) return false; // not in template — can't be home base
+  // Exact match: same facility, same start, same end
+  return liveFacId===tmplFacId &&
+         liveShift.start===tmplShift.start &&
+         liveShift.end===tmplShift.end;
+}
+
+// Get the facility where a float is currently on shift
+function getFloatLiveFacId(staffId, dayIdx){
+  for(const fac of FACILITIES){
+    if(getViewerLiveCell(fac.id,dayIdx).some(e=>e.staffId===staffId)) return fac.id;
+  }
+  return null;
+}
+
+// Get headcount at a facility on a day (non-PTO staff with shifts)
+function getFacilityHeadcount(facId, dayIdx){
+  return getViewerLiveCell(facId,dayIdx).filter(e=>!isOnPTO(e.staffId,dayIdx)).length;
+}
+
+// Can this float be pulled from their home base without dropping below minSafe?
+function canPullFloat(staffId, dayIdx){
+  const liveFacId=getFloatLiveFacId(staffId,dayIdx);
+  if(!liveFacId) return false;
+  const fac=facById(liveFacId);
+  const minSafe=fac?.minSafe||1;
+  const currentCount=getFacilityHeadcount(liveFacId,dayIdx);
+  return currentCount-1>=minSafe;
+}
+
+// Canonical float state function
+// Returns: 'pto' | 'home-available' | 'home-essential' | 'deployed' | 'unassigned'
+function getFloatState(staffId, dayIdx){
+  const s=staffById(staffId);
+  if(!s||s.type!=='float') return null; // only applies to floats
+  if(isOnPTO(staffId,dayIdx)) return 'pto';
+  const liveFacId=getFloatLiveFacId(staffId,dayIdx);
+  if(!liveFacId) return 'unassigned';
+  if(isTemplateMatch(staffId,dayIdx)){
+    return canPullFloat(staffId,dayIdx) ? 'home-available' : 'home-essential';
+  }
+  return 'deployed';
+}
+
+// Is this float available for deployment (pool-eligible)?
+function isFloatAvailable(staffId, dayIdx){
+  const state=getFloatState(staffId,dayIdx);
+  return state==='home-available'||state==='unassigned';
+}
+
+// Get facility where float is templated for a day
+function getFloatTemplateFacId(staffId, dayIdx){
+  for(const facId of Object.keys(tmpl)){
+    const t=tmpl[facId]?.[dayIdx];
+    if(t?.staffEntries?.some(e=>e.staffId===staffId)) return facId;
+  }
+  return null;
+}
+
+// Get post-pull headcount info for cascade display
+function getPostPullInfo(staffId, dayIdx){
+  if(!facId) return null;
+  const fac=facById(facId);
+  const current=getFacilityHeadcount(facId,dayIdx);
+  const after=current-1;
+  const minSafe=fac?.minSafe||1;
+  return {facId, facName:fac?.name||'', current, after, minSafe, atMin:after<=minSafe};
 }
 
 // ── Hook initViewerWeekNav into applyAccessMode ────────────────
