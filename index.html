@@ -2569,7 +2569,8 @@ function isOnPTO(staffId,dayIdx){return getPTO(dayIdx).includes(staffId);}
 
 // ── Closure / holiday helpers ──────────────────────────────────────
 function getWeekHolidays(){
-  const k=weekKey(currentMonday);
+  const k=((!isEditor||previewingAsViewer)&&viewerWeekKey)
+    ? viewerWeekKey : weekKey(currentMonday);
   if(!holidays[k]) holidays[k]=[];
   return holidays[k];
 }
@@ -10563,6 +10564,20 @@ async function loadViewerWeekData(wk){
   } catch(e){
     console.warn('loadViewerWeekData schedule failed for', wk, e);
     viewerScheduleCache[wk] = {};
+  }
+
+  // Also fetch holidays for this week if not already loaded
+  if(!holidays[wk]){
+    try {
+      const holItems=await listGetAll(LISTS.holidays,i=>i.fields.WeekKey===wk);
+      holidays[wk]=[];
+      for(const item of holItems){
+        try{ holidays[wk]=JSON.parse(item.fields.HolidayData||'[]'); }catch(e){}
+      }
+    } catch(e){
+      console.warn('loadViewerWeekData holidays failed for',wk,e);
+      holidays[wk]=[];
+    }
   }
 
   // Also fetch closures for this week if not already loaded
