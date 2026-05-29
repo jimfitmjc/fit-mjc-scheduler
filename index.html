@@ -2556,7 +2556,14 @@ function setLiveCell(facId,dayIdx,arr){
   live[k][facId][dayIdx]=arr;
 }
 
-function getPTO(dayIdx){const k=weekKey(currentMonday);if(!pto[k])pto[k]={};if(!pto[k][dayIdx])pto[k][dayIdx]=[];return pto[k][dayIdx];}
+function getPTO(dayIdx){
+  // Use viewer week key when in viewer/preview mode
+  const k=((!isEditor||previewingAsViewer)&&viewerWeekKey)
+    ? viewerWeekKey : weekKey(currentMonday);
+  if(!pto[k]) pto[k]={};
+  if(!pto[k][dayIdx]) pto[k][dayIdx]=[];
+  return pto[k][dayIdx];
+}
 function setPTO(dayIdx,arr){const k=weekKey(currentMonday);if(!pto[k])pto[k]={};pto[k][dayIdx]=arr;}
 function isOnPTO(staffId,dayIdx){return getPTO(dayIdx).includes(staffId);}
 
@@ -2891,10 +2898,10 @@ function getEffectiveTarget(staffId){
 
 // ── PTO hours helpers ─────────────────────────────────────────────
 function getPTOHours(staffId,dayIdx){
-  const k=weekKey(currentMonday);
+  const k=((!isEditor||previewingAsViewer)&&viewerWeekKey)
+    ? viewerWeekKey : weekKey(currentMonday);
   const stored=ptoHours[k]?.[staffId]?.[dayIdx];
   if(stored!==undefined) return stored;
-  // Default: use templated shift hours for that day
   return getTemplatedHoursForDay(staffId,dayIdx);
 }
 function setPTOHours(staffId,dayIdx,hrs){
@@ -10563,7 +10570,20 @@ async function loadViewerWeekData(wk){
     viewerScheduleCache[wk] = {};
   }
 
-  // Also fetch queue assignments for this week if not already loaded
+  // Also fetch PTO for this week if not already loaded
+  if(!pto[wk]){
+    try {
+      const ptoItems=await listGetAll(LISTS.pto,i=>i.fields.WeekKey===wk);
+      pto[wk]={};
+      for(const item of ptoItems){
+        const f=item.fields;
+        try{ pto[wk][f.DayIdx]=JSON.parse(f.StaffIds||'[]'); }catch(e){}
+      }
+    } catch(e){
+      console.warn('loadViewerWeekData PTO failed for',wk,e);
+      pto[wk]={};
+    }
+  }
   if(!queueAssignments[wk]){
     try {
       const qaItems=await listGetAll(LISTS.queueAssignments,i=>i.fields.WeekKey===wk);
