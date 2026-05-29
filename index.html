@@ -10700,7 +10700,8 @@ function getViewerMonday(){
 // Editor write operations always use weekKey(currentMonday) directly
 // All read operations (viewer + editor display) use this helper
 function activeWeekKey(){
-  return activeWeekKey();
+  return ((!isEditor||previewingAsViewer)&&viewerWeekKey)
+    ? viewerWeekKey : weekKey(currentMonday);
 }
 
 // ── Hook initViewerWeekNav into applyAccessMode ────────────────
