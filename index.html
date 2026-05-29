@@ -9423,9 +9423,25 @@ function renderViewerMySchedule(panel){
     }
   }
 
+  // Calculate weekly hours for this PCC from viewer week data
+  let myWeekHrs=0;
+  for(let i=0;i<5;i++){
+    for(const fac of FACILITIES){
+      const entry=getViewerLiveCell(fac.id,i).find(e=>e.staffId===me.id);
+      if(entry&&!isOnPTO(me.id,i)) myWeekHrs+=shiftHours(entry.start,entry.end,entry.lunch);
+    }
+  }
+  const myTarget=getEffectiveTarget(me.id);
+  const myVariance=myWeekHrs-myTarget;
+  const myVarColor=myVariance<-4?'var(--warn-bd)':myVariance>4?'var(--brand)':'var(--ok-tx)';
+  const myHrsLabel=`${myWeekHrs.toFixed(1)}h / ${myTarget}h target`;
+
   hdr.innerHTML=`
     <div class="vg-title">${me.name}${isPreview?' <span style="font-size:12px;color:var(--text-3);font-weight:400;">(Preview)</span>':''}</div>
-    <div class="vg-subtitle">${me.type==='float'?'🔄 Float':me.type==='hybrid'?'🔀 Hybrid':'📌 Static'}${pod?` · <span style="color:${pod.color};font-weight:700;">${pod.name}</span>`:''}${me.primaryFacId&&me.type!=='float'?' · '+facById(me.primaryFacId)?.name:''}${floatStatusBadge}</div>
+    <div class="vg-subtitle" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+      <span>${me.type==='float'?'🔄 Float':me.type==='hybrid'?'🔀 Hybrid':'📌 Static'}${pod?` · <span style="color:${pod.color};font-weight:700;">${pod.name}</span>`:''}${me.primaryFacId&&me.type!=='float'?' · '+facById(me.primaryFacId)?.name:''}${floatStatusBadge}</span>
+      <span style="font-size:12px;font-weight:800;color:${myVarColor};white-space:nowrap;">${myHrsLabel}</span>
+    </div>
     <div class="vg-meta"><span style="font-size:11px;color:var(--text-3);">Week of ${getViewerMonday().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</span></div>`;
   panel.appendChild(hdr);
 
@@ -9688,15 +9704,35 @@ function renderViewerFacility(panel, facId){
   const pod=fac?.podId?podById(fac.podId):null;
   const volTier=VOLUME_TIERS[fac?.volume||'low'];
 
+  // Calculate facility weekly stats
+  let scheduledHrs=0, clinicOpenHrs=0;
+  for(let i=0;i<5;i++){
+    const oh=effectiveHours(facId,i,'live');
+    if(oh){
+      clinicOpenHrs+=toMins(oh.close)-toMins(oh.open);
+      getViewerLiveCell(facId,i).filter(e=>!isOnPTO(e.staffId,i)).forEach(e=>{
+        scheduledHrs+=shiftHours(e.start,e.end,e.lunch)*60;
+      });
+    }
+  }
+  const scheduledH=(scheduledHrs/60).toFixed(1);
+  const openH=(clinicOpenHrs/60).toFixed(1);
+  const uncoveredH=Math.max(0,clinicOpenHrs-scheduledHrs);
+  const uncovH=(uncoveredH/60).toFixed(1);
+
   // Header
   const hdr=document.createElement('div');
   hdr.className='vg-header';
   hdr.innerHTML=`
     <div class="vg-title">${fac.name}</div>
-    <div class="vg-meta">
+    <div class="vg-meta" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       ${pod?`<span style="background:${pod.color};color:#fff;border-radius:999px;padding:2px 10px;font-size:10px;font-weight:700;">${pod.name}</span>`:''}
       <span style="font-size:10px;color:${volTier?.color};font-weight:700;">● ${volTier?.label||''} volume</span>
-      <span style="font-size:10px;color:var(--text-3);">Week of ${currentMonday.toLocaleDateString('en-US',{month:'long',day:'numeric'})}</span>
+      <span style="font-size:10px;color:var(--text-3);">Week of ${getViewerMonday().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</span>
+      <span style="font-size:10px;color:var(--text-2);font-weight:700;margin-left:4px;">
+        ${scheduledH}h scheduled
+        ${parseFloat(uncovH)>0?`· <span style="color:var(--brand);">${uncovH}h uncovered</span>`:'· <span style="color:var(--ok-tx);">✓ Fully covered</span>'}
+      </span>
     </div>`;
   panel.appendChild(hdr);
 
@@ -9788,12 +9824,41 @@ function renderViewerPCC(panel, staffId){
   const s=staffById(staffId);if(!s)return;
   const pod=s.podId?podById(s.podId):null;
 
+  // Calculate weekly scheduled hours for this PCC
+  let weekHrs=0;
+  for(let i=0;i<5;i++){
+    for(const fac of FACILITIES){
+      const entry=getViewerLiveCell(fac.id,i).find(e=>e.staffId===staffId);
+      if(entry&&!isOnPTO(staffId,i)) weekHrs+=shiftHours(entry.start,entry.end,entry.lunch);
+    }
+  }
+  const target=getEffectiveTarget(staffId);
+  const variance=weekHrs-target;
+  const varColor=variance<-4?'var(--warn-bd)':variance>4?'var(--brand)':'var(--ok-tx)';
+  const hrsLabel=`${weekHrs.toFixed(1)}h / ${target}h target`;
+
+  // Float state badge
+  let floatBadge='';
+  if(s.type==='float'){
+    const todayDow=new Date().getDay()-1;
+    if(todayDow>=0&&todayDow<=4){
+      const state=getFloatState(s.id,todayDow);
+      const pullInfo=state==='home-available'?getPostPullInfo(s.id,todayDow):null;
+      if(state==='home-available') floatBadge=` · <span style="color:#16a34a;font-weight:700;">🏠 Home at ${pullInfo?.facName||''}</span>`;
+      else if(state==='home-essential') floatBadge=` · <span style="color:var(--brand);font-weight:700;">🔒 Home — essential</span>`;
+      else if(state==='deployed') floatBadge=` · <span style="color:var(--text-2);font-weight:700;">✈️ Deployed</span>`;
+    }
+  }
+
   const hdr=document.createElement('div');
   hdr.className='vg-header';
   hdr.innerHTML=`
     <div class="vg-title">${s.name}</div>
-    <div class="vg-subtitle">${s.type==='float'?'🔄 Float':s.type==='hybrid'?'🔀 Hybrid':'📌 Static'}${pod?` · <span style="color:${pod.color};font-weight:700;">${pod.name}</span>`:''}${s.primaryFacId?' · '+facById(s.primaryFacId)?.name:''}</div>
-    <div class="vg-meta"><span style="font-size:11px;color:var(--text-3);">Week of ${currentMonday.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</span></div>`;
+    <div class="vg-subtitle" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+      <span>${s.type==='float'?'🔄 Float':s.type==='hybrid'?'🔀 Hybrid':'📌 Static'}${pod?` · <span style="color:${pod.color};font-weight:700;">${pod.name}</span>`:''}${s.primaryFacId&&s.type!=='float'?' · '+facById(s.primaryFacId)?.name:''}${floatBadge}</span>
+      <span style="font-size:12px;font-weight:800;color:${varColor};white-space:nowrap;">${hrsLabel}</span>
+    </div>
+    <div class="vg-meta"><span style="font-size:11px;color:var(--text-3);">Week of ${getViewerMonday().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</span></div>`;
   panel.appendChild(hdr);
 
   const wrap=document.createElement('div');
