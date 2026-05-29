@@ -48,7 +48,7 @@
 
   --header-h:  62px;
   --toolbar-h: 44px;
-  --summary-h: 180px;
+  --summary-h: 260px;
 }
 
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -262,6 +262,7 @@ aside{width:188px;min-width:168px;background:var(--surface);border-right:1px sol
 
 /* ── SUMMARY PANEL ── */
 .summary-panel{height:var(--summary-h);background:var(--surface);border-top:2px solid var(--border);overflow:hidden;display:flex;flex-direction:column;}
+.sp-scroll{flex:1;overflow:auto;} /* both x and y scroll for wide table */
 .sp-header{padding:8px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);flex-shrink:0;}
 .sp-header h3{font-size:12px;font-weight:700;letter-spacing:-.2px;}
 .sp-toggle{font-size:11px;color:var(--blue);cursor:pointer;margin-left:auto;font-weight:600;}
@@ -1067,8 +1068,9 @@ body.schedule-locked .ack-btn { display:none !important; }
 .dash-tab:hover{color:var(--text);}
 .dash-tab.active{color:var(--brand);border-bottom-color:var(--brand);}
 .dash-body{
-  flex:1;overflow-y:auto;padding:20px;
+  flex:1;overflow-y:auto;overflow-x:hidden;padding:20px;
   display:flex;flex-direction:column;gap:16px;
+  min-height:0; /* critical for flex child to scroll */
 }
 .dash-section{
   background:#fff;border-radius:var(--r);
@@ -2300,6 +2302,12 @@ body.focus-mode .fac-label:has(.fstat.ok) {
     <button class="dash-tab active" data-dash="week">📅 This Week</button>
     <button class="dash-tab" data-dash="summary">📋 Weekly Summary</button>
     <button class="dash-tab" data-dash="capacity">📈 Capacity Planner</button>
+  </div>
+  <div id="dash-week-nav" style="display:flex;align-items:center;gap:10px;padding:8px 20px;background:#fff;border-bottom:1px solid var(--border);flex-shrink:0;">
+    <button id="dash-prev-week" style="padding:4px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface2);cursor:pointer;font-family:inherit;font-weight:700;">◀</button>
+    <span id="dash-week-label" style="font-size:12px;font-weight:700;min-width:160px;text-align:center;"></span>
+    <button id="dash-next-week" style="padding:4px 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface2);cursor:pointer;font-family:inherit;font-weight:700;">▶</button>
+    <span style="font-size:10px;color:var(--text-3);margin-left:4px;">Dashboard week — independent of schedule editor</span>
   </div>
   <div class="dash-body" id="dash-body"></div>
 </div>
@@ -3829,123 +3837,140 @@ function makeChip(s,entry,facId,dayIdx,isAbsent){
 function renderSummary(){
   const table=document.getElementById('sp-table');
   table.innerHTML='';
+  table.style.cssText='width:100%;overflow-x:auto;';
 
-  staff.forEach(s=>{
+  // Outer table
+  const tbl=document.createElement('table');
+  tbl.style.cssText='width:100%;border-collapse:collapse;font-size:11px;white-space:nowrap;';
+
+  // Header row
+  const thead=document.createElement('thead');
+  thead.innerHTML=`<tr style="border-bottom:2px solid var(--border);background:var(--surface2);">
+    <th style="padding:6px 10px;text-align:left;font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;position:sticky;left:0;background:var(--surface2);z-index:1;">PCC</th>
+    <th style="padding:6px 8px;text-align:center;font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;">Type</th>
+    ${DAYS.map((d,i)=>`<th style="padding:6px 8px;text-align:center;font-size:10px;font-weight:700;color:${isToday(addDays(currentMonday,i))?'var(--brand)':'var(--text-3)'};text-transform:uppercase;">${d.slice(0,3)}<br><span style="font-weight:400;font-size:9px;">${addDays(currentMonday,i).getDate()}</span></th>`).join('')}
+    <th style="padding:6px 10px;text-align:center;font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;">Total</th>
+    <th style="padding:6px 10px;text-align:center;font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;">Target</th>
+    <th style="padding:6px 10px;text-align:center;font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;">Variance</th>
+  </tr>`;
+  tbl.appendChild(thead);
+
+  const tbody=document.createElement('tbody');
+
+  staff.forEach((s,idx)=>{
     const wkHrs=coordWeekHours(s.id);
-    const projHrs=getProjectedWeekHours(s.id);
-    const override=getWeeklyOverride(s.id);
     const effectiveTarget=getEffectiveTarget(s.id);
-    const variance=wkHrs-effectiveTarget;
-    const isOver=variance>0;
-    const isUnder=variance<0;
-
-    // PTO hours for this week
+    const override=getWeeklyOverride(s.id);
     let ptoTotal=0;
-    for(let d=0;d<5;d++){
-      if(isOnPTO(s.id,d)) ptoTotal+=getPTOHours(s.id,d);
-    }
+    for(let d=0;d<5;d++) if(isOnPTO(s.id,d)) ptoTotal+=getPTOHours(s.id,d);
     const totalAccountedHrs=wkHrs+ptoTotal;
-    const totalVariance=totalAccountedHrs-effectiveTarget;
-
-    const col=document.createElement('div');
-    col.className=`sp-coord ${isOver?'over-target':totalVariance<0?'under-target':'on-target'}`;
-    const primaryFacName=s.primaryFacId?facById(s.primaryFacId)?.name:'';
+    const variance=totalAccountedHrs-effectiveTarget;
+    const isOver=variance>2;
+    const isUnder=variance<-2;
+    const varColor=isOver?'var(--brand)':isUnder?'var(--warn-bd)':'var(--ok-tx)';
+    const varIcon=isOver?'▲':isUnder?'▼':'✓';
     const typeIcon=s.type==='static'?'📌':s.type==='float'?'🔄':'🔀';
+    const pod=s.podId?podById(s.podId):null;
+    const rowBg=idx%2===0?'var(--surface)':'var(--surface2)';
 
-    // Day bars with PTO awareness
-    const dayBars=[0,1,2,3,4].map(d=>{
+    const tr=document.createElement('tr');
+    tr.style.cssText=`border-bottom:1px solid var(--border);background:${rowBg};`;
+
+    // Name cell — sticky
+    const nameTd=document.createElement('td');
+    nameTd.style.cssText=`padding:6px 10px;font-weight:700;position:sticky;left:0;background:${rowBg};z-index:1;`;
+    nameTd.innerHTML=`${s.name}${pod?`<span style="margin-left:4px;font-size:9px;color:${pod.color};font-weight:800;">${pod.name}</span>`:''}`;
+    tr.appendChild(nameTd);
+
+    // Type
+    const typeTd=document.createElement('td');
+    typeTd.style.cssText='padding:6px 8px;text-align:center;';
+    typeTd.textContent=typeIcon;
+    tr.appendChild(typeTd);
+
+    // Day columns
+    for(let d=0;d<5;d++){
       const onPTO=isOnPTO(s.id,d);
-      const h=onPTO?getPTOHours(s.id,d):coordDayHours(s.id,d);
-      const pct=Math.min(100,h/10*100);
-      const barCls=onPTO?'pto':s.type==='float'?'float':'';
-      const ptoBtn=onPTO&&isEditor
-        ?`<button class="pto-hrs-btn" data-staff="${s.id}" data-day="${d}" title="Edit PTO hours">${h.toFixed(1)}h ✏</button>`
-        :'';
-      return `<div class="sp-day-row">
-        <span class="sp-day-label">${DAYS[d].slice(0,2)}</span>
-        <div class="sp-day-bar-wrap">
-          <div class="sp-day-bar ${barCls}" style="width:${pct}%"></div>
-        </div>
-        ${onPTO
-          ?`<span class="sp-day-hrs" style="color:var(--pto-tx)">🏖${ptoBtn}</span>`
-          :`<span class="sp-day-hrs">${h>0?h.toFixed(1):'-'}</span>`}
-      </div>`;
-    }).join('');
-
-    // Hours badge
-    const badgeCls=isOver?'over':totalVariance<0?'under':'ok';
-    const badgeIcon=isOver?'▲':totalVariance<0?'▼':'✓';
-    const badgeText=isOver
-      ?`+${variance.toFixed(1)}h over`
-      :totalVariance<0
-        ?`${Math.abs(totalVariance).toFixed(1)}h under${ptoTotal>0?' (incl PTO)':''}`
-        :'On target';
-
-    // Projected hours badge (only show if different from scheduled)
-    const projBadge=projHrs>0&&Math.abs(projHrs-wkHrs)>0.1&&wkHrs===0
-      ?`<span class="hours-badge projected">📋 ${projHrs.toFixed(1)}h projected</span>`:'';
-
-    // Override chip
-    const overrideBadge=override
-      ?`<span class="override-chip" data-staff="${s.id}" title="Click to edit">✏ ${override.target}h target${override.note?' · '+override.note:''}</span>`:'';
-
-    // Weekly adjust button for editors
-    const adjustBtn=isEditor
-      ?`<button class="pto-hrs-btn" data-override-staff="${s.id}" style="margin-top:3px;" title="Set weekly adjustment">⚙ Adjust week</button>`:'';
-
-    col.innerHTML=`
-      <div class="sp-coord-name">${s.name}</div>
-      <div class="sp-coord-type">${typeIcon}${primaryFacName?' · 📍 '+primaryFacName:''}</div>
-      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin:2px 0 4px;">
-        <span style="font-family:'Fira Code',monospace;font-size:9px;opacity:.6;">target ${effectiveTarget}h</span>
-        ${override?`<span style="font-size:9px;color:#3b5bdb">(adj)</span>`:''}
-      </div>
-      ${overrideBadge}
-      <div class="sp-bars">${dayBars}</div>
-      <div class="sp-total">
-        <span>Scheduled</span>
-        <span>${wkHrs.toFixed(1)}h${ptoTotal>0?` + ${ptoTotal.toFixed(1)}h PTO`:''}</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:3px;">
-        <span class="hours-badge ${badgeCls}">${badgeIcon} ${badgeText}</span>
-        ${projBadge}
-      </div>
-      ${adjustBtn}`;
-
-    // Wire PTO hours edit buttons
-    col.querySelectorAll('.pto-hrs-btn[data-day]').forEach(btn=>{
-      btn.addEventListener('click',e=>{
-        e.stopPropagation();
-        openPTOHrsModal(btn.dataset.staff, parseInt(btn.dataset.day));
-      });
-    });
-
-    // Wire override chips and adjust buttons
-    col.querySelectorAll('[data-override-staff],[data-staff].override-chip').forEach(btn=>{
-      btn.addEventListener('click',e=>{
-        e.stopPropagation();
-        const sid=btn.dataset.overrideStaff||btn.dataset.staff;
-        openOverrideModal(sid);
-      });
-    });
-
-    // Hover tooltip — show week at a glance for editors
-    if(isEditor){
-      col.addEventListener('mouseenter',()=>showPCCTooltip(s,col));
-      col.addEventListener('mouseleave',hidePCCTooltip);
+      const dayHrs=onPTO?getPTOHours(s.id,d):coordDayHours(s.id,d);
+      const isToday2=isToday(addDays(currentMonday,d));
+      const td=document.createElement('td');
+      td.style.cssText=`padding:6px 8px;text-align:center;${isToday2?'background:rgba(204,0,0,.05);':''}`;
+      if(onPTO){
+        td.innerHTML=`<span style="color:var(--pto-tx);font-size:10px;">🏖 ${dayHrs>0?dayHrs.toFixed(1)+'h':''}</span>`;
+        if(isEditor){
+          const btn=document.createElement('button');
+          btn.style.cssText='background:none;border:none;cursor:pointer;font-size:9px;color:var(--text-3);padding:0 2px;';
+          btn.textContent='✏';
+          btn.title='Edit PTO hours';
+          btn.addEventListener('click',e=>{e.stopPropagation();openPTOHrsModal(s.id,d);});
+          td.appendChild(btn);
+        }
+      } else {
+        td.innerHTML=dayHrs>0
+          ?`<span style="font-family:'Fira Code',monospace;font-weight:700;">${dayHrs.toFixed(1)}</span>`
+          :`<span style="color:var(--text-3);">—</span>`;
+      }
+      tr.appendChild(td);
     }
 
-    table.appendChild(col);
+    // Total
+    const totalTd=document.createElement('td');
+    totalTd.style.cssText='padding:6px 10px;text-align:center;font-family:\'Fira Code\',monospace;font-weight:700;border-left:1px solid var(--border);';
+    totalTd.innerHTML=`${wkHrs.toFixed(1)}${ptoTotal>0?`<span style="color:var(--pto-tx);font-size:9px;"> +${ptoTotal.toFixed(1)}p</span>`:''}`;
+    tr.appendChild(totalTd);
+
+    // Target
+    const targetTd=document.createElement('td');
+    targetTd.style.cssText='padding:6px 10px;text-align:center;color:var(--text-3);';
+    targetTd.innerHTML=`${effectiveTarget}h${override?'<span style="color:#3b5bdb;font-size:9px;"> adj</span>':''}`;
+    if(isEditor&&override){
+      targetTd.style.cursor='pointer';
+      targetTd.title='Click to edit weekly adjustment';
+      targetTd.addEventListener('click',()=>openOverrideModal(s.id));
+    }
+    tr.appendChild(targetTd);
+
+    // Variance
+    const varTd=document.createElement('td');
+    varTd.style.cssText=`padding:6px 10px;text-align:center;font-weight:800;color:${varColor};`;
+    varTd.textContent=`${varIcon} ${Math.abs(variance).toFixed(1)}h`;
+    tr.appendChild(varTd);
+
+    // Adjust button for editors
+    if(isEditor){
+      const adjTd=document.createElement('td');
+      adjTd.style.cssText='padding:4px 6px;';
+      const adjBtn=document.createElement('button');
+      adjBtn.style.cssText='background:none;border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:9px;cursor:pointer;font-family:inherit;color:var(--text-3);';
+      adjBtn.textContent='⚙';
+      adjBtn.title='Set weekly adjustment';
+      adjBtn.addEventListener('click',()=>openOverrideModal(s.id));
+      adjTd.appendChild(adjBtn);
+      tr.appendChild(adjTd);
+    }
+
+    tbody.appendChild(tr);
   });
 
-  const totalHrs=staff.reduce((s,c)=>s+coordWeekHours(c.id),0);
-  const underCount=staff.filter(s=>{
-    const v=coordWeekHours(s.id)+[0,1,2,3,4].reduce((sum,d)=>sum+(isOnPTO(s.id,d)?getPTOHours(s.id,d):0),0);
-    return v<getEffectiveTarget(s.id);
-  }).length;
-  document.getElementById('sp-subtitle').textContent=
-    `${totalHrs.toFixed(1)}h scheduled this week${underCount>0?' · ⚠ '+underCount+' PCC'+(underCount>1?'s':'')+' under target':''}`;
+  tbl.appendChild(tbody);
+  table.appendChild(tbl);
+
+  // Totals row
+  const totalAllHrs=staff.reduce((s,c)=>s+coordWeekHours(c.id),0);
+  const targetAllHrs=staff.reduce((s,c)=>s+getEffectiveTarget(c.id),0);
+  const tfoot=document.createElement('tfoot');
+  tfoot.innerHTML=`<tr style="border-top:2px solid var(--border);background:var(--surface2);font-weight:700;">
+    <td style="padding:6px 10px;position:sticky;left:0;background:var(--surface2);">Totals</td>
+    <td></td>
+    ${DAYS.map(()=>'<td></td>').join('')}
+    <td style="padding:6px 10px;text-align:center;font-family:'Fira Code',monospace;border-left:1px solid var(--border);">${totalAllHrs.toFixed(1)}h</td>
+    <td style="padding:6px 10px;text-align:center;color:var(--text-3);">${targetAllHrs}h</td>
+    <td style="padding:6px 10px;text-align:center;font-weight:800;color:${totalAllHrs>=targetAllHrs?'var(--ok-tx)':'var(--warn-bd)'};">${totalAllHrs>=targetAllHrs?'✓':'▼'} ${Math.abs(totalAllHrs-targetAllHrs).toFixed(1)}h</td>
+    ${isEditor?'<td></td>':''}
+  </tr>`;
+  tbl.appendChild(tfoot);
 }
+
 
 // ═══════════════════════════════════════════════════════════════
 // COVERAGE STATS BAR
@@ -10297,6 +10322,7 @@ function renderFocusAreaSections(wrap, filterQueueId, vMon, todayDow, me){
 // ═══════════════════════════════════════════════════════════════
 
 let dashTab='week';
+let dashWeek=null; // Dashboard's own week context — independent of editor/viewer week
 let dashSummaryWeek=null;
 let dashSummaryData={};
 
@@ -10332,12 +10358,35 @@ async function loadCapacityNote(){
 }
 
 function openDashboard(){
-  dashSummaryWeek=weekKey(currentMonday);
+  // Init dashWeek to current editor week on first open
+  if(!dashWeek) dashWeek=weekKey(currentMonday);
+  dashSummaryWeek=dashWeek;
   document.getElementById('dashboard-overlay').classList.add('open');
-  document.getElementById('dash-topbar-sub').textContent=
-    `F.I.T. Muscle & Joint Clinic · Week of ${getViewerMonday().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}`;
+  renderDashWeekLabel();
   renderDashTab();
 }
+
+function renderDashWeekLabel(){
+  const mon=mondayOf(new Date(dashWeek+'T12:00:00'));
+  const fri=addDays(mon,4);
+  const fmt=d=>d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  document.getElementById('dash-week-label').textContent=
+    `${fmt(mon)} – ${fri.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`;
+  document.getElementById('dash-topbar-sub').textContent=
+    `F.I.T. Muscle & Joint Clinic · Week of ${mon.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}`;
+}
+
+function dashNavigateWeek(delta){
+  const mon=mondayOf(new Date(dashWeek+'T12:00:00'));
+  mon.setDate(mon.getDate()+delta*7);
+  dashWeek=weekKey(mon);
+  dashSummaryWeek=dashWeek;
+  renderDashWeekLabel();
+  renderDashTab();
+}
+
+document.getElementById('dash-prev-week').addEventListener('click',()=>dashNavigateWeek(-1));
+document.getElementById('dash-next-week').addEventListener('click',()=>dashNavigateWeek(1));
 document.getElementById('dash-close-btn').addEventListener('click',()=>document.getElementById('dashboard-overlay').classList.remove('open'));
 document.getElementById('dashboard-btn').addEventListener('click',openDashboard);
 document.querySelectorAll('.dash-tab').forEach(btn=>{
@@ -10357,6 +10406,9 @@ function renderDashTab(){
   else if(dashTab==='capacity') renderDashCapacity(body);
 }
 
+// Dashboard week key — always uses dashWeek, never viewer/editor week
+function dashWeekKey(){ return dashWeek||weekKey(currentMonday); }
+
 function dashCovStatus(facId,dayIdx,liveData){
   const oh=effectiveHours(facId,dayIdx,'live');
   if(!oh) return 'closed';
@@ -10369,15 +10421,28 @@ function dashCovStatus(facId,dayIdx,liveData){
 
 async function renderDashWeek(body){
   body.innerHTML='';
-  const k=weekKey(currentMonday);
+  const k=dashWeekKey();
+  const dashMon=mondayOf(new Date(k+'T12:00:00'));
   const todayDow=new Date().getDay()-1;
+
+  // Temporarily point activeWeekKey() to the dashboard week
+  // so getFloatState, getQueueAssignment, getSpecialtyGaps all read correct data
+  const prevViewerWeekKey=viewerWeekKey;
+  const prevIsEditor=isEditor;
+  viewerWeekKey=k;
+  const restoreWeekKey=()=>{ viewerWeekKey=prevViewerWeekKey; };
+
+  // Load this week's data from SP if not already cached
+  if(!live[k]){
+    try{ await loadViewerWeekData(k); }catch(e){}
+  }
 
   // Auto alerts
   const alerts=[];
   FACILITIES.forEach(fac=>{
     for(let i=0;i<5;i++){
       const oh=effectiveHours(fac.id,i,'live');if(!oh)return;
-      const present=getViewerLiveCell(fac.id,i).filter(e=>!isOnPTO(e.staffId,i));
+      const present=(live[k]?.[fac.id]?.[i]||[]).filter(e=>!isOnPTO(e.staffId,i));
       if(!present.length) alerts.push({type:'warn',icon:'⚠',msg:`${fac.name} has no coverage ${DAYS[i]}`});
       else{
         const gaps=getFacilityGapWindows(fac.id,i);
@@ -10471,10 +10536,10 @@ async function renderDashWeek(body){
         if(state==='pto'){ placements.push(DAYS[i].slice(0,3)+' PTO'); }
         else if(state==='home-available'){ const hf=getFloatTemplateFacId(s.id,i); placements.push(`${DAYS[i].slice(0,3)} 🏠${hf?facById(hf)?.name.split(' ')[0]:''}`); }
         else if(state==='home-essential'){ const hf=getFloatTemplateFacId(s.id,i); placements.push(`${DAYS[i].slice(0,3)} 🔒${hf?facById(hf)?.name.split(' ')[0]:''}`); }
-        else if(state==='deployed'){ FACILITIES.forEach(fac=>{ if(getViewerLiveCell(fac.id,i).some(e=>e.staffId===s.id)) placements.push(`${DAYS[i].slice(0,3)} ✈️${fac.name.split(' ')[0]}`); }); }
+        else if(state==='deployed'){ FACILITIES.forEach(fac=>{ if((live[k]?.[fac.id]?.[i]||[]).some(e=>e.staffId===s.id)) placements.push(`${DAYS[i].slice(0,3)} ✈️${fac.name.split(' ')[0]}`); }); }
         else if(state==='unassigned'){ placements.push(DAYS[i].slice(0,3)+' —'); }
       } else {
-        FACILITIES.forEach(fac=>{ if(getViewerLiveCell(fac.id,i).some(e=>e.staffId===s.id)) placements.push(DAYS[i].slice(0,3)+' '+fac.name.split(' ')[0]); });
+        FACILITIES.forEach(fac=>{ if((live[k]?.[fac.id]?.[i]||[]).some(e=>e.staffId===s.id)) placements.push(DAYS[i].slice(0,3)+' '+fac.name.split(' ')[0]); });
         if(isOnPTO(s.id,i)) placements.push(DAYS[i].slice(0,3)+' PTO');
       }
     }
@@ -10488,7 +10553,7 @@ async function renderDashWeek(body){
     const specSec=makeDashSection('🎯 Focus Area Coverage','');
     const specBody=document.createElement('div'); specBody.className='dash-section-body'; specBody.style.padding='0';
     const specGrid=document.createElement('div'); specGrid.className='dash-grid';
-    ['Queue',...DAYS.map((d,i)=>d+' '+addDays(getViewerMonday(),i).getDate())].forEach((h,i)=>{
+    ['Queue',...DAYS.map((d,i)=>d+' '+addDays(dashMon,i).getDate())].forEach((h,i)=>{
       const el=document.createElement('div'); el.className='dash-grid-head'+(i>0&&i-1===todayDow?' today':''); el.textContent=h; specGrid.appendChild(el);
     });
     activeQueues().forEach(q=>{
@@ -10508,6 +10573,9 @@ async function renderDashWeek(body){
     });
     specBody.appendChild(specGrid); specSec.appendChild(specBody); body.appendChild(specSec);
   }
+
+  // Restore viewer week key
+  restoreWeekKey();
 }
 
 async function renderDashSummary(body){
