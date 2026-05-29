@@ -2594,21 +2594,16 @@ function getHolidayName(dayIdx){
 // checkMode='live' checks week closures; 'tmpl' checks template closures
 function effectiveHours(facId, dayIdx, checkMode){
   if(checkMode==='live'||!checkMode){
-    // Company-wide full holiday closure
     if(isHoliday(dayIdx)) return null;
-    // Company-wide hour override (half-day) — applies to all facilities
     if(isHolidayOverride(dayIdx)){
       const hEntry=getHolidayEntry(dayIdx);
-      // Per-facility closure still overrides even on a half-day holiday
-      const k=weekKey(currentMonday);
+      const k=((!isEditor||previewingAsViewer)&&viewerWeekKey)?viewerWeekKey:weekKey(currentMonday);
       const c=closures[k]?.[facId]?.[dayIdx];
       if(c?.closed) return null;
-      // Use per-facility override if set, otherwise use company-wide half-day hours
       if(c?.override) return c.override;
       return hEntry.override;
     }
-    // Per-facility live closure/override
-    const k=weekKey(currentMonday);
+    const k=((!isEditor||previewingAsViewer)&&viewerWeekKey)?viewerWeekKey:weekKey(currentMonday);
     const c=closures[k]?.[facId]?.[dayIdx];
     if(c){
       if(c.closed) return null;
@@ -9641,7 +9636,7 @@ function renderViewerCompany(panel){
   hdr.className='vg-header';
   hdr.innerHTML=`
     <div class="vg-title">F.I.T. Muscle &amp; Joint Clinic — All Clinics</div>
-    <div class="vg-meta"><span style="font-size:11px;color:var(--text-3);">${currentMonday.toLocaleDateString('en-US',{month:'long',day:'numeric'})} – ${addDays(currentMonday,4).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</span></div>`;
+    <div class="vg-meta"><span style="font-size:11px;color:var(--text-3);">${getViewerMonday().toLocaleDateString('en-US',{month:'long',day:'numeric'})} – ${addDays(getViewerMonday(),4).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</span></div>`;
   panel.appendChild(hdr);
 
   // Specialty strip
@@ -9694,7 +9689,7 @@ function renderViewerCompany(panel){
   cornerTh.style.cssText='padding:8px 10px;font-size:11px;font-weight:700;background:var(--surface2);border:1px solid var(--border);text-align:left;border-bottom:2px solid var(--border);position:sticky;top:0;z-index:10;';
   headRow.appendChild(cornerTh);
   for(let i=0;i<5;i++){
-    const d=addDays(currentMonday,i);
+    const d=addDays(getViewerMonday(),i);
     const isToday=i===todayIdx;
     const th=document.createElement('th');
     th.style.cssText=`padding:6px 10px;text-align:center;background:${isToday?'var(--surface)':'var(--surface2)'};border:1px solid var(--border);border-bottom:${isToday?'3px solid var(--brand)':'2px solid var(--border)'};position:sticky;top:0;z-index:10;`;
@@ -10568,6 +10563,23 @@ async function loadViewerWeekData(wk){
   } catch(e){
     console.warn('loadViewerWeekData schedule failed for', wk, e);
     viewerScheduleCache[wk] = {};
+  }
+
+  // Also fetch closures for this week if not already loaded
+  if(!closures[wk]){
+    try {
+      const closureItems=await listGetAll(LISTS.closures,i=>i.fields.WeekKey===wk);
+      closures[wk]={};
+      for(const item of closureItems){
+        const f=item.fields;
+        if(!f.FacId) continue;
+        if(!closures[wk][f.FacId]) closures[wk][f.FacId]={};
+        try{ closures[wk][f.FacId][f.DayIdx]=JSON.parse(f.ClosureData||'null'); }catch(e){}
+      }
+    } catch(e){
+      console.warn('loadViewerWeekData closures failed for',wk,e);
+      closures[wk]={};
+    }
   }
 
   // Also fetch PTO for this week if not already loaded
