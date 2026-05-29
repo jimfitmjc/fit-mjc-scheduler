@@ -9158,8 +9158,9 @@ function renderViewerContextStrip(){
   if(vcsDay===null){ const wd=new Date().getDay()-1; vcsDay=(wd>=0&&wd<=4)?wd:0; }
   const dayTabs=document.getElementById('vcs-day-tabs');
   dayTabs.innerHTML='';
+  const vMon=getViewerMonday();
   for(let i=0;i<5;i++){
-    const d=addDays(currentMonday,i);
+    const d=addDays(vMon,i);
     const btn=document.createElement('button');
     btn.className='vcs-day-btn'+(i===vcsDay?' active':'');
     btn.textContent=DAYS[i].slice(0,3)+' '+d.getDate();
@@ -9171,7 +9172,7 @@ function renderViewerContextStrip(){
   const availableFloats=staff.filter(s=>{
     if(s.type!=='float'&&s.type!=='hybrid') return false;
     if(isOnPTO(s.id,vcsDay)) return false;
-    return !FACILITIES.some(fac=>getLiveCell(fac.id,vcsDay).some(e=>e.staffId===s.id));
+    return !FACILITIES.some(fac=>getViewerLiveCell(fac.id,vcsDay).some(e=>e.staffId===s.id));
   });
   if(!availableFloats.length) floatsEl.innerHTML='<span class="vcs-pill none">None available</span>';
   else availableFloats.forEach(s=>{ const p=document.createElement('span'); p.className='vcs-pill float-pill'; p.textContent=s.name.split(' ')[0]; p.title=s.name; floatsEl.appendChild(p); });
@@ -10594,6 +10595,7 @@ async function loadViewerWeekData(wk){
 
 async function navigateViewerWeek(wk){
   viewerWeekKey = wk;
+  vcsDay = 0; // reset to Monday when changing weeks
   renderViewerWeekNav();
 
   // Show loading state
