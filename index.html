@@ -2558,8 +2558,7 @@ function setLiveCell(facId,dayIdx,arr){
 
 function getPTO(dayIdx){
   // Use viewer week key when in viewer/preview mode
-  const k=((!isEditor||previewingAsViewer)&&viewerWeekKey)
-    ? viewerWeekKey : weekKey(currentMonday);
+  const k=activeWeekKey();
   if(!pto[k]) pto[k]={};
   if(!pto[k][dayIdx]) pto[k][dayIdx]=[];
   return pto[k][dayIdx];
@@ -2569,8 +2568,7 @@ function isOnPTO(staffId,dayIdx){return getPTO(dayIdx).includes(staffId);}
 
 // ── Closure / holiday helpers ──────────────────────────────────────
 function getWeekHolidays(){
-  const k=((!isEditor||previewingAsViewer)&&viewerWeekKey)
-    ? viewerWeekKey : weekKey(currentMonday);
+  const k=activeWeekKey();
   if(!holidays[k]) holidays[k]=[];
   return holidays[k];
 }
@@ -2598,13 +2596,13 @@ function effectiveHours(facId, dayIdx, checkMode){
     if(isHoliday(dayIdx)) return null;
     if(isHolidayOverride(dayIdx)){
       const hEntry=getHolidayEntry(dayIdx);
-      const k=((!isEditor||previewingAsViewer)&&viewerWeekKey)?viewerWeekKey:weekKey(currentMonday);
+      const k=activeWeekKey();
       const c=closures[k]?.[facId]?.[dayIdx];
       if(c?.closed) return null;
       if(c?.override) return c.override;
       return hEntry.override;
     }
-    const k=((!isEditor||previewingAsViewer)&&viewerWeekKey)?viewerWeekKey:weekKey(currentMonday);
+    const k=activeWeekKey();
     const c=closures[k]?.[facId]?.[dayIdx];
     if(c){
       if(c.closed) return null;
@@ -2654,8 +2652,7 @@ function normalizeQueueEntries(val){
 
 // ── Queue assignment accessors — ordered priority list ────────────
 function getQueueAssignment(queueId, dayIdx){
-  const k=((!isEditor||previewingAsViewer)&&viewerWeekKey)
-    ? viewerWeekKey : weekKey(currentMonday);
+  const k=activeWeekKey();
   const val=queueAssignments[k]?.[queueId]?.[dayIdx];
   return normalizeQueueEntries(val||[]);
 }
@@ -2776,7 +2773,7 @@ function getStaffQueueAssignments(staffId, dayIdx){
 
 // Meeting conflicts
 function getSpecialtyConflicts(dayIdx){
-  const k=weekKey(currentMonday);
+  const k=activeWeekKey();
   const conflicts=[];
   const instances=meetingInstances[k]?.[dayIdx]||[];
   activeQueues().forEach(q=>{
@@ -2810,7 +2807,7 @@ function getMeetingStaffIds(mtg, dayIdx){
 }
 
 function getMeetingsForDay(dayIdx){
-  const k=weekKey(currentMonday);
+  const k=activeWeekKey();
   const instances=meetingInstances[k]?.[dayIdx]||[];
   return instances.filter(i=>!i.skipped).map(i=>{
     const mtg=meetings.find(m=>m.id===i.meetingId);
@@ -2854,7 +2851,7 @@ function generateMeetingInstancesForWeek(){
   });
 }
 function getAck(facId,dayIdx){
-  const k=weekKey(currentMonday);
+  const k=activeWeekKey();
   return acknowledged[k]?.[facId]?.[dayIdx]||null;
 }
 function setAck(facId,dayIdx,val){
@@ -2894,8 +2891,7 @@ function getEffectiveTarget(staffId){
 
 // ── PTO hours helpers ─────────────────────────────────────────────
 function getPTOHours(staffId,dayIdx){
-  const k=((!isEditor||previewingAsViewer)&&viewerWeekKey)
-    ? viewerWeekKey : weekKey(currentMonday);
+  const k=activeWeekKey();
   const stored=ptoHours[k]?.[staffId]?.[dayIdx];
   if(stored!==undefined) return stored;
   return getTemplatedHoursForDay(staffId,dayIdx);
@@ -2960,7 +2956,7 @@ function checkLock(){
 // Hours per PCC per day this week
 function coordDayHours(staffId,dayIdx){
   return FACILITIES.reduce((sum,fac)=>{
-    const cell=getLiveCell(fac.id,dayIdx);
+    const cell=getViewerLiveCell(fac.id,dayIdx);
     const entry=cell.find(e=>e.staffId===staffId&&!isOnPTO(staffId,dayIdx));
     return sum+(entry?shiftHours(entry.start,entry.end,entry.lunch):0);
   },0);
@@ -6749,7 +6745,6 @@ async function saveQueues(){
     const existing=await listGetAll(LISTS.queues);
     for(const item of existing) await listDelete(LISTS.queues,item.id);
     await listCreate(LISTS.queues,{Title:'queues',QueueData:JSON.stringify(queues)});
-    console.log('saveQueues: ok');
   } catch(e){ console.error('saveQueues failed:',e.message); showToast('Queue save failed — check console','err'); }
 }
 
@@ -6759,7 +6754,6 @@ async function saveQueueTemplate(){
     const existing=await listGetAll(LISTS.queues,i=>i.fields.Title==='queueTemplate');
     for(const item of existing) await listDelete(LISTS.queues,item.id);
     await listCreate(LISTS.queues,{Title:'queueTemplate',QueueData:JSON.stringify(queueTemplate)});
-    console.log('saveQueueTemplate: ok');
   } catch(e){ console.error('saveQueueTemplate failed:',e.message); showToast('Queue template save failed — check console','err'); }
 }
 
@@ -7475,7 +7469,7 @@ document.getElementById('preview-viewer-btn').addEventListener('click',()=>{
     document.getElementById('toolbar').style.display='';
     document.getElementById('toolbar').classList.remove('preview-mode');
     document.getElementById('viewer-week-nav').style.display='none';
-    document.body.classList.remove('view-only','view-mine','previewing','viewer-company-clean');
+    document.body.classList.remove('view-only','view-mine','previewing');
     document.getElementById('viewer-tabs').style.display='none';
     document.getElementById('viewer-panel').style.display='none';
     document.getElementById('grid-scroll').style.display='';
@@ -8839,7 +8833,6 @@ async function loadTemplate(){
       minCount:    f.MinCount||0,
     };
   }
-  console.log('loadTemplate: loaded',items.length,'rows');
 }
 
 async function loadScheduleForWeek(){
@@ -9134,8 +9127,7 @@ function applyViewerView(){
   panel.style.flex='1';
   panel.style.overflow='auto';
   gridScroll.style.display='none';
-  document.body.classList.remove('viewer-company-clean');
-  if(aside) aside.style.display='none';
+    if(aside) aside.style.display='none';
   if(statsBar) statsBar.style.display='none';
   if(summaryPanel) summaryPanel.style.display='none';
   if(podStrip) podStrip.style.display='none';
@@ -9737,7 +9729,7 @@ function renderViewerCompany(panel){
       getStaffQueueAssignments(s.id,dayIdx).forEach(q=>{
         const sp=document.createElement('div');
         sp.style.cssText=`font-size:10px;font-weight:700;color:${q.color};margin-top:1px;`;
-        sp.textContent='🔬 '+q.name;
+        sp.textContent=`🎯 ${q.name}${q.role?' · '+q.role:''}`;
         entryDiv.appendChild(sp);
       });
       // Meetings
@@ -10033,7 +10025,6 @@ function renderFocusAreaSections(wrap, filterQueueId, vMon, todayDow, me){
   });
 }
 
-// Legacy stubs — no longer used
 // ═══════════════════════════════════════════════════════════════
 // LEADERSHIP DASHBOARD
 // ═══════════════════════════════════════════════════════════════
@@ -10077,7 +10068,7 @@ function openDashboard(){
   dashSummaryWeek=weekKey(currentMonday);
   document.getElementById('dashboard-overlay').classList.add('open');
   document.getElementById('dash-topbar-sub').textContent=
-    `F.I.T. Muscle & Joint Clinic · Week of ${currentMonday.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}`;
+    `F.I.T. Muscle & Joint Clinic · Week of ${getViewerMonday().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}`;
   renderDashTab();
 }
 document.getElementById('dash-close-btn').addEventListener('click',()=>document.getElementById('dashboard-overlay').classList.remove('open'));
@@ -10175,7 +10166,7 @@ async function renderDashWeek(body){
   const covSec=makeDashSection('📍 Clinic Coverage','');
   const covBody=document.createElement('div'); covBody.className='dash-section-body'; covBody.style.padding='0';
   const covGrid=document.createElement('div'); covGrid.className='dash-grid';
-  ['Facility',...DAYS.map((d,i)=>d+' '+addDays(currentMonday,i).getDate())].forEach((h,i)=>{
+  ['Facility',...DAYS.map((d,i)=>d+' '+addDays(getViewerMonday(),i).getDate())].forEach((h,i)=>{
     const el=document.createElement('div'); el.className='dash-grid-head'+(i>0&&i-1===todayDow?' today':''); el.textContent=h; covGrid.appendChild(el);
   });
   Object.entries(PODS).forEach(([podId,pod])=>{
@@ -10221,7 +10212,7 @@ async function renderDashWeek(body){
     const specSec=makeDashSection('🎯 Focus Area Coverage','');
     const specBody=document.createElement('div'); specBody.className='dash-section-body'; specBody.style.padding='0';
     const specGrid=document.createElement('div'); specGrid.className='dash-grid';
-    ['Queue',...DAYS.map((d,i)=>d+' '+addDays(currentMonday,i).getDate())].forEach((h,i)=>{
+    ['Queue',...DAYS.map((d,i)=>d+' '+addDays(getViewerMonday(),i).getDate())].forEach((h,i)=>{
       const el=document.createElement('div'); el.className='dash-grid-head'+(i>0&&i-1===todayDow?' today':''); el.textContent=h; specGrid.appendChild(el);
     });
     activeQueues().forEach(q=>{
@@ -10396,7 +10387,7 @@ document.getElementById('dash-print-btn').addEventListener('click',()=>{
   const k=weekKey(currentMonday);
   const style=`<style>*{box-sizing:border-box;-webkit-print-color-adjust:exact;}body{font-family:system-ui,sans-serif;margin:0;padding:16px;font-size:11px;}h1{font-size:15px;font-weight:800;margin:0 0 2px;}.sub{font-size:10px;color:#666;margin-bottom:12px;}.sec{margin-bottom:12px;border:1px solid #ddd;border-radius:4px;overflow:hidden;page-break-inside:avoid;}.sec-hdr{padding:6px 12px;background:#f5f5f5;font-weight:800;font-size:11px;border-bottom:1px solid #ddd;}.sec-body{padding:10px 12px;}.alert{padding:4px 8px;border-radius:3px;font-size:10px;border-left:3px solid;margin-bottom:4px;}.alert.warn{background:#fff0f0;border-color:#cc0000;}.alert.info{background:#fffbeb;border-color:#d97706;}.alert.ok{background:#f0fdf4;border-color:#16a34a;}table{width:100%;border-collapse:collapse;font-size:10px;}th,td{border:1px solid #ddd;padding:4px 6px;}th{background:#f5f5f5;font-size:9px;font-weight:700;}.pod-hdr{color:#fff;font-weight:800;font-size:10px;}.ok{color:#16a34a;font-weight:700;}.gap{color:#cc0000;font-weight:700;}.none{color:#cc0000;}.fr{display:flex;gap:8px;padding:3px 0;border-bottom:1px solid #eee;font-size:10px;}.fn{font-weight:700;min-width:120px;}</style>`;
   let html=`<!DOCTYPE html><html><head><title>FIT Dashboard</title>${style}</head><body>`;
-  html+=`<h1>📊 F.I.T. Muscle & Joint Clinic — Leadership Dashboard</h1><div class="sub">Week of ${currentMonday.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})} · Printed ${new Date().toLocaleDateString()}</div>`;
+  html+=`<h1>📊 F.I.T. Muscle & Joint Clinic — Leadership Dashboard</h1><div class="sub">Week of ${getViewerMonday().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})} · Printed ${new Date().toLocaleDateString()}</div>`;
 
   // Alerts
   const alerts2=[];
@@ -10406,7 +10397,7 @@ document.getElementById('dash-print-btn').addEventListener('click',()=>{
   html+=`<div class="sec"><div class="sec-hdr">⚠ Watch This Week</div><div class="sec-body">${alerts2.map(a=>`<div class="alert ${a.type}">${a.msg}</div>`).join('')}</div></div>`;
 
   // Clinic grid
-  html+=`<div class="sec"><div class="sec-hdr">📍 Clinic Coverage</div><table><tr><th>Facility</th>${DAYS.map((d,i)=>`<th>${d} ${addDays(currentMonday,i).getDate()}</th>`).join('')}</tr>`;
+  html+=`<div class="sec"><div class="sec-hdr">📍 Clinic Coverage</div><table><tr><th>Facility</th>${DAYS.map((d,i)=>`<th>${d} ${addDays(getViewerMonday(),i).getDate()}</th>`).join('')}</tr>`;
   Object.entries(PODS).forEach(([pid,pod])=>{
     if(!pod.facIds?.length)return;
     html+=`<tr><td colspan="6" class="pod-hdr" style="background:${pod.color}">${pod.name}</td></tr>`;
@@ -10430,7 +10421,7 @@ document.getElementById('dash-print-btn').addEventListener('click',()=>{
 
   // Specialty
   if(activeQueues().length){
-    html+=`<div class="sec"><div class="sec-hdr">🎯 Focus Area Coverage</div><table><tr><th>Queue</th>${DAYS.map((d,i)=>`<th>${d} ${addDays(currentMonday,i).getDate()}</th>`).join('')}</tr>`;
+    html+=`<div class="sec"><div class="sec-hdr">🎯 Focus Area Coverage</div><table><tr><th>Queue</th>${DAYS.map((d,i)=>`<th>${d} ${addDays(getViewerMonday(),i).getDate()}</th>`).join('')}</tr>`;
     activeQueues().forEach(q=>{
       html+=`<tr><td style="font-weight:700;color:${q.color}">${q.name}</td>`;
       for(let i=0;i<5;i++){const a=getQueueAssignment(q.id,i);const g=getSpecialtyGaps(q.id,i);const lead=staffById(a[0]?.staffId)?.name.split(' ')[0]||'';html+=!a.length?'<td class="none">✗</td>':g.length?'<td class="gap">⚠</td>':`<td class="ok">${lead}${a.length>1?' +'+(a.length-1):''}</td>`;}
@@ -10455,7 +10446,6 @@ async function initViewerWeekNav(){
   // Load all lock records from PCC_Holidays
   try {
     const items = await listGetAll(LISTS.holidays, i => i.fields.WeekKey?.startsWith('lock_'));
-    console.log('[ViewerNav] lock items found:', items.length, items.map(i=>i.fields.WeekKey+'='+i.fields.HolidayData));
     lockedWeeks = items
       .filter(i => {
         try { return JSON.parse(i.fields.HolidayData||'{}')?.locked === true; }
@@ -10464,7 +10454,6 @@ async function initViewerWeekNav(){
       .map(i => i.fields.WeekKey.replace('lock_', ''))
       .filter(Boolean)
       .sort();
-    console.log('[ViewerNav] lockedWeeks:', lockedWeeks);
   } catch(e){
     console.warn('initViewerWeekNav: could not load locked weeks', e);
     lockedWeeks = [];
@@ -10482,7 +10471,6 @@ async function initViewerWeekNav(){
     viewerWeekKey = todayKey;
   }
 
-  console.log('[ViewerNav] viewerWeekKey set to:', viewerWeekKey);
   renderViewerWeekNav();
   await loadViewerWeekData(viewerWeekKey);
 }
@@ -10564,6 +10552,25 @@ async function loadViewerWeekData(wk){
   } catch(e){
     console.warn('loadViewerWeekData schedule failed for', wk, e);
     viewerScheduleCache[wk] = {};
+  }
+
+  // Also fetch meeting instances for this week if not already loaded
+  if(!meetingInstances[wk]){
+    try {
+      const mtgItems=await listGetAll(LISTS.meetingInstances,i=>i.fields.WeekKey===wk);
+      meetingInstances[wk]={};
+      if(mtgItems.length){
+        try{
+          const inst=JSON.parse(mtgItems[0].fields.InstanceData||'{}');
+          Object.keys(inst).forEach(dayIdx=>{
+            meetingInstances[wk][parseInt(dayIdx)]=inst[dayIdx];
+          });
+        }catch(e){}
+      }
+    } catch(e){
+      console.warn('loadViewerWeekData meetingInstances failed for',wk,e);
+      meetingInstances[wk]={};
+    }
   }
 
   // Also fetch holidays for this week if not already loaded
@@ -10689,10 +10696,17 @@ function getViewerMonday(){
   return mondayOf(new Date(viewerWeekKey + 'T12:00:00'));
 }
 
+// ── Canonical week key for all read operations ─────────────────
+// Editor write operations always use weekKey(currentMonday) directly
+// All read operations (viewer + editor display) use this helper
+function activeWeekKey(){
+  return activeWeekKey();
+}
+
 // ── Hook initViewerWeekNav into applyAccessMode ────────────────
 function applyAccessMode(){
   if(isEditor){
-    document.body.classList.remove('view-only','viewer-company-clean');
+    document.body.classList.remove('view-only');
     document.getElementById('view-only-badge').style.display='none';
     document.getElementById('viewer-tabs').style.display='none';
     document.getElementById('viewer-week-nav').style.display='none';
