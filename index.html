@@ -10484,12 +10484,15 @@ async function renderDashWeek(body){
   const dashMon=mondayOf(new Date(k+'T12:00:00'));
   const todayDow=new Date().getDay()-1;
 
-  // Temporarily point activeWeekKey() to the dashboard week
-  // so getFloatState, getQueueAssignment, getSpecialtyGaps all read correct data
+  // Temporarily point activeWeekKey() to the dashboard week so ALL helper
+  // functions (getFloatState, isOnPTO, getSpecialtyGaps, coordWeekHours…) read k.
+  // activeWeekKey() returns viewerWeekKey only when !isEditor, so we must
+  // temporarily set isEditor=false as well.
   const prevViewerWeekKey=viewerWeekKey;
   const prevIsEditor=isEditor;
   viewerWeekKey=k;
-  const restoreWeekKey=()=>{ viewerWeekKey=prevViewerWeekKey; };
+  isEditor=false;
+  const restoreWeekKey=()=>{ viewerWeekKey=prevViewerWeekKey; isEditor=prevIsEditor; };
 
   // Load this week's data from SP if not already cached.
   // loadViewerWeekData stores into viewerScheduleCache[k]; we also mirror it into
@@ -10667,7 +10670,7 @@ async function renderDashWeek(body){
     specScroll.appendChild(specGrid); specBody.appendChild(specScroll); specSec.appendChild(specBody); body.appendChild(specSec);
   }
 
-  // Restore viewer week key
+  // Restore viewer week key and isEditor — must always happen
   restoreWeekKey();
 }
 
@@ -10676,96 +10679,106 @@ async function renderDashSummary(body){
   // Navigation is handled by the top-bar dash-week-nav; no internal nav here.
   const k=dashWeekKey();
 
+  // Show loading spinner while data fetches
   const loading=document.createElement('div'); loading.style.cssText='padding:20px;text-align:center;color:var(--text-3);'; loading.textContent='Loading…'; body.appendChild(loading);
 
-  // Fetch data for dashWeek
-  let liveData={};
-  const isCurrent=k===weekKey(currentMonday);
-  if(isCurrent){
-    liveData=live[k]||{};
-  } else {
-    // Load into viewerScheduleCache if not already cached
+  // Ensure data is loaded for this week
+  const isCurrentDashWeek=(k===weekKey(currentMonday));
+  if(!isCurrentDashWeek){
     if(!viewerScheduleCache[k]){
       try{ await loadViewerWeekData(k); }catch(e){}
     }
-    liveData=viewerScheduleCache[k]||{};
+    // Mirror into live[] so coordWeekHours, getFloatState etc. read the right data
+    if(!live[k] && viewerScheduleCache[k]) live[k]=viewerScheduleCache[k];
   }
+
   loading.remove();
 
-  // Stats
-  let totalCells=0,coveredCells=0,noneCells=0,totalHrs=0;
-  FACILITIES.forEach(fac=>{
-    for(let i=0;i<5;i++){
-      const oh=effectiveHours(fac.id,i,'live'); if(!oh)return;
-      totalCells++;
-      const entries=liveData?.[fac.id]?.[i]||[];
-      const present=entries.filter(e=>!isOnPTO(e.staffId,i));
-      if(!present.length){noneCells++;return;}
-      coveredCells++;
-      entries.forEach(e=>totalHrs+=shiftHours(e.start,e.end,e.lunch));
-    }
-  });
-  const covPct=totalCells?Math.round(coveredCells/totalCells*100):0;
+  // Temporarily redirect all read helpers to dashWeek
+  const prevViewerWeekKey=viewerWeekKey;
+  const prevIsEditor=isEditor;
+  viewerWeekKey=k;
+  isEditor=false;
+  const restore=()=>{ viewerWeekKey=prevViewerWeekKey; isEditor=prevIsEditor; };
 
-  const statsSec=makeDashSection('📊 Coverage Outcomes','');
-  const statsBody=document.createElement('div'); statsBody.className='dash-section-body';
-  statsBody.innerHTML=`<div class="dash-stats">
-    <div class="dash-stat ${covPct>=90?'ok':covPct>=75?'info':'warn'}"><div class="dash-stat-val">${covPct}%</div><div class="dash-stat-lbl">Coverage</div></div>
-    <div class="dash-stat"><div class="dash-stat-val">${coveredCells}</div><div class="dash-stat-lbl">Cells Covered</div></div>
-    <div class="dash-stat ${noneCells>0?'warn':'ok'}"><div class="dash-stat-val">${noneCells}</div><div class="dash-stat-lbl">Uncovered</div></div>
-    <div class="dash-stat info"><div class="dash-stat-val">${totalHrs.toFixed(0)}h</div><div class="dash-stat-lbl">Shift Hours</div></div>
-  </div>`;
-  statsSec.appendChild(statsBody); body.appendChild(statsSec);
+  try {
+    // liveData for direct array reads (coverage stats, PCC hours for past weeks)
+    const liveData=isCurrentDashWeek?(live[k]||{}):(viewerScheduleCache[k]||{});
 
-  // Float Deployment Summary
-  const floats=staff.filter(s=>s.type==='float');
-  if(floats.length){
-    const floatStateSec=makeDashSection('🔄 Float Deployment Summary','');
-    const floatStateBody=document.createElement('div'); floatStateBody.className='dash-section-body'; floatStateBody.style.padding='0';
-    const floatTbl=document.createElement('table'); floatTbl.className='dash-pcc-table';
-    floatTbl.innerHTML='<thead><tr><th>Float</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th></tr></thead>';
-    const ftbody=document.createElement('tbody');
-    const stateIcons={'home-available':'🏠','home-essential':'🔒','deployed':'✈️','unassigned':'—','pto':'🏖'};
-    const stateColors={'home-available':'#16a34a','home-essential':'var(--brand)','deployed':'var(--text-2)','unassigned':'var(--text-3)','pto':'var(--pto-tx)'};
-    floats.forEach(s=>{
-      const tr=document.createElement('tr');
-      tr.innerHTML=`<td style="font-weight:700;">${s.name}</td>`;
+    // Stats
+    let totalCells=0,coveredCells=0,noneCells=0,totalHrs=0;
+    FACILITIES.forEach(fac=>{
       for(let i=0;i<5;i++){
-        const state=(isCurrent?getFloatState(s.id,i):null)||'unassigned';
-        const facId=(state==='home-available'||state==='home-essential')?getFloatTemplateFacId(s.id,i):
-          isCurrent?getFloatLiveFacId(s.id,i):
-          (()=>{ for(const fac of FACILITIES){ if((liveData?.[fac.id]?.[i]||[]).some(e=>e.staffId===s.id)) return fac.id; } return null; })();
-        const facShort=facId?facById(facId)?.name.split(' ')[0]:'';
-        const td=document.createElement('td');
-        td.style.cssText=`color:${stateColors[state]||'var(--text-3)'};font-size:10px;`;
-        td.textContent=`${stateIcons[state]||'—'}${facShort?' '+facShort:''}`;
-        tr.appendChild(td);
+        const oh=effectiveHours(fac.id,i,'live'); if(!oh)return;
+        totalCells++;
+        const entries=liveData?.[fac.id]?.[i]||[];
+        const present=entries.filter(e=>!isOnPTO(e.staffId,i));
+        if(!present.length){noneCells++;return;}
+        coveredCells++;
+        entries.forEach(e=>totalHrs+=shiftHours(e.start,e.end,e.lunch));
       }
-      ftbody.appendChild(tr);
     });
-    floatTbl.appendChild(ftbody);
-    floatStateBody.appendChild(floatTbl);
-    floatStateSec.appendChild(floatStateBody);
-    body.appendChild(floatStateSec);
-  }
+    const covPct=totalCells?Math.round(coveredCells/totalCells*100):0;
 
-  // PCC Hours
-  const pccSec=makeDashSection('👤 PCC Hours Summary','');
-  const pccBody=document.createElement('div'); pccBody.className='dash-section-body'; pccBody.style.cssText='padding:0;overflow-x:auto;';
-  const pccTable=document.createElement('table'); pccTable.className='dash-pcc-table'; pccTable.style.minWidth='360px';
-  pccTable.innerHTML='<thead><tr><th>PCC</th><th>Type</th><th>Target</th><th>Scheduled</th><th>Variance</th></tr></thead>';
-  const tbody2=document.createElement('tbody');
-  staff.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(s=>{
-    let hrs=0;
-    if(isCurrent) hrs=coordWeekHours(s.id);
-    else FACILITIES.forEach(fac=>{ for(let i=0;i<5;i++){const e=(liveData?.[fac.id]?.[i]||[]).find(e=>e.staffId===s.id);if(e)hrs+=shiftHours(e.start,e.end,e.lunch);}});
-    const target=getEffectiveTarget(s.id); const variance=hrs-target;
-    const varClass=variance<-4?'under':variance>4?'over':'';
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td style="font-weight:700;">${s.name}</td><td>${s.type==='float'?'🔄':s.type==='hybrid'?'🔀':'📌'}</td><td>${target}h</td><td>${hrs.toFixed(1)}h</td><td class="dash-pcc-var ${varClass}">${variance>=0?'+':''}${variance.toFixed(1)}h</td>`;
-    tbody2.appendChild(tr);
-  });
-  pccTable.appendChild(tbody2); pccBody.appendChild(pccTable); pccSec.appendChild(pccBody); body.appendChild(pccSec);
+    const statsSec=makeDashSection('📊 Coverage Outcomes','');
+    const statsBody=document.createElement('div'); statsBody.className='dash-section-body';
+    statsBody.innerHTML=`<div class="dash-stats">
+      <div class="dash-stat ${covPct>=90?'ok':covPct>=75?'info':'warn'}"><div class="dash-stat-val">${covPct}%</div><div class="dash-stat-lbl">Coverage</div></div>
+      <div class="dash-stat"><div class="dash-stat-val">${coveredCells}</div><div class="dash-stat-lbl">Cells Covered</div></div>
+      <div class="dash-stat ${noneCells>0?'warn':'ok'}"><div class="dash-stat-val">${noneCells}</div><div class="dash-stat-lbl">Uncovered</div></div>
+      <div class="dash-stat info"><div class="dash-stat-val">${totalHrs.toFixed(0)}h</div><div class="dash-stat-lbl">Shift Hours</div></div>
+    </div>`;
+    statsSec.appendChild(statsBody); body.appendChild(statsSec);
+
+    // Float Deployment Summary — uses getFloatState which now reads k via activeWeekKey()
+    const floats=staff.filter(s=>s.type==='float');
+    if(floats.length){
+      const floatStateSec=makeDashSection('🔄 Float Deployment Summary','');
+      const floatStateBody=document.createElement('div'); floatStateBody.className='dash-section-body'; floatStateBody.style.padding='0';
+      const floatTbl=document.createElement('table'); floatTbl.className='dash-pcc-table';
+      floatTbl.innerHTML='<thead><tr><th>Float</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th></tr></thead>';
+      const ftbody=document.createElement('tbody');
+      const stateIcons={'home-available':'🏠','home-essential':'🔒','deployed':'✈️','unassigned':'—','pto':'🏖'};
+      const stateColors={'home-available':'#16a34a','home-essential':'var(--brand)','deployed':'var(--text-2)','unassigned':'var(--text-3)','pto':'var(--pto-tx)'};
+      floats.forEach(s=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td style="font-weight:700;">${s.name}</td>`;
+        for(let i=0;i<5;i++){
+          const state=getFloatState(s.id,i)||'unassigned';
+          const facId=(state==='home-available'||state==='home-essential')?getFloatTemplateFacId(s.id,i):getFloatLiveFacId(s.id,i);
+          const facShort=facId?facById(facId)?.name.split(' ')[0]:'';
+          const td=document.createElement('td');
+          td.style.cssText=`color:${stateColors[state]||'var(--text-3)'};font-size:10px;`;
+          td.textContent=`${stateIcons[state]||'—'}${facShort?' '+facShort:''}`;
+          tr.appendChild(td);
+        }
+        ftbody.appendChild(tr);
+      });
+      floatTbl.appendChild(ftbody);
+      floatStateBody.appendChild(floatTbl);
+      floatStateSec.appendChild(floatStateBody);
+      body.appendChild(floatStateSec);
+    }
+
+    // PCC Hours — coordWeekHours now reads k via getViewerLiveCell → viewerWeekKey
+    const pccSec=makeDashSection('👤 PCC Hours Summary','');
+    const pccBody=document.createElement('div'); pccBody.className='dash-section-body'; pccBody.style.cssText='padding:0;overflow-x:auto;';
+    const pccTable=document.createElement('table'); pccTable.className='dash-pcc-table'; pccTable.style.minWidth='360px';
+    pccTable.innerHTML='<thead><tr><th>PCC</th><th>Type</th><th>Target</th><th>Scheduled</th><th>Variance</th></tr></thead>';
+    const tbody2=document.createElement('tbody');
+    staff.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(s=>{
+      const hrs=coordWeekHours(s.id); // reads k via viewerWeekKey
+      const target=getEffectiveTarget(s.id); const variance=hrs-target;
+      const varClass=variance<-4?'under':variance>4?'over':'';
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td style="font-weight:700;">${s.name}</td><td>${s.type==='float'?'🔄':s.type==='hybrid'?'🔀':'📌'}</td><td>${target}h</td><td>${hrs.toFixed(1)}h</td><td class="dash-pcc-var ${varClass}">${variance>=0?'+':''}${variance.toFixed(1)}h</td>`;
+      tbody2.appendChild(tr);
+    });
+    pccTable.appendChild(tbody2); pccBody.appendChild(pccTable); pccSec.appendChild(pccBody); body.appendChild(pccSec);
+
+  } finally {
+    restore();
+  }
 }
 
 async function renderDashCapacity(body){
