@@ -262,11 +262,10 @@ aside{width:188px;min-width:168px;background:var(--surface);border-right:1px sol
 
 /* ── SUMMARY PANEL ── */
 .summary-panel{height:var(--summary-h);background:var(--surface);border-top:2px solid var(--border);overflow:hidden;display:flex;flex-direction:column;}
-.sp-scroll{flex:1;overflow:auto;} /* both x and y scroll for wide table */
+.sp-scroll{flex:1;overflow-x:auto;overflow-y:auto;padding:10px 18px;} /* x+y scroll for wide table */
 .sp-header{padding:8px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);flex-shrink:0;}
 .sp-header h3{font-size:12px;font-weight:700;letter-spacing:-.2px;}
 .sp-toggle{font-size:11px;color:var(--blue);cursor:pointer;margin-left:auto;font-weight:600;}
-.sp-scroll{overflow-x:auto;overflow-y:hidden;flex:1;padding:10px 18px;}
 .sp-table{display:flex;gap:8px;height:100%;}
 .sp-coord{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;min-width:130px;display:flex;flex-direction:column;gap:4px;}
 .sp-coord-name{font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -1075,6 +1074,7 @@ body.schedule-locked .ack-btn { display:none !important; }
 .dash-section{
   background:#fff;border-radius:var(--r);
   border:1px solid var(--border);overflow:hidden;
+  flex-shrink:0;
 }
 .dash-section-hdr{
   display:flex;align-items:center;gap:8px;
@@ -1131,10 +1131,10 @@ body.schedule-locked .ack-btn { display:none !important; }
 .dash-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px;}
 .dash-stat{
   background:var(--surface2);border:1px solid var(--border);
-  border-radius:var(--r-sm);padding:12px 14px;text-align:center;
+  border-radius:var(--r-sm);padding:8px 12px;text-align:center;
 }
-.dash-stat-val{font-size:22px;font-weight:900;line-height:1;}
-.dash-stat-lbl{font-size:10px;color:var(--text-3);margin-top:3px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;}
+.dash-stat-val{font-size:18px;font-weight:900;line-height:1;}
+.dash-stat-lbl{font-size:9px;color:var(--text-3);margin-top:2px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;}
 .dash-stat.ok .dash-stat-val{color:var(--ok-tx);}
 .dash-stat.warn .dash-stat-val{color:var(--brand);}
 .dash-stat.info .dash-stat-val{color:#0284c7;}
@@ -10323,8 +10323,6 @@ function renderFocusAreaSections(wrap, filterQueueId, vMon, todayDow, me){
 
 let dashTab='week';
 let dashWeek=null; // Dashboard's own week context — independent of editor/viewer week
-let dashSummaryWeek=null;
-let dashSummaryData={};
 
 async function saveDashNote(wk,note){
   if(!spReady||!isEditor) return;
@@ -10360,7 +10358,6 @@ async function loadCapacityNote(){
 function openDashboard(){
   // Init dashWeek to current editor week on first open
   if(!dashWeek) dashWeek=weekKey(currentMonday);
-  dashSummaryWeek=dashWeek;
   document.getElementById('dashboard-overlay').classList.add('open');
   renderDashWeekLabel();
   renderDashTab();
@@ -10380,7 +10377,6 @@ function dashNavigateWeek(delta){
   const mon=mondayOf(new Date(dashWeek+'T12:00:00'));
   mon.setDate(mon.getDate()+delta*7);
   dashWeek=weekKey(mon);
-  dashSummaryWeek=dashWeek;
   renderDashWeekLabel();
   renderDashTab();
 }
@@ -10432,9 +10428,18 @@ async function renderDashWeek(body){
   viewerWeekKey=k;
   const restoreWeekKey=()=>{ viewerWeekKey=prevViewerWeekKey; };
 
-  // Load this week's data from SP if not already cached
-  if(!live[k]){
-    try{ await loadViewerWeekData(k); }catch(e){}
+  // Load this week's data from SP if not already cached.
+  // loadViewerWeekData stores into viewerScheduleCache[k]; we also mirror it into
+  // live[k] so that the existing live[k] reads below work for non-current weeks.
+  const isCurrentDashWeek = (k === weekKey(currentMonday));
+  if(!isCurrentDashWeek){
+    if(!viewerScheduleCache[k]){
+      try{ await loadViewerWeekData(k); }catch(e){}
+    }
+    // Mirror into live so coordWeekHours, getFacilityHeadcount, getFloatState etc. see data
+    if(!live[k] && viewerScheduleCache[k]) live[k] = viewerScheduleCache[k];
+  } else if(!live[k]){
+    live[k]={};
   }
 
   // Auto alerts
@@ -10497,8 +10502,9 @@ async function renderDashWeek(body){
   // Clinic coverage grid
   const covSec=makeDashSection('📍 Clinic Coverage','');
   const covBody=document.createElement('div'); covBody.className='dash-section-body'; covBody.style.padding='0';
-  const covGrid=document.createElement('div'); covGrid.className='dash-grid';
-  ['Facility',...DAYS.map((d,i)=>d+' '+addDays(getViewerMonday(),i).getDate())].forEach((h,i)=>{
+  const covScroll=document.createElement('div'); covScroll.style.cssText='overflow-x:auto;';
+  const covGrid=document.createElement('div'); covGrid.className='dash-grid'; covGrid.style.minWidth='520px';
+  ['Facility',...DAYS.map((d,i)=>d+' '+addDays(dashMon,i).getDate())].forEach((h,i)=>{
     const el=document.createElement('div'); el.className='dash-grid-head'+(i>0&&i-1===todayDow?' today':''); el.textContent=h; covGrid.appendChild(el);
   });
   Object.entries(PODS).forEach(([podId,pod])=>{
@@ -10519,7 +10525,7 @@ async function renderDashWeek(body){
       }
     });
   });
-  covBody.appendChild(covGrid); covSec.appendChild(covBody); body.appendChild(covSec);
+  covScroll.appendChild(covGrid); covBody.appendChild(covScroll); covSec.appendChild(covBody); body.appendChild(covSec);
 
   // Float distribution
   const floatSec=makeDashSection('🔄 Float Distribution','');
@@ -10552,7 +10558,8 @@ async function renderDashWeek(body){
   if(activeQueues().length){
     const specSec=makeDashSection('🎯 Focus Area Coverage','');
     const specBody=document.createElement('div'); specBody.className='dash-section-body'; specBody.style.padding='0';
-    const specGrid=document.createElement('div'); specGrid.className='dash-grid';
+    const specScroll=document.createElement('div'); specScroll.style.cssText='overflow-x:auto;';
+    const specGrid=document.createElement('div'); specGrid.className='dash-grid'; specGrid.style.minWidth='520px';
     ['Queue',...DAYS.map((d,i)=>d+' '+addDays(dashMon,i).getDate())].forEach((h,i)=>{
       const el=document.createElement('div'); el.className='dash-grid-head'+(i>0&&i-1===todayDow?' today':''); el.textContent=h; specGrid.appendChild(el);
     });
@@ -10571,7 +10578,7 @@ async function renderDashWeek(body){
         specGrid.appendChild(cell);
       }
     });
-    specBody.appendChild(specGrid); specSec.appendChild(specBody); body.appendChild(specSec);
+    specScroll.appendChild(specGrid); specBody.appendChild(specScroll); specSec.appendChild(specBody); body.appendChild(specSec);
   }
 
   // Restore viewer week key
@@ -10580,29 +10587,22 @@ async function renderDashWeek(body){
 
 async function renderDashSummary(body){
   body.innerHTML='';
-  const navDiv=document.createElement('div'); navDiv.className='dash-week-nav';
-  const prevBtn=document.createElement('button'); prevBtn.textContent='◀ Prev Week';
-  const nextBtn=document.createElement('button'); nextBtn.textContent='Next Week ▶';
-  const weekLbl=document.createElement('div'); weekLbl.className='dash-week-label';
-  const summaryMon=mondayOf(new Date(dashSummaryWeek+'T12:00:00'));
-  weekLbl.textContent=`Week of ${summaryMon.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}`;
-  prevBtn.addEventListener('click',()=>{ const m=mondayOf(new Date(dashSummaryWeek+'T12:00:00')); m.setDate(m.getDate()-7); dashSummaryWeek=weekKey(m); renderDashSummary(body); });
-  nextBtn.addEventListener('click',()=>{ const m=mondayOf(new Date(dashSummaryWeek+'T12:00:00')); m.setDate(m.getDate()+7); dashSummaryWeek=weekKey(m); renderDashSummary(body); });
-  navDiv.appendChild(prevBtn); navDiv.appendChild(weekLbl); navDiv.appendChild(nextBtn); body.appendChild(navDiv);
+  // Navigation is handled by the top-bar dash-week-nav; no internal nav here.
+  const k=dashWeekKey();
 
   const loading=document.createElement('div'); loading.style.cssText='padding:20px;text-align:center;color:var(--text-3);'; loading.textContent='Loading…'; body.appendChild(loading);
 
-  // Fetch data
+  // Fetch data for dashWeek
   let liveData={};
-  const isCurrent=dashSummaryWeek===weekKey(currentMonday);
-  if(isCurrent){ liveData=live[dashSummaryWeek]||{}; }
-  else if(dashSummaryData[dashSummaryWeek]){ liveData=dashSummaryData[dashSummaryWeek]; }
-  else {
-    try{
-      const items=await listGetAll(LISTS.schedule,i=>i.fields.WeekKey===dashSummaryWeek);
-      items.forEach(item=>{ const f=item.fields; if(!liveData[f.FacId])liveData[f.FacId]={}; try{liveData[f.FacId][parseInt(f.DayIdx)]=JSON.parse(f.Entries||'[]');}catch(e){} });
-      dashSummaryData[dashSummaryWeek]=liveData;
-    }catch(e){}
+  const isCurrent=k===weekKey(currentMonday);
+  if(isCurrent){
+    liveData=live[k]||{};
+  } else {
+    // Load into viewerScheduleCache if not already cached
+    if(!viewerScheduleCache[k]){
+      try{ await loadViewerWeekData(k); }catch(e){}
+    }
+    liveData=viewerScheduleCache[k]||{};
   }
   loading.remove();
 
@@ -10631,9 +10631,9 @@ async function renderDashSummary(body){
   </div>`;
   statsSec.appendChild(statsBody); body.appendChild(statsSec);
 
-  // Float Deployment Summary (current week only)
-  if(isCurrent){
-    const floats=staff.filter(s=>s.type==='float');
+  // Float Deployment Summary
+  const floats=staff.filter(s=>s.type==='float');
+  if(floats.length){
     const floatStateSec=makeDashSection('🔄 Float Deployment Summary','');
     const floatStateBody=document.createElement('div'); floatStateBody.className='dash-section-body'; floatStateBody.style.padding='0';
     const floatTbl=document.createElement('table'); floatTbl.className='dash-pcc-table';
@@ -10645,8 +10645,10 @@ async function renderDashSummary(body){
       const tr=document.createElement('tr');
       tr.innerHTML=`<td style="font-weight:700;">${s.name}</td>`;
       for(let i=0;i<5;i++){
-        const state=getFloatState(s.id,i)||'unassigned';
-        const facId=(state==='home-available'||state==='home-essential')?getFloatTemplateFacId(s.id,i):getFloatLiveFacId(s.id,i);
+        const state=(isCurrent?getFloatState(s.id,i):null)||'unassigned';
+        const facId=(state==='home-available'||state==='home-essential')?getFloatTemplateFacId(s.id,i):
+          isCurrent?getFloatLiveFacId(s.id,i):
+          (()=>{ for(const fac of FACILITIES){ if((liveData?.[fac.id]?.[i]||[]).some(e=>e.staffId===s.id)) return fac.id; } return null; })();
         const facShort=facId?facById(facId)?.name.split(' ')[0]:'';
         const td=document.createElement('td');
         td.style.cssText=`color:${stateColors[state]||'var(--text-3)'};font-size:10px;`;
@@ -10663,8 +10665,8 @@ async function renderDashSummary(body){
 
   // PCC Hours
   const pccSec=makeDashSection('👤 PCC Hours Summary','');
-  const pccBody=document.createElement('div'); pccBody.className='dash-section-body'; pccBody.style.padding='0';
-  const pccTable=document.createElement('table'); pccTable.className='dash-pcc-table';
+  const pccBody=document.createElement('div'); pccBody.className='dash-section-body'; pccBody.style.cssText='padding:0;overflow-x:auto;';
+  const pccTable=document.createElement('table'); pccTable.className='dash-pcc-table'; pccTable.style.minWidth='360px';
   pccTable.innerHTML='<thead><tr><th>PCC</th><th>Type</th><th>Target</th><th>Scheduled</th><th>Variance</th></tr></thead>';
   const tbody2=document.createElement('tbody');
   staff.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(s=>{
