@@ -8436,14 +8436,21 @@ async function spSignIn(interactive=false){
   }
 }
 
+// ── Token cache — avoids a MSAL round-trip on every Graph call ───
+let _tokenCache = null; // { token, exp }
 async function spGetToken(){
   if(!msalApp) return null;
   const accounts = msalApp.getAllAccounts();
   if(!accounts.length) return null;
+  // Return cached token if still valid for >60 s
+  if(_tokenCache && _tokenCache.exp - Date.now() > 60_000) return _tokenCache.token;
   try {
     const r = await msalApp.acquireTokenSilent({ scopes: SP_CONFIG.scopes, account: accounts[0] });
+    // MSAL gives expiresOn as a Date object
+    _tokenCache = { token: r.accessToken, exp: r.expiresOn ? r.expiresOn.getTime() : Date.now() + 3500_000 };
     return r.accessToken;
   } catch(e){
+    _tokenCache = null;
     // Token refresh failed — redirect to re-authenticate
     try {
       await msalApp.acquireTokenRedirect({ scopes: SP_CONFIG.scopes });
@@ -8559,9 +8566,12 @@ async function provisionLists(){
 }
 
 // ── Generic list CRUD ─────────────────────────────────────────────
-async function listGetAll(listName, filterFn=null){
+// filterStr — OData $filter string sent to the server (reduces payload)
+// filterFn  — optional JS post-filter for cases where OData can't express the logic
+async function listGetAll(listName, filterFn=null, filterStr=null){
   try {
-    const url=`/sites/${spSiteId}/lists/${listName}/items?expand=fields&$top=999`;
+    let url=`/sites/${spSiteId}/lists/${listName}/items?expand=fields&$top=999`;
+    if(filterStr) url+=`&$filter=${encodeURIComponent(filterStr)}`;
     const data=await spFetch(url);
     const items=data.value||[];
     return filterFn ? items.filter(filterFn) : items;
@@ -8887,6 +8897,57 @@ async function savePTOHours(){
   } catch(e){ console.error('savePTOHours error',e); }
 }
 
+// ── Batched holidays-list loader ───────────────────────────────────
+// The holidays list stores: actual holidays, ack, lock, overrides, ptohrs, dashnotes.
+// Rather than 5 separate round-trips per week change, fetch all rows for the
+// current week (and its derived keys) in one call and fan out.
+async function loadAllHolidayDataForWeek(){
+  const k=weekKey(currentMonday);
+  const ackKey=`ack_${k}`;
+  const lockKey=`lock_${k}`;
+  const overKey=`override_${k}`;
+  const ptoKey=`ptohrs_${k}`;
+  const noteKey=`dashnote_${k}`;
+  const keys=[k, ackKey, lockKey, overKey, ptoKey, noteKey];
+
+  // One round-trip: fetch all rows whose WeekKey is one of our 6 keys
+  // OData 'in' operator isn't universally supported on SP, so we use a broad
+  // startsWith approach: all derived keys start with the weekKey or a known prefix.
+  // We fetch k + the five prefixed keys in parallel (2 calls covers it cleanly).
+  const [weekRows, metaRows] = await Promise.all([
+    listGetAll(LISTS.holidays, null, `fields/WeekKey eq '${k}'`),
+    listGetAll(LISTS.holidays, i=>{
+      const wk=i.fields.WeekKey||'';
+      return wk===ackKey||wk===lockKey||wk===overKey||wk===ptoKey||wk===noteKey;
+    }),
+  ]);
+
+  // Actual holidays for this week
+  if(!holidays[k]) holidays[k]=[];
+  for(const item of weekRows){
+    try{ holidays[k]=JSON.parse(item.fields.HolidayData||'[]'); }catch(e){}
+  }
+
+  // Acknowledged
+  acknowledged[k]={};
+  // Lock
+  scheduleLock[k]=null;
+  // Overrides
+  weeklyOverrides[k]={};
+  // PTO hours
+  ptoHours[k]={};
+
+  for(const item of metaRows){
+    const wk=item.fields.WeekKey||'';
+    try {
+      if(wk===ackKey)  acknowledged[k]=JSON.parse(item.fields.HolidayData||'{}');
+      if(wk===lockKey) scheduleLock[k]=JSON.parse(item.fields.HolidayData||'null');
+      if(wk===overKey) weeklyOverrides[k]=JSON.parse(item.fields.HolidayData||'{}');
+      if(wk===ptoKey)  ptoHours[k]=JSON.parse(item.fields.HolidayData||'{}');
+    } catch(e){}
+  }
+}
+
 async function loadAcknowledgedForWeek(){
   const k=weekKey(currentMonday);
   const ackKey=`ack_${k}`;
@@ -8937,11 +8998,7 @@ async function loadAll(){
       loadScheduleForWeek(),
       loadPTOForWeek(),
       loadClosuresForWeek(),
-      loadHolidaysForWeek(),
-      loadAcknowledgedForWeek(),
-      loadLockForWeek(),
-      loadWeeklyOverrides(),
-      loadPTOHoursForWeek(),
+      loadAllHolidayDataForWeek(),   // replaces 4 separate holidays-list calls
       loadQueues(),
       loadQueueAssignmentsForWeek(),
       loadMeetings(),
@@ -9035,7 +9092,7 @@ async function loadTemplate(){
 async function loadScheduleForWeek(){
   const k=weekKey(currentMonday);
   const items=await listGetAll(LISTS.schedule,
-    i=>i.fields.WeekKey===k);
+    i=>i.fields.WeekKey===k, `fields/WeekKey eq '${k}'`);
   if(!live[k]) live[k]={};
   for(const item of items){
     const f=item.fields;
@@ -9048,7 +9105,7 @@ async function loadScheduleForWeek(){
 async function loadPTOForWeek(){
   const k=weekKey(currentMonday);
   const items=await listGetAll(LISTS.pto,
-    i=>i.fields.WeekKey===k);
+    i=>i.fields.WeekKey===k, `fields/WeekKey eq '${k}'`);
   if(!pto[k]) pto[k]={};
   for(const item of items){
     const f=item.fields;
@@ -9058,19 +9115,24 @@ async function loadPTOForWeek(){
 
 async function loadClosuresForWeek(){
   const k=weekKey(currentMonday);
-  const allItems=await listGetAll(LISTS.closures);
+  // Fetch current week + template rows in two parallel calls instead of one full-table fetch
+  const [weekItems, tmplItems] = await Promise.all([
+    listGetAll(LISTS.closures, null, `fields/WeekKey eq '${k}'`),
+    listGetAll(LISTS.closures, null, `fields/WeekKey eq 'template'`),
+  ]);
   if(!closures[k]) closures[k]={};
   tmplClosures={};
-  for(const item of allItems){
+  for(const item of weekItems){
     const f=item.fields;
     if(!f.FacId) continue;
-    if(f.WeekKey===k){
-      if(!closures[k][f.FacId]) closures[k][f.FacId]={};
-      try{ closures[k][f.FacId][f.DayIdx]=JSON.parse(f.ClosureData||'null'); }catch(e){}
-    } else if(f.WeekKey==='template'){
-      if(!tmplClosures[f.FacId]) tmplClosures[f.FacId]={};
-      try{ tmplClosures[f.FacId][f.DayIdx]=JSON.parse(f.ClosureData||'null'); }catch(e){}
-    }
+    if(!closures[k][f.FacId]) closures[k][f.FacId]={};
+    try{ closures[k][f.FacId][f.DayIdx]=JSON.parse(f.ClosureData||'null'); }catch(e){}
+  }
+  for(const item of tmplItems){
+    const f=item.fields;
+    if(!f.FacId) continue;
+    if(!tmplClosures[f.FacId]) tmplClosures[f.FacId]={};
+    try{ tmplClosures[f.FacId][f.DayIdx]=JSON.parse(f.ClosureData||'null'); }catch(e){}
   }
 }
 
@@ -9104,16 +9166,15 @@ async function changeWeek(delta){
   const mvt=document.getElementById('mob-viewer-tabs');
   if(mvt) delete mvt.dataset.initialized;
   if(spReady){
-    await loadScheduleForWeek();
-    await loadPTOForWeek();
-    await loadClosuresForWeek();
-    await loadHolidaysForWeek();
-    await loadAcknowledgedForWeek();
-    await loadLockForWeek();
-    await loadWeeklyOverrides();
-    await loadPTOHoursForWeek();
-    await loadQueueAssignmentsForWeek();
-    await loadMeetingInstancesForWeek();
+    // Run all loads in parallel — server-side filters mean each is small
+    await Promise.allSettled([
+      loadScheduleForWeek(),
+      loadPTOForWeek(),
+      loadClosuresForWeek(),
+      loadAllHolidayDataForWeek(),   // replaces 4 sequential holiday calls
+      loadQueueAssignmentsForWeek(),
+      loadMeetingInstancesForWeek(),
+    ]);
   }
   applyLockState();
   render();
@@ -9134,7 +9195,9 @@ document.getElementById('next-week').addEventListener('click',()=>changeWeek(1))
 document.getElementById('today-btn').addEventListener('click',()=>{
   currentMonday=getMonday(new Date());
   if(spReady){
-    loadScheduleForWeek().then(()=>loadPTOForWeek()).then(()=>loadClosuresForWeek()).then(()=>loadHolidaysForWeek()).then(()=>render());
+    Promise.allSettled([
+      loadScheduleForWeek(), loadPTOForWeek(), loadClosuresForWeek(), loadAllHolidayDataForWeek()
+    ]).then(()=>render());
   } else { render(); }
 });
 
@@ -10442,6 +10505,29 @@ async function renderDashWeek(body){
     live[k]={};
   }
 
+  // ── Lock status alert ─────────────────────────────────────────────
+  // Only show for the current editor week (lock state isn't loaded for past weeks)
+  if(isCurrentDashWeek){
+    const lockObj = getLock();
+    const locked  = !!lockObj?.locked;
+    const lockBanner = document.createElement('div');
+    lockBanner.style.cssText = `
+      display:flex;align-items:center;gap:12px;
+      padding:12px 18px;border-radius:var(--r);font-size:12px;font-weight:700;
+      border:2px solid;flex-shrink:0;
+    `;
+    if(locked){
+      lockBanner.style.cssText += `background:#edfff5;border-color:#1a9e50;color:#0d6030;`;
+      const lockedBy = lockObj.by?.split('@')[0] || 'editor';
+      const lockedTs = lockObj.ts ? new Date(lockObj.ts).toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
+      lockBanner.innerHTML = `<span style="font-size:18px;">🔒</span><span>Schedule is <strong>Locked</strong> — finalized by <strong>${lockedBy}</strong>${lockedTs?' on '+lockedTs:''}${lockObj.reason?` · "${lockObj.reason}"`:''}. PCCs can view their assignments.</span>`;
+    } else {
+      lockBanner.style.cssText += `background:#fff8e6;border-color:#c47d00;color:#7a4d00;`;
+      lockBanner.innerHTML = `<span style="font-size:18px;">⚠️</span><div style="flex:1;"><div>Schedule is <strong>NOT Locked</strong> — this week's schedule has not been finalized yet.</div><div style="font-size:10px;font-weight:400;margin-top:2px;opacity:.8;">PCCs cannot view their assignments until a senior editor locks the schedule.</div></div>${isSeniorEditor()?`<button onclick="document.getElementById('dashboard-overlay').classList.remove('open');document.getElementById('lock-btn').click();" style="padding:5px 12px;border:1px solid #c47d00;border-radius:var(--r-sm);background:var(--surface);cursor:pointer;font-family:inherit;font-size:11px;font-weight:700;color:#7a4d00;white-space:nowrap;">🔒 Lock Now</button>`:''}`;
+    }
+    body.appendChild(lockBanner);
+  }
+
   // Auto alerts
   const alerts=[];
   FACILITIES.forEach(fac=>{
@@ -10917,7 +11003,7 @@ async function loadViewerWeekData(wk){
 
   // Fetch schedule from SharePoint
   try {
-    const items = await listGetAll(LISTS.schedule, i => i.fields.WeekKey === wk);
+    const items = await listGetAll(LISTS.schedule, null, `fields/WeekKey eq '${wk}'`);
     const data = {};
     items.forEach(item => {
       const f = item.fields;
@@ -10933,7 +11019,7 @@ async function loadViewerWeekData(wk){
   // Also fetch meeting instances for this week if not already loaded
   if(!meetingInstances[wk]){
     try {
-      const mtgItems=await listGetAll(LISTS.meetingInstances,i=>i.fields.WeekKey===wk);
+      const mtgItems=await listGetAll(LISTS.meetingInstances, null, `fields/WeekKey eq '${wk}'`);
       meetingInstances[wk]={};
       if(mtgItems.length){
         try{
@@ -10952,7 +11038,7 @@ async function loadViewerWeekData(wk){
   // Also fetch holidays for this week if not already loaded
   if(!holidays[wk]){
     try {
-      const holItems=await listGetAll(LISTS.holidays,i=>i.fields.WeekKey===wk);
+      const holItems=await listGetAll(LISTS.holidays, null, `fields/WeekKey eq '${wk}'`);
       holidays[wk]=[];
       for(const item of holItems){
         try{ holidays[wk]=JSON.parse(item.fields.HolidayData||'[]'); }catch(e){}
@@ -10966,7 +11052,7 @@ async function loadViewerWeekData(wk){
   // Also fetch closures for this week if not already loaded
   if(!closures[wk]){
     try {
-      const closureItems=await listGetAll(LISTS.closures,i=>i.fields.WeekKey===wk);
+      const closureItems=await listGetAll(LISTS.closures, null, `fields/WeekKey eq '${wk}'`);
       closures[wk]={};
       for(const item of closureItems){
         const f=item.fields;
@@ -10983,7 +11069,7 @@ async function loadViewerWeekData(wk){
   // Also fetch PTO for this week if not already loaded
   if(!pto[wk]){
     try {
-      const ptoItems=await listGetAll(LISTS.pto,i=>i.fields.WeekKey===wk);
+      const ptoItems=await listGetAll(LISTS.pto, null, `fields/WeekKey eq '${wk}'`);
       pto[wk]={};
       for(const item of ptoItems){
         const f=item.fields;
@@ -10996,7 +11082,7 @@ async function loadViewerWeekData(wk){
   }
   if(!queueAssignments[wk]){
     try {
-      const qaItems=await listGetAll(LISTS.queueAssignments,i=>i.fields.WeekKey===wk);
+      const qaItems=await listGetAll(LISTS.queueAssignments, null, `fields/WeekKey eq '${wk}'`);
       if(qaItems.length){
         const loaded=JSON.parse(qaItems[0].fields.AssignmentData||'{}');
         Object.keys(loaded).forEach(qid=>{
